@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Waitlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  name          String
+  employeeCount String
+  region        String
+  address       String?  // Nova Morada da empresa
+  domainName    String?  @unique
+  domainStatus  String?  // 'EXISTING' | 'TO_BUY'
+  createdAt     DateTime @default(now())
+  users         User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  firstName    String?
+  lastName     String?
+  dateOfBirth  String?
+  gender       String?
+  accountType  String   @default("PERSONAL")
+  
+  // Para contas Pessoais (quando não têm empresa)
+  domainName   String?  @unique
+  domainStatus String?  // 'EXISTING' | 'TO_BUY'
+
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id])
+  createdAt    DateTime @default(now())
+  emails       Email[]
+}
+
+model Email {
+  id          String    @id @default(cuid())
+  from        String
+  to          String
+  subject     String
+  body        String
+  folder      String    @default("INBOX") // INBOX, SENT, DRAFT, TRASH
+  read        Boolean   @default(false)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  
+  // Rastreador de Abertura (Email Tracking)
+  trackingId  String?   @unique
+  isOpened    Boolean   @default(false)
+  openedAt    DateTime?
+  openCount   Int       @default(0)
+  userAgent   String?
+
+  createdAt   DateTime  @default(now())
+}
