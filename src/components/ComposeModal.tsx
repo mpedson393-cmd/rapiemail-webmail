@@ -63,12 +63,23 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   const handleGenerateAi = () => {
     if (!aiPrompt.trim()) return;
     setGeneratingAi(true);
+    setError("");
+    const lower = aiPrompt.toLowerCase();
+    
     setTimeout(() => {
-      setSubject(`Comunicação Oficial: ${aiPrompt}`);
-      setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que a nossa equipa já analisou o assunto.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail\nSent securely from RapiEmail Pro`);
+      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
+        setSubject("Pedido de Desculpas e Reagendamento de Reunião");
+        setBody(`Olá,\n\nInfazermente não consegui estar presente na nossa reunião agendada (${aiPrompt}). Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
+      } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
+        setSubject("Proposta Comercial Oficial");
+        setBody(`Estimado(a),\n\nConforme solicitado (${aiPrompt}), envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
+      } else {
+        setSubject(`Comunicação: ${aiPrompt}`);
+        setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que os detalhes foram analisados com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail\nSent securely from RapiEmail Pro`);
+      }
       setGeneratingAi(false);
       setAiPrompt("");
-    }, 700);
+    }, 600);
   };
 
   return (
@@ -208,11 +219,16 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
               className="flex-1 bg-transparent border-none text-xs text-white placeholder:text-zinc-500 focus:outline-none"
             />
             {aiPrompt && (
-              <button onClick={() => setAiPrompt("")} className="text-zinc-500 hover:text-white ml-2">
-                <X className="w-3.5 h-3.5" />
+              <button 
+                type="button"
+                onClick={handleGenerateAi}
+                disabled={generatingAi}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ml-2 shadow-md shadow-indigo-600/30"
+              >
+                {generatingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <span>Gerar Texto com IA</span>
               </button>
             )}
-            {generatingAi && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 ml-2" />}
           </div>
 
           {/* Attachments & Send Action */}
