@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../api/auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const prisma = new PrismaClient();
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
@@ -22,13 +23,13 @@ export async function POST(req: Request) {
     }
 
     const fromEmail = session.user.email;
-    const fromName = session.user.name || "RapiEmail";
+    const fromName = session.user.name || "RapiEmail User";
 
     // Gerar ID único de Rastreamento (Tracking ID)
     const trackingId = crypto.randomUUID();
     
     // Obter URL base da aplicação
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "https://rapiemail.online";
     const trackingPixelUrl = `${baseUrl}/api/track/open/${trackingId}`;
 
     // Montar HTML com o Pixel Invisível de Rastreamento
@@ -41,9 +42,15 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    // 1. Tentar enviar com o remetente original
-    let sender = `${fromName} <${fromEmail}>`;
-    let sendResult = await resend.emails.send({
+    // Determinar o remetente oficial com base nos domínios verificados (rapiemail.online)
+    const isDomainVerified = fromEmail.endsWith("@rapiemail.online") || fromEmail.endsWith("@rapimoneyit.online");
+    const sender = isDomainVerified 
+      ? `${fromName} <${fromEmail}>` 
+      : `${fromName} (${fromEmail}) <noreply@rapiemail.online>`;
+
+    console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para "${to}"...`);
+
+    const sendResult = await resend.emails.send({
       from: sender,
       to: [to],
       subject: subject,
@@ -51,28 +58,12 @@ export async function POST(req: Request) {
       replyTo: fromEmail,
     });
 
-    // 2. Se o domínio não estiver verificado na Resend, usar automaticamente o domínio verificado rapiemail.online como gateway
-    if (sendResult.error && sendResult.error.message.includes("not verified")) {
-      const verifiedDomain = "rapiemail.online";
-      const fallbackSender = `${fromName} (${fromEmail}) <noreply@${verifiedDomain}>`;
-      
-      console.log(`[RapiEmail Gateway] A reencaminhar email através do domínio verificado ${verifiedDomain}`);
-      
-      sendResult = await resend.emails.send({
-        from: fallbackSender,
-        to: [to],
-        subject: subject,
-        html: htmlBody,
-        replyTo: fromEmail,
-      });
-    }
-
     if (sendResult.error) {
       console.error("Resend Final Error:", sendResult.error);
       return NextResponse.json({ error: sendResult.error.message }, { status: 500 });
     }
 
-    // Gravar na Base de Dados do utilizador com o trackingId
+    // Gravar na Base de Dados Supabase PostgreSQL do utilizador com o trackingId
     const user = await prisma.user.findUnique({ where: { email: fromEmail } });
     
     let createdEmail = null;
@@ -102,6 +93,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Internal Server Error:", error);
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor ao enviar e-mail real." }, { status: 500 });
   }
 }
