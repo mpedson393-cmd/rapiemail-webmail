@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
+import { RapiSiteBuilderModal } from './RapiSiteBuilderModal';
 import { CalendarView } from './CalendarView';
 import { ContactsView } from './ContactsView';
 
@@ -47,6 +48,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(initialEmails[0]?.id || null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [replySuccess, setReplySuccess] = useState(false);
@@ -343,38 +345,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 );
               })}
 
-              {/* Alojamento Web Link (Upsell) */}
+              {/* Alojamento Web Link (Upsell & AI Site Builder) */}
               <div className="pt-4 mt-4 border-t border-white/5 px-1">
-                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/5 space-y-2">
+                <div className="p-3 rounded-xl bg-gradient-to-b from-indigo-950/30 via-purple-950/20 to-transparent border border-indigo-500/20 space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-white font-medium text-xs">
+                    <div className="flex items-center gap-2 text-white font-bold text-xs">
                       <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Alojamento Web</span>
+                      <span>Criador de Site IA</span>
                     </div>
-                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">20€/mês</span>
+                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">88€/ano</span>
                   </div>
                   <p className="text-[11px] text-zinc-400 leading-tight">
-                    Coloque o seu website online no domínio <span className="text-zinc-200 font-medium">{userDomain}</span> com 1 clique.
+                    Crie o site completo da sua loja em 10 segundos com a RapiAI no domínio <span className="text-zinc-200 font-medium">{userDomain}</span>.
                   </p>
                   <button 
-                    onClick={async () => {
-                      try {
-                        const res = await fetch("/api/checkout", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ itemType: "HOSTING_ADDON", domainName: userDomain })
-                        });
-                        const data = await res.json();
-                        if (data.url) {
-                          window.location.href = data.url;
-                        }
-                      } catch (err) {
-                        alert("Erro ao iniciar pagamento Stripe.");
-                      }
-                    }}
-                    className="w-full text-center py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] rounded-lg transition-colors shadow-md shadow-indigo-600/20"
+                    onClick={() => setIsSiteBuilderOpen(true)}
+                    className="w-full text-center py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-[11px] rounded-lg transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 active:scale-98"
                   >
-                    Ativar Site no Ar (Stripe)
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>✨ Criar Site com IA</span>
                   </button>
                 </div>
               </div>
@@ -775,6 +764,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
       {/* Floating Compose Modal */}
       <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} userEmail={user.email} />
+
+      {/* RapiSite AI Website Builder & DigitalOcean Hosting Modal */}
+      <RapiSiteBuilderModal isOpen={isSiteBuilderOpen} onClose={() => setIsSiteBuilderOpen(false)} userDomain={userDomain} />
 
     </div>
   );
