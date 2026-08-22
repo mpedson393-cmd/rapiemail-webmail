@@ -52,7 +52,7 @@ Regras Obrigatórias:
           if (aiResponseText) break;
         } else {
           const errText = await res.text();
-          console.warn(`Model ${model} returned HTTP ${res.statusCode}:`, errText);
+          console.warn(`Model ${model} returned HTTP ${res.status}:`, errText);
         }
       } catch (e) {
         console.warn(`Model ${model} fetch failed:`, e);
