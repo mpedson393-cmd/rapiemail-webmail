@@ -85,7 +85,7 @@ export default function LandingPage() {
               <Globe className="w-4 h-4 text-indigo-400" />
               Pesquisar Disponibilidade de Domínio Corporativo:
             </h3>
-            <DomainSearchPicker onSelectDomain={handleSelectDomain} />
+            <DomainSearchPicker onSelectDomain={handleSelectDomain} selectedDomain={selectedDomain} />
           </div>
         </div>
       </div>

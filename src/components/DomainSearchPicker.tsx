@@ -14,7 +14,7 @@ interface DomainResult {
 
 interface Props {
   onSelectDomain: (domain: string) => void;
-  selectedDomain: string;
+  selectedDomain?: string;
 }
 
 export function DomainSearchPicker({ onSelectDomain, selectedDomain }: Props) {
