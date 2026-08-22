@@ -65,7 +65,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     setGeneratingAi(true);
     setTimeout(() => {
       setSubject(`Comunicação Oficial: ${aiPrompt}`);
-      setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que a nossa equipa já analisou o assunto.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\n${session?.user?.name || 'Equipa RapiEmail'}\nSent securely from RapiEmail Pro`);
+      setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que a nossa equipa já analisou o assunto.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail\nSent securely from RapiEmail Pro`);
       setGeneratingAi(false);
       setAiPrompt("");
     }, 700);
