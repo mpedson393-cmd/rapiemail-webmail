@@ -297,7 +297,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
       {/* TAB 3: MAIL VIEW (3-COLUMN WORKSPACE) */}
       {activeTab === 'mail' && (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden animate-fade-in">
           
           {/* COLUMN 1: LEFT SIDEBAR (Folders & Storage) */}
           <aside className="w-[240px] border-r border-white/5 bg-[#0b0b0e] flex flex-col flex-shrink-0">
@@ -454,10 +454,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3 rounded-xl border transition-all cursor-pointer ${
+                      className={`group relative p-3 rounded-xl border transition-all duration-150 cursor-pointer active:scale-[0.985] ${
                         isSelected 
-                          ? 'bg-indigo-600/10 border-indigo-500/30 shadow-md shadow-black/40' 
-                          : 'bg-[#0e0e11]/40 border-white/[0.04] hover:bg-white/[0.04] hover:border-white/10'
+                          ? 'bg-indigo-600/10 border-indigo-500/30 shadow-md shadow-black/40 scale-[1.005]' 
+                          : 'bg-[#0e0e11]/40 border-white/[0.04] hover:bg-white/[0.06] hover:border-white/10 hover:translate-x-0.5'
                       }`}
                     >
                       {/* Unread dot */}
@@ -535,7 +535,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           <main className="flex-1 flex flex-col bg-[#09090b] overflow-hidden">
             
             {selectedEmail ? (
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
                 
                 {/* Email Toolbar Actions */}
                 <div className="h-12 border-b border-white/5 px-6 flex items-center justify-between bg-[#0e0e11]/30 flex-shrink-0">
