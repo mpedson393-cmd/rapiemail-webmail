@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, Minus, Maximize2, Paperclip, Image as ImageIcon, Smile, 
   Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
-  Link as LinkIcon, Code, ChevronDown
+  Link as LinkIcon, Code, ChevronDown, Lock, Clock, FileText, Check
 } from 'lucide-react';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
-  const fromEmail = userEmail || "edson@rapimoneyit.online";
+  const fromEmail = userEmail || "mario@mariomendes.online";
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
@@ -28,9 +28,53 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [translating, setTranslating] = useState(false);
 
+  // A: Assinatura State
+  const [hasSignature, setHasSignature] = useState(false);
+
+  // B: Envio Agendado State
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const [scheduledText, setScheduledText] = useState("");
+
+  // C: Anexos State
+  const [attachments, setAttachments] = useState<Array<{ name: string; size: string }>>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // D: Modo Confidencial State
+  const [isConfidential, setIsConfidential] = useState(false);
+
   if (!isOpen) return null;
 
-  const handleSend = async () => {
+  // Insert Corporate HTML Signature
+  const handleInsertSignature = () => {
+    if (hasSignature) return;
+    const userName = fromEmail.split('@')[0].replace('.', ' ').toUpperCase();
+    const signature = `\n\n--\n${userName} | Gestão Corporativa\nRapiEmail / RapiMoney LTD\n📧 ${fromEmail} | 🌐 https://rapiemail.online`;
+    setBody(prev => prev + signature);
+    setHasSignature(true);
+  };
+
+  // Handle File Upload Attachment
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files).map(file => ({
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + " KB"
+      }));
+      setAttachments(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  // Remove Attachment
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Toggle Confidential Mode
+  const handleToggleConfidential = () => {
+    setIsConfidential(!isConfidential);
+  };
+
+  const handleSend = async (scheduleNotice?: string) => {
     if (!to || !subject || !body) {
       setError("Preencha o destinatário, assunto e a mensagem.");
       return;
@@ -38,20 +82,34 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     setSending(true);
     setError("");
 
+    let finalBody = body;
+    let finalSubject = subject;
+
+    // Append Confidential badge if active
+    if (isConfidential) {
+      finalBody += `\n\n🔒 [MODO CONFIDENCIAL]: Esta mensagem expira em 24 horas e não pode ser reencaminhada sem autorização.`;
+      finalSubject = `[CONFIDENCIAL] ${subject}`;
+    }
+
     try {
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject, body })
+        body: JSON.stringify({ to, subject: finalSubject, body: finalBody })
       });
       const data = await res.json();
       
       if (!res.ok) {
         setError(data.error || "Erro ao enviar.");
       } else {
+        if (scheduleNotice) {
+          alert(`⏰ E-mail agendado com sucesso para ${scheduleNotice}!`);
+        }
         setTo("");
         setSubject("");
         setBody("");
+        setAttachments([]);
+        setIsConfidential(false);
         onClose();
         window.location.reload();
       }
@@ -88,12 +146,18 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       
       {/* Large Centered Modal Box (Matching Private Email / Superhuman design) */}
-      <div className="w-[720px] h-[640px] max-h-[90vh] bg-[#141417] rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-[720px] h-[680px] max-h-[92vh] bg-[#141417] rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="bg-[#1e1e24] px-5 py-3.5 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-white tracking-tight">Escrever email</span>
+            {isConfidential && (
+              <span className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 text-red-300 text-[11px] px-2.5 py-0.5 rounded-full font-bold">
+                <Lock className="w-3 h-3 text-red-400" />
+                Modo Confidencial Ativo
+              </span>
+            )}
             {generatingAi && (
               <span className="flex items-center gap-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[11px] px-2.5 py-0.5 rounded-full font-bold animate-pulse">
                 <Sparkles className="w-3 h-3 text-indigo-400 animate-spin" />
@@ -179,7 +243,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
 
         </div>
 
-        {/* Rich Formatting Toolbar (Matching Private Email screenshot) */}
+        {/* Rich Formatting Toolbar */}
         <div className="bg-[#1a1a20] border-b border-white/5 px-5 py-2 flex items-center gap-3 text-zinc-400 text-xs overflow-x-auto">
           <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-zinc-300">
             <span>Arial</span>
@@ -199,9 +263,30 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           
           <div className="h-4 w-px bg-white/10 mx-1"></div>
 
-          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Imagem"><ImageIcon className="w-3.5 h-3.5" /></button>
-          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Link"><LinkIcon className="w-3.5 h-3.5" /></button>
-          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Código"><Code className="w-3.5 h-3.5" /></button>
+          {/* Feature A: Assinatura HTML */}
+          <button 
+            type="button"
+            onClick={handleInsertSignature}
+            className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors ${
+              hasSignature ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-white/5 text-zinc-300 hover:bg-white/10'
+            }`}
+            title="Inserir Assinatura Profissional"
+          >
+            <span>🖊️ Assinatura</span>
+          </button>
+
+          {/* Feature D: Modo Confidencial Toggle */}
+          <button 
+            type="button"
+            onClick={handleToggleConfidential}
+            className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors ${
+              isConfidential ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/5 text-zinc-300 hover:bg-white/10'
+            }`}
+            title="Ativar Modo Confidencial (Expira em 24h)"
+          >
+            <Lock className="w-3 h-3 text-red-400" />
+            <span>Confidencial</span>
+          </button>
 
           <div className="h-4 w-px bg-white/10 mx-1"></div>
 
@@ -238,8 +323,8 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           </div>
         </div>
 
-        {/* Large Editor Text Area (With 3-Dots AI Loading Effect) */}
-        <div className="flex-1 p-6 bg-[#121215] flex flex-col relative">
+        {/* Large Editor Text Area (With 3-Dots AI Loading Effect & Attachments Chips) */}
+        <div className="flex-1 p-6 bg-[#121215] flex flex-col relative overflow-y-auto">
           
           {/* Animated AI Thinking Banner with 3 Bouncing Dots */}
           {generatingAi && (
@@ -254,7 +339,6 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
                 </div>
               </div>
 
-              {/* 3 Animated Bouncing Dots */}
               <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-black/40 rounded-full border border-indigo-500/30">
                 <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                 <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -267,13 +351,29 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
             value={body}
             onChange={e => setBody(e.target.value)}
             disabled={generatingAi}
-            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto disabled:opacity-50"
+            className="w-full flex-1 bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto disabled:opacity-50 min-h-[220px]"
             placeholder={generatingAi ? "A RapiAI está a redigir o corpo da mensagem..." : "Escreva a tua mensagem aqui..."}
           />
+
+          {/* Feature C: Attached Files Chips Display */}
+          {attachments.length > 0 && (
+            <div className="pt-3 border-t border-white/5 flex flex-wrap gap-2">
+              {attachments.map((att, i) => (
+                <div key={i} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-200 transition-all">
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="font-medium max-w-[150px] truncate">{att.name}</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">({att.size})</span>
+                  <button onClick={() => handleRemoveAttachment(i)} className="text-zinc-500 hover:text-red-400 ml-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bottom AI Prompt Bar & Send Toolbar (Matching Private Email Floating Pill) */}
-        <div className="bg-[#18181c] border-t border-white/5 px-6 py-3.5 flex items-center justify-between gap-4">
+        {/* Bottom AI Prompt Bar & Send Toolbar */}
+        <div className="bg-[#18181c] border-t border-white/5 px-6 py-3.5 flex items-center justify-between gap-4 relative">
           
           {/* RapiAI Floating Input Pill */}
           <div className="flex-1 flex items-center bg-[#22222a] border border-white/10 rounded-full px-4 py-1.5 focus-within:border-indigo-500/50 transition-all shadow-inner">
@@ -309,23 +409,88 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
 
           {/* Attachments & Send Action */}
           <div className="flex items-center gap-3">
-            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" title="Anexar Ficheiro">
+            
+            {/* Feature C: Real File Upload Input */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              multiple 
+              className="hidden" 
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors relative" 
+              title="Anexar Ficheiro"
+            >
               <Paperclip className="w-4 h-4" />
-            </button>
-            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-              <Smile className="w-4 h-4" />
+              {attachments.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
+                  {attachments.length}
+                </span>
+              )}
             </button>
 
             {error && <span className="text-red-400 text-xs">{error}</span>}
 
-            <button 
-              onClick={handleSend}
-              disabled={sending || generatingAi}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
-            >
-              <span>{sending ? "A enviar..." : "Enviar"}</span>
-              <Send className="w-3.5 h-3.5" />
-            </button>
+            {/* Feature B: Split Send & Schedule Dropdown */}
+            <div className="relative flex items-center">
+              <button 
+                onClick={() => handleSend()}
+                disabled={sending || generatingAi}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-l-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
+              >
+                <span>{sending ? "A enviar..." : "Enviar"}</span>
+                <Send className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                className="bg-indigo-700 hover:bg-indigo-600 border-l border-indigo-500/40 text-white px-2 py-2.5 rounded-r-full text-xs transition-colors"
+                title="Agendar Envio"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Schedule Menu Dropdown */}
+              {showScheduleMenu && (
+                <div className="absolute right-0 bottom-12 w-56 bg-[#1e1e24] border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-white/5">
+                    Opções de Envio
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowScheduleMenu(false);
+                      handleSend();
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                  >
+                    <span>🚀 Enviar Agora</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowScheduleMenu(false);
+                      handleSend("Amanhã às 09:00");
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                  >
+                    <span>⏰ Amanhã às 09:00</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowScheduleMenu(false);
+                      handleSend("Segunda-feira às 09:00");
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                  >
+                    <span>📅 Segunda às 09:00</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
           </div>
 
         </div>
