@@ -42,11 +42,17 @@ Regras Obrigatórias de Resposta:
 
     for (const model of models) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           const data = await res.json();
@@ -62,9 +68,22 @@ Regras Obrigatórias de Resposta:
     }
 
     if (!aiResponseText) {
+      // Fallback Inteligente baseado em palavras-chave se o Google AI Studio falhar a ligação
+      const lower = prompt.toLowerCase();
+      let fallbackSubject = "Comunicação Oficial";
+      let fallbackBody = `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`;
+
+      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
+        fallbackSubject = "Pedido de Desculpas e Reagendamento de Reunião";
+        fallbackBody = `Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos a nossa conversa para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`;
+      } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
+        fallbackSubject = "Proposta Comercial Oficial";
+        fallbackBody = `Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`;
+      }
+
       return NextResponse.json({ 
-        subject: "Comunicação Oficial",
-        body: `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`
+        subject: fallbackSubject,
+        body: fallbackBody
       });
     }
 
@@ -103,7 +122,6 @@ Regras Obrigatórias de Resposta:
       subject = subjectMatch[1];
     }
 
-    // Extrair o conteúdo da chave body mesmo que tenha quebras de linha
     const bodyMatch = cleanText.match(/"body"\s*:\s*"([\s\S]*)"\s*\}\s*$/);
     if (bodyMatch && bodyMatch[1]) {
       body = bodyMatch[1]
@@ -112,7 +130,6 @@ Regras Obrigatórias de Resposta:
     }
 
     if (!body) {
-      // Se o regex rígido falhar, limpar qualquer resquício de chaves JSON do texto
       body = cleanText
         .replace(/^\{\s*"subject":\s*"[^"]*",?\s*"body":\s*"/, "")
         .replace(/"\s*\}\s*$/, "")
@@ -128,6 +145,9 @@ Regras Obrigatórias de Resposta:
 
   } catch (error: any) {
     console.error("Gemini AI Route Error:", error);
-    return NextResponse.json({ error: "Erro na API do Google AI Studio." }, { status: 500 });
+    return NextResponse.json({ 
+      subject: "Comunicação Oficial",
+      body: `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail` 
+    });
   }
 }

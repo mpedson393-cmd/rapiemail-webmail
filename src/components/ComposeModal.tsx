@@ -77,7 +77,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
       if (data.subject) setSubject(data.subject);
       if (data.body) setBody(data.body);
     } catch(err) {
-      setError("Erro ao gerar com Google Gemini.");
+      console.warn("AI generation network fallback:", err);
     } finally {
       setGeneratingAi(false);
       setAiPrompt("");
