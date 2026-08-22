@@ -55,6 +55,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   // Dynamic domain of user
   const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapimoneyit.online';
 
+  // Polling automático a cada 8 segundos para verificar a chegada de e-mails em tempo real
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/emails/check");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.emails && Array.isArray(data.emails)) {
+            setEmails(data.emails);
+          }
+        }
+      } catch (err) {
+        // Polling silencioso
+      }
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Dynamic real storage calculation
   const totalBytes = useMemo(() => {
     const emailBytes = emails.reduce((sum, e) => sum + (e.body?.length || 0) + (e.subject?.length || 0) + 2048, 0);
