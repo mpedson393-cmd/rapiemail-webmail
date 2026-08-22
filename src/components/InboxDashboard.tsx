@@ -746,7 +746,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
       )}
 
       {/* Floating Compose Modal */}
-      <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
+      <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} userEmail={user.email} />
 
     </div>
   );

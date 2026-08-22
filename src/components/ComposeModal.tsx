@@ -5,16 +5,14 @@ import {
   Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
   Link as LinkIcon, Code, ChevronDown
 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  userEmail?: string;
 }
 
-export function ComposeModal({ isOpen, onClose }: Props) {
-  const { data: session } = useSession();
-  const fromEmail = session?.user?.email || "edson@rapiemail.online";
+export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
+  const fromEmail = userEmail || "edson@rapimoneyit.online";
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
