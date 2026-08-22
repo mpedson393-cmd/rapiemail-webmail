@@ -67,15 +67,22 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     const lower = aiPrompt.toLowerCase();
     
     setTimeout(() => {
+      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") |  const handleGenerateAi = () => {
+    if (!aiPrompt.trim()) return;
+    setGeneratingAi(true);
+    setError("");
+    const lower = aiPrompt.toLowerCase();
+    
+    setTimeout(() => {
       if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
         setSubject("Pedido de Desculpas e Reagendamento de Reunião");
-        setBody(`Olá,\n\nInfazermente não consegui estar presente na nossa reunião agendada (${aiPrompt}). Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
+        setBody(`Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
       } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
         setSubject("Proposta Comercial Oficial");
-        setBody(`Estimado(a),\n\nConforme solicitado (${aiPrompt}), envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
+        setBody(`Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
       } else {
-        setSubject(`Comunicação: ${aiPrompt}`);
-        setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que os detalhes foram analisados com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail\nSent securely from RapiEmail Pro`);
+        setSubject(`Comunicação Oficial`);
+        setBody(`Olá,\n\nRelativamente ao assunto solicitado (${aiPrompt}), venho por este meio comunicar que a nossa equipa já analisou os detalhes com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
       }
       setGeneratingAi(false);
       setAiPrompt("");
@@ -195,11 +202,11 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         </div>
 
         {/* Large Editor Text Area */}
-        <div className="flex-1 p-6 bg-[#121215] overflow-y-auto">
+        <div className="flex-1 p-6 bg-[#121215] flex flex-col">
           <textarea 
             value={body}
             onChange={e => setBody(e.target.value)}
-            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal"
+            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto"
             placeholder="Escreva a tua mensagem aqui..."
           />
         </div>
