@@ -3,13 +3,21 @@ import React, { useState, useRef } from 'react';
 import { 
   X, Minus, Maximize2, Paperclip, Image as ImageIcon, Smile, 
   Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
-  Link as LinkIcon, Code, ChevronDown, Lock, Clock, FileText, Check
+  Link as LinkIcon, Code, ChevronDown, Lock, Clock, FileText, Check,
+  Calendar, Eye
 } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   userEmail?: string;
+}
+
+interface AttachmentFile {
+  name: string;
+  size: string;
+  type: string;
+  url?: string;
 }
 
 export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
@@ -31,12 +39,19 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   // A: Assinatura State
   const [hasSignature, setHasSignature] = useState(false);
 
-  // B: Envio Agendado State
+  // B: Envio Agendado Custom Date Picker State
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
-  const [scheduledText, setScheduledText] = useState("");
+  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
+  const [customDate, setCustomDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [customTime, setCustomTime] = useState("09:00");
 
-  // C: Anexos State
-  const [attachments, setAttachments] = useState<Array<{ name: string; size: string }>>([]);
+  // C: Anexos State & Visual Preview
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // D: Modo Confidencial State
@@ -53,13 +68,18 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     setHasSignature(true);
   };
 
-  // Handle File Upload Attachment
+  // Handle File Upload Attachment with Object URL for Visual Image Preview
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files).map(file => ({
-        name: file.name,
-        size: (file.size / 1024).toFixed(1) + " KB"
-      }));
+      const newFiles: AttachmentFile[] = Array.from(e.target.files).map(file => {
+        const isImage = file.type.startsWith("image/");
+        return {
+          name: file.name,
+          size: (file.size / 1024).toFixed(1) + " KB",
+          type: file.type,
+          url: isImage ? URL.createObjectURL(file) : undefined
+        };
+      });
       setAttachments(prev => [...prev, ...newFiles]);
     }
   };
@@ -103,13 +123,14 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         setError(data.error || "Erro ao enviar.");
       } else {
         if (scheduleNotice) {
-          alert(`⏰ E-mail agendado com sucesso para ${scheduleNotice}!`);
+          alert(`⏰ E-mail agendado com sucesso para ${scheduleNotice}! O sistema enviará automaticamente.`);
         }
         setTo("");
         setSubject("");
         setBody("");
         setAttachments([]);
         setIsConfidential(false);
+        setShowDatePickerModal(false);
         onClose();
         window.location.reload();
       }
@@ -143,15 +164,15 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
       
       {/* Large Centered Modal Box (Matching Private Email / Superhuman design) */}
-      <div className="w-[720px] h-[680px] max-h-[92vh] bg-[#141417] rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-[750px] h-[700px] max-h-[92vh] bg-[#121215] rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="bg-[#1e1e24] px-5 py-3.5 flex items-center justify-between border-b border-white/5">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white tracking-tight">Escrever email</span>
+        <div className="bg-[#1a1a20] px-6 py-4 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-white tracking-tight">Escrever email</span>
             {isConfidential && (
               <span className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 text-red-300 text-[11px] px-2.5 py-0.5 rounded-full font-bold">
                 <Lock className="w-3 h-3 text-red-400" />
@@ -173,10 +194,10 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         </div>
 
         {/* Sender & Recipient Fields */}
-        <div className="bg-[#18181c] border-b border-white/5 flex flex-col text-xs text-zinc-300">
+        <div className="bg-[#16161a] border-b border-white/5 flex flex-col text-xs text-zinc-300">
           
           {/* De: Selector */}
-          <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-3">
+          <div className="px-6 py-2.5 border-b border-white/5 flex items-center gap-3">
             <span className="text-zinc-500 font-medium w-14">De:</span>
             <div className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg cursor-pointer border border-white/5 text-zinc-200">
               <span className="font-semibold">{fromEmail}</span>
@@ -185,7 +206,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           </div>
 
           {/* Para: Input */}
-          <div className="px-5 py-2.5 border-b border-white/5 flex items-center justify-between">
+          <div className="px-6 py-2.5 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1">
               <span className="text-zinc-500 font-medium w-14">Para:</span>
               <input 
@@ -205,7 +226,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
 
           {/* Cc / Bcc Expandable */}
           {showCc && (
-            <div className="px-5 py-2 border-b border-white/5 bg-black/20 space-y-2">
+            <div className="px-6 py-2 border-b border-white/5 bg-black/20 space-y-2">
               <div className="flex items-center gap-3">
                 <span className="text-zinc-500 font-medium w-14">Cc:</span>
                 <input 
@@ -230,7 +251,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           )}
 
           {/* Assunto: Input */}
-          <div className="px-5 py-2.5 flex items-center gap-3">
+          <div className="px-6 py-2.5 flex items-center gap-3">
             <span className="text-zinc-500 font-medium w-14">Assunto:</span>
             <input 
               type="text" 
@@ -244,7 +265,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         </div>
 
         {/* Rich Formatting Toolbar */}
-        <div className="bg-[#1a1a20] border-b border-white/5 px-5 py-2 flex items-center gap-3 text-zinc-400 text-xs overflow-x-auto">
+        <div className="bg-[#18181c] border-b border-white/5 px-6 py-2 flex items-center gap-3 text-zinc-400 text-xs overflow-x-auto">
           <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-zinc-300">
             <span>Arial</span>
             <ChevronDown className="w-3 h-3 text-zinc-500" />
@@ -323,10 +344,10 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           </div>
         </div>
 
-        {/* Large Editor Text Area (With 3-Dots AI Loading Effect & Attachments Chips) */}
-        <div className="flex-1 p-6 bg-[#121215] flex flex-col relative overflow-y-auto">
+        {/* Large Editor Text Area (With Attachments Visual Image Thumbnails Preview) */}
+        <div className="flex-1 p-6 bg-[#0f0f12] flex flex-col relative overflow-y-auto">
           
-          {/* Animated AI Thinking Banner with 3 Bouncing Dots */}
+          {/* Animated AI Thinking Banner */}
           {generatingAi && (
             <div className="mb-4 bg-gradient-to-r from-indigo-950/80 via-purple-950/80 to-indigo-950/80 border border-indigo-500/40 rounded-xl p-4 flex items-center justify-between shadow-lg animate-in fade-in duration-200">
               <div className="flex items-center gap-3">
@@ -351,23 +372,59 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
             value={body}
             onChange={e => setBody(e.target.value)}
             disabled={generatingAi}
-            className="w-full flex-1 bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto disabled:opacity-50 min-h-[220px]"
+            className="w-full flex-1 bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto disabled:opacity-50 min-h-[200px]"
             placeholder={generatingAi ? "A RapiAI está a redigir o corpo da mensagem..." : "Escreva a tua mensagem aqui..."}
           />
 
-          {/* Feature C: Attached Files Chips Display */}
+          {/* Feature C: VISUAL ATTACHMENTS THUMBNAILS PREVIEW BAR */}
           {attachments.length > 0 && (
-            <div className="pt-3 border-t border-white/5 flex flex-wrap gap-2">
-              {attachments.map((att, i) => (
-                <div key={i} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-200 transition-all">
-                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="font-medium max-w-[150px] truncate">{att.name}</span>
-                  <span className="text-[10px] text-zinc-500 font-mono">({att.size})</span>
-                  <button onClick={() => handleRemoveAttachment(i)} className="text-zinc-500 hover:text-red-400 ml-1">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+            <div className="pt-4 mt-2 border-t border-white/5 space-y-2">
+              <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Anexos Prontos a Enviar ({attachments.length}):</span>
+              </span>
+
+              <div className="flex flex-wrap gap-3">
+                {attachments.map((att, i) => (
+                  <div 
+                    key={i} 
+                    className="group relative flex items-center gap-3 bg-[#18181f] border border-white/10 hover:border-indigo-500/40 rounded-2xl p-2.5 text-xs text-zinc-200 transition-all shadow-md"
+                  >
+                    {/* Visual Image Thumbnail if Image */}
+                    {att.url ? (
+                      <div 
+                        onClick={() => setPreviewAttachmentUrl(att.url!)}
+                        className="w-12 h-12 rounded-xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0 cursor-pointer relative group/img"
+                      >
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                    )}
+
+                    {/* File Meta info */}
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="font-semibold text-xs text-white truncate max-w-[140px]">{att.name}</p>
+                      <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{att.size}</p>
+                    </div>
+
+                    {/* Remove button */}
+                    <button 
+                      type="button"
+                      onClick={() => handleRemoveAttachment(i)} 
+                      className="p-1 text-zinc-500 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
+                      title="Remover anexo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -421,10 +478,10 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
             <button 
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors relative" 
-              title="Anexar Ficheiro"
+              className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors relative" 
+              title="Anexar Ficheiro (Visualização Ativa)"
             >
-              <Paperclip className="w-4 h-4" />
+              <Paperclip className="w-4.5 h-4.5" />
               {attachments.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
                   {attachments.length}
@@ -432,14 +489,14 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
               )}
             </button>
 
-            {error && <span className="text-red-400 text-xs">{error}</span>}
+            {error && <span className="text-red-400 text-xs font-medium">{error}</span>}
 
             {/* Feature B: Split Send & Schedule Dropdown */}
             <div className="relative flex items-center">
               <button 
                 onClick={() => handleSend()}
                 disabled={sending || generatingAi}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-l-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-l-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30 active:scale-98"
               >
                 <span>{sending ? "A enviar..." : "Enviar"}</span>
                 <Send className="w-3.5 h-3.5" />
@@ -448,24 +505,24 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
               <button
                 type="button"
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="bg-indigo-700 hover:bg-indigo-600 border-l border-indigo-500/40 text-white px-2 py-2.5 rounded-r-full text-xs transition-colors"
-                title="Agendar Envio"
+                className="bg-indigo-700 hover:bg-indigo-600 border-l border-indigo-500/40 text-white px-2.5 py-2.5 rounded-r-full text-xs transition-colors"
+                title="Agendar Envio Personalizado"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
 
-              {/* Schedule Menu Dropdown */}
+              {/* Executive Schedule Menu Dropdown */}
               {showScheduleMenu && (
-                <div className="absolute right-0 bottom-12 w-56 bg-[#1e1e24] border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-white/5">
-                    Opções de Envio
+                <div className="absolute right-0 bottom-12 w-64 bg-[#1e1e24] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-white/5 mb-1">
+                    Opções de Envio do Sistema
                   </div>
                   <button
                     onClick={() => {
                       setShowScheduleMenu(false);
                       handleSend();
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-xl flex items-center justify-between font-medium"
                   >
                     <span>🚀 Enviar Agora</span>
                   </button>
@@ -474,7 +531,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
                       setShowScheduleMenu(false);
                       handleSend("Amanhã às 09:00");
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-xl flex items-center justify-between font-medium"
                   >
                     <span>⏰ Amanhã às 09:00</span>
                   </button>
@@ -483,9 +540,21 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
                       setShowScheduleMenu(false);
                       handleSend("Segunda-feira às 09:00");
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-lg flex items-center justify-between"
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-xl flex items-center justify-between font-medium border-b border-white/5"
                   >
-                    <span>📅 Segunda às 09:00</span>
+                    <span>📅 Segunda-feira às 09:00</span>
+                  </button>
+
+                  {/* Professional Custom Date & Time Picker Trigger */}
+                  <button
+                    onClick={() => {
+                      setShowScheduleMenu(false);
+                      setShowDatePickerModal(true);
+                    }}
+                    className="w-full text-left px-3 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-bold rounded-xl flex items-center gap-2 mt-1 border border-indigo-500/30"
+                  >
+                    <Calendar className="w-4 h-4 text-indigo-400" />
+                    <span>📅 Agendar Data & Hora Exata...</span>
                   </button>
                 </div>
               )}
@@ -496,6 +565,84 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         </div>
 
       </div>
+
+      {/* FULL SCREEN ATTACHMENT IMAGE LIGHTBOX PREVIEW MODAL */}
+      {previewAttachmentUrl && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <button 
+            onClick={() => setPreviewAttachmentUrl(null)} 
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={previewAttachmentUrl} 
+            alt="Pré-visualização do Anexo" 
+            className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl border border-white/10 object-contain" 
+          />
+        </div>
+      )}
+
+      {/* EXECUTIVE DATE & TIME PICKER MODAL */}
+      {showDatePickerModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-[420px] bg-[#18181c] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Agendar Envio Automático</h4>
+              </div>
+              <button onClick={() => setShowDatePickerModal(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-zinc-400 font-medium mb-1.5">Data do Envio *</label>
+                <input 
+                  type="date" 
+                  value={customDate}
+                  onChange={e => setCustomDate(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 font-medium mb-1.5">Hora do Envio (HH:MM) *</label>
+                <input 
+                  type="time" 
+                  value={customTime}
+                  onChange={e => setCustomTime(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-3 text-[11px] text-indigo-200 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                <span>O RapiEmail enviará a mensagem automaticamente no dia <strong>{customDate}</strong> às <strong>{customTime}:00</strong>.</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button 
+                onClick={() => setShowDatePickerModal(false)} 
+                className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => handleSend(`${customDate} às ${customTime}`)} 
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
+              >
+                🚀 Confirmar Agendamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
