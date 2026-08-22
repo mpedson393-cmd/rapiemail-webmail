@@ -26,6 +26,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   const [error, setError] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   if (!isOpen) return null;
 
@@ -201,6 +202,40 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Imagem"><ImageIcon className="w-3.5 h-3.5" /></button>
           <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Link"><LinkIcon className="w-3.5 h-3.5" /></button>
           <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Código"><Code className="w-3.5 h-3.5" /></button>
+
+          <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+          {/* DeepL Translation Buttons */}
+          <div className="flex items-center gap-1 text-[10px]">
+            <span className="text-zinc-500 font-medium mr-1">DeepL Traduzir:</span>
+            {["EN", "ES", "FR", "DE", "PT"].map((lang) => (
+              <button 
+                key={lang}
+                type="button"
+                onClick={async () => {
+                  if (!body.trim() || translating) return;
+                  setTranslating(true);
+                  try {
+                    const res = await fetch("/api/ai/translate", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ text: body, targetLang: lang })
+                    });
+                    const data = await res.json();
+                    if (data.translatedText) setBody(data.translatedText);
+                  } catch(e) {
+                    setError("Erro ao traduzir.");
+                  } finally {
+                    setTranslating(false);
+                  }
+                }}
+                className="px-1.5 py-0.5 bg-white/5 hover:bg-indigo-600 hover:text-white rounded font-bold text-zinc-300 transition-colors"
+              >
+                {lang}
+              </button>
+            ))}
+            {translating && <Loader2 className="w-3 h-3 animate-spin text-indigo-400 ml-1" />}
+          </div>
         </div>
 
         {/* Large Editor Text Area (With 3-Dots AI Loading Effect) */}

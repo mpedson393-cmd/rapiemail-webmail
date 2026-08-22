@@ -13,9 +13,11 @@ export async function POST(req: Request) {
     const systemInstruction = mode === "summary"
       ? `És a RapiAI, um assistente executivo de e-mail. Analisa o e-mail fornecido e cria um resumo executivo muito claro em 3 pontos-chave e uma recomendação final de ação em português.`
       : `És a RapiAI, o assistente de Inteligência Artificial mais avançado de e-mail corporativo. O utilizador fornecerá uma instrução para escrever um e-mail.
-Regras Obrigatórias:
-1. Responde EXCLUSIVAMENTE em formato JSON com duas chaves: "subject" (o assunto perfeito, profissional e chamativo) e "body" (o corpo completo do e-mail em português impecável, com saudações executivas e despedida).
-2. Não incluas marcações markdown como \`\`\`json no topo ou fim do texto, responde apenas com o JSON limpo.`;
+Regras Obrigatórias de Resposta:
+1. Deves responder EXCLUSIVAMENTE num objeto JSON válido com duas propriedades: "subject" e "body".
+2. Em "subject", coloca um assunto curto, profissional e chamativo.
+3. Em "body", coloca o texto completo do e-mail em português impecável com parágrafos bem formatados (usa \\n para quebras de linha).
+4. NÃO incluas formatação markdown como \`\`\`json no início ou no fim. Devolve APENAS o JSON puro.`;
 
     const requestBody = {
       contents: [
@@ -68,29 +70,61 @@ Regras Obrigatórias:
 
     // Se for no modo resumo, devolve o texto direto
     if (mode === "summary") {
-      return NextResponse.json({ summary: aiResponseText });
+      return NextResponse.json({ summary: aiResponseText.replace(/```json/g, "").replace(/```/g, "").trim() });
     }
 
-    // Limpar possíveis invólucros markdown do JSON
-    let cleanJson = aiResponseText.trim();
-    if (cleanJson.startsWith("```json")) {
-      cleanJson = cleanJson.replace(/^```json/, "").replace(/```$/, "").trim();
-    } else if (cleanJson.startsWith("```")) {
-      cleanJson = cleanJson.replace(/^```/, "").replace(/```$/, "").trim();
+    // Limpar invólucros markdown do JSON
+    let cleanText = aiResponseText.trim();
+    if (cleanText.startsWith("```json")) {
+      cleanText = cleanText.replace(/^```json\s*/, "").replace(/\s*```$/, "").trim();
+    } else if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
     }
 
+    // Tentativa 1: Parse JSON nativo
     try {
-      const parsed = JSON.parse(cleanJson);
-      return NextResponse.json({
-        subject: parsed.subject || "Comunicação Oficial",
-        body: parsed.body || aiResponseText
-      });
-    } catch (parseErr) {
-      return NextResponse.json({
-        subject: "Comunicação Oficial",
-        body: aiResponseText
-      });
+      const parsed = JSON.parse(cleanText);
+      if (parsed && typeof parsed === "object" && (parsed.subject || parsed.body)) {
+        return NextResponse.json({
+          subject: parsed.subject || "Comunicação Oficial",
+          body: parsed.body || cleanText
+        });
+      }
+    } catch (e) {
+      // Se falhar o parse direto por causa de quebras de linha não escapadas no JSON
     }
+
+    // Tentativa 2: Extração cirúrgica por Regex das chaves "subject" e "body"
+    let subject = "";
+    let body = "";
+
+    const subjectMatch = cleanText.match(/"subject"\s*:\s*"([^"]+)"/);
+    if (subjectMatch && subjectMatch[1]) {
+      subject = subjectMatch[1];
+    }
+
+    // Extrair o conteúdo da chave body mesmo que tenha quebras de linha
+    const bodyMatch = cleanText.match(/"body"\s*:\s*"([\s\S]*)"\s*\}\s*$/);
+    if (bodyMatch && bodyMatch[1]) {
+      body = bodyMatch[1]
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"');
+    }
+
+    if (!body) {
+      // Se o regex rígido falhar, limpar qualquer resquício de chaves JSON do texto
+      body = cleanText
+        .replace(/^\{\s*"subject":\s*"[^"]*",?\s*"body":\s*"/, "")
+        .replace(/"\s*\}\s*$/, "")
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"')
+        .trim();
+    }
+
+    return NextResponse.json({
+      subject: subject || "Comunicação Oficial",
+      body: body || cleanText
+    });
 
   } catch (error: any) {
     console.error("Gemini AI Route Error:", error);
