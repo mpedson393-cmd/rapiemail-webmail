@@ -5,6 +5,7 @@ import {
   Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
   Link as LinkIcon, Code, ChevronDown
 } from 'lucide-react';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -67,16 +68,9 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     const lower = aiPrompt.toLowerCase();
     
     setTimeout(() => {
-      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") |  const handleGenerateAi = () => {
-    if (!aiPrompt.trim()) return;
-    setGeneratingAi(true);
-    setError("");
-    const lower = aiPrompt.toLowerCase();
-    
-    setTimeout(() => {
       if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
         setSubject("Pedido de Desculpas e Reagendamento de Reunião");
-        setBody(`Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
+        setBody(`Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos a nossa conversa para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
       } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
         setSubject("Proposta Comercial Oficial");
         setBody(`Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
@@ -201,7 +195,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Código"><Code className="w-3.5 h-3.5" /></button>
         </div>
 
-        {/* Large Editor Text Area */}
+        {/* Large Editor Text Area (Single Scrollbar) */}
         <div className="flex-1 p-6 bg-[#121215] flex flex-col">
           <textarea 
             value={body}
