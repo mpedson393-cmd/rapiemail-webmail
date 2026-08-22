@@ -16,8 +16,6 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Processamento Inteligente do Email de Login
-    // Se o cliente introduziu algo com '@' (ex: info@empresa.com), usamos esse email e extraímos o domínio.
-    // Se introduziu apenas o domínio (ex: empresa.com), geramos o email prefixando com admin@ ou nome@.
     let loginEmail = "";
     let finalDomain = domainName.toLowerCase().trim();
     
@@ -25,7 +23,6 @@ export async function POST(req: Request) {
       loginEmail = finalDomain;
       finalDomain = finalDomain.split("@")[1];
     } else {
-      // Gerar prefixo baseado no nome se possível, senão 'admin'
       let prefix = "admin";
       if (data.firstName) {
         prefix = data.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -34,23 +31,27 @@ export async function POST(req: Request) {
     }
 
     // Verificar se o email já existe
-    const existingUser = await prisma.user.findUnique({ where: { email: loginEmail } });
-    if (existingUser) {
-      return NextResponse.json({ error: "Este endereço de email já está em uso na plataforma." }, { status: 400 });
+    try {
+      const existingUser = await prisma.user.findUnique({ where: { email: loginEmail } });
+      if (existingUser) {
+        return NextResponse.json({ error: "Este endereço de email já está em uso na plataforma." }, { status: 400 });
+      }
+    } catch (dbErr) {
+      console.warn("DB table check warning:", dbErr);
     }
 
-    if (accountType === "PERSONAL") {
+    if (accountType === "PERSONAL" || !accountType) {
       const user = await prisma.user.create({
         data: {
-          accountType,
+          accountType: "PERSONAL",
           email: loginEmail,
           password: hashedPassword,
-          firstName: data.firstName,
-          lastName: data.lastName,
+          firstName: data.firstName || "Utilizador",
+          lastName: data.lastName || "",
           dateOfBirth: data.dateOfBirth,
           gender: data.gender,
           domainName: finalDomain,
-          domainStatus: domainStatus
+          domainStatus: domainStatus || "EXISTING"
         },
       });
       return NextResponse.json({ success: true, user: { id: user.id }, loginEmail });
@@ -58,20 +59,19 @@ export async function POST(req: Request) {
     else if (accountType === "BUSINESS") {
       const company = await prisma.company.create({
         data: {
-          name: data.companyName,
+          name: data.companyName || "Empresa RapiEmail",
           employeeCount: data.employeeCount || "N/A",
-          region: data.region,
+          region: data.region || "PT",
           address: data.address,
-          domainStatus: domainStatus,
+          domainStatus: domainStatus || "EXISTING",
           domainName: finalDomain,
           users: {
             create: {
-              accountType,
+              accountType: "BUSINESS",
               email: loginEmail,
               password: hashedPassword,
-              // Na empresa usamos o email de contacto atual (data.email) para recuperar conta se for preciso no futuro.
               firstName: "Admin",
-              lastName: data.companyName,
+              lastName: data.companyName || "Empresa",
             }
           }
         }
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     
     return NextResponse.json({ error: "Tipo de conta inválido." }, { status: 400 });
   } catch (error: any) {
-    console.error(error);
-    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
+    console.error("Register Server Error:", error);
+    return NextResponse.json({ error: error?.message || "Erro ao processar registo. Tente novamente." }, { status: 500 });
   }
 }

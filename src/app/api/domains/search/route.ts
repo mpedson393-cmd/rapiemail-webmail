@@ -14,17 +14,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Insira um nome válido" }, { status: 400 });
     }
 
+    // Lista Completa de Extensões de Domínio (Sem limitações)
     const extensions = [
       { tld: "com", price: 11.28, retail: 20.00, popular: true },
       { tld: "online", price: 0.98, retail: 15.00, popular: true },
-      { tld: "pt", price: 8.48, retail: 18.00, popular: false },
-      { tld: "uk", price: 6.98, retail: 18.00, popular: false },
+      { tld: "pt", price: 8.48, retail: 18.00, popular: true },
+      { tld: "store", price: 1.98, retail: 18.00, popular: true },
+      { tld: "tech", price: 2.98, retail: 20.00, popular: false },
+      { tld: "site", price: 1.48, retail: 15.00, popular: false },
+      { tld: "co", price: 12.98, retail: 25.00, popular: true },
       { tld: "org", price: 8.48, retail: 20.00, popular: false },
-      { tld: "io", price: 34.98, retail: 50.00, popular: false },
+      { tld: "net", price: 11.98, retail: 22.00, popular: false },
+      { tld: "io", price: 34.98, retail: 50.00, popular: true },
       { tld: "ai", price: 69.98, retail: 90.00, popular: true },
+      { tld: "app", price: 14.98, retail: 25.00, popular: false },
     ];
 
-    // Consulta disponibilidade para as extensões
+    // Consulta disponibilidade em paralelo na Porkbun API
     const results = await Promise.all(
       extensions.map(async (ext) => {
         const domain = `${cleanQuery}.${ext.tld}`;
