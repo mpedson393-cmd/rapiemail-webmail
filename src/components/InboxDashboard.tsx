@@ -612,10 +612,22 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     </div>
                   )}
 
-                  {/* Subject Line */}
-                  <h1 className="text-xl font-bold text-white tracking-tight leading-snug">
-                    {selectedEmail.subject || '(Sem assunto)'}
-                  </h1>
+                  {/* Subject Line & RapiAI Button */}
+                  <div className="flex items-start justify-between gap-4">
+                    <h1 className="text-xl font-bold text-white tracking-tight leading-snug flex-1">
+                      {selectedEmail.subject || '(Sem assunto)'}
+                    </h1>
+                    <button
+                      onClick={() => {
+                        const summary = `✨ Resumo Executivo RapiAI:\n• Assunto Principal: ${selectedEmail.subject || 'Contacto Comercial'}\n• Remetente: ${selectedEmail.from}\n• Ação Recomendada: Confirmar receção e responder no prazo de 24 horas.`;
+                        alert(summary);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-xs font-bold text-indigo-300 transition-all shadow-sm flex-shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                      <span>Resumir com RapiAI</span>
+                    </button>
+                  </div>
 
                   {/* Sender Details Card */}
                   <div className="flex items-center justify-between pb-6 border-b border-white/5">
