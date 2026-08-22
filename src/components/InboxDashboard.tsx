@@ -206,10 +206,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         {/* Left: Brand & App Switcher */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
-              <span className="text-white font-bold text-xs tracking-tight">RE</span>
+            <div className="w-7 h-7 rounded-lg bg-[#181820] border border-white/10 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
+              <span className="text-indigo-400 font-black text-xs tracking-tight">R</span>
             </div>
-            <span className="text-white font-bold text-base tracking-tight hidden sm:inline">RapiEmail</span>
+            <span className="text-white font-bold text-sm tracking-tight hidden sm:inline">RapiEmail</span>
           </div>
 
           {/* App Switcher (Mail, Calendar, Contacts) */}
