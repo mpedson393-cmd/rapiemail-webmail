@@ -618,9 +618,18 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       {selectedEmail.subject || '(Sem assunto)'}
                     </h1>
                     <button
-                      onClick={() => {
-                        const summary = `✨ Resumo Executivo RapiAI:\n• Assunto Principal: ${selectedEmail.subject || 'Contacto Comercial'}\n• Remetente: ${selectedEmail.from}\n• Ação Recomendada: Confirmar receção e responder no prazo de 24 horas.`;
-                        alert(summary);
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/ai/generate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: `Assunto: ${selectedEmail.subject}\nDe: ${selectedEmail.from}\n\nCorpo:\n${selectedEmail.body}`, mode: "summary" })
+                          });
+                          const data = await res.json();
+                          alert(data.summary || "Erro ao gerar resumo com RapiAI.");
+                        } catch(err) {
+                          alert("Erro de rede ao comunicar com Google Gemini.");
+                        }
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-xs font-bold text-indigo-300 transition-all shadow-sm flex-shrink-0"
                     >

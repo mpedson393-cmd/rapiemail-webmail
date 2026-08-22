@@ -61,26 +61,26 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
     }
   };
 
-  const handleGenerateAi = () => {
+  const handleGenerateAi = async () => {
     if (!aiPrompt.trim()) return;
     setGeneratingAi(true);
     setError("");
-    const lower = aiPrompt.toLowerCase();
     
-    setTimeout(() => {
-      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
-        setSubject("Pedido de Desculpas e Reagendamento de Reunião");
-        setBody(`Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos a nossa conversa para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
-      } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
-        setSubject("Proposta Comercial Oficial");
-        setBody(`Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
-      } else {
-        setSubject(`Comunicação Oficial`);
-        setBody(`Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa já analisou os detalhes com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
-      }
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt.trim() })
+      });
+      const data = await res.json();
+      if (data.subject) setSubject(data.subject);
+      if (data.body) setBody(data.body);
+    } catch(err) {
+      setError("Erro ao gerar com Google Gemini.");
+    } finally {
       setGeneratingAi(false);
       setAiPrompt("");
-    }, 600);
+    }
   };
 
   return (
