@@ -82,7 +82,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         setBody(`Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`);
       } else {
         setSubject(`Comunicação Oficial`);
-        setBody(`Olá,\n\nRelativamente ao assunto solicitado (${aiPrompt}), venho por este meio comunicar que a nossa equipa já analisou os detalhes com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
+        setBody(`Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa já analisou os detalhes com sucesso.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
       }
       setGeneratingAi(false);
       setAiPrompt("");
