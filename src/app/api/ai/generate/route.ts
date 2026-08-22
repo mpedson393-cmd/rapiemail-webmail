@@ -11,8 +11,8 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
 
     const systemInstruction = mode === "summary"
-      ? `És a RapiAI, um assistente executivo de e-mail. Analisa o e-mail fornecido e cria um resumo executivo muito claro em 3 pontos-chave e uma recomendação final de ação.`
-      : `És a RapiAI, o assistente de Inteligência Artificial mais avançado de e-mail corporativo. O utilizador fornecerá uma instrução para escrever um e-mail. 
+      ? `És a RapiAI, um assistente executivo de e-mail. Analisa o e-mail fornecido e cria um resumo executivo muito claro em 3 pontos-chave e uma recomendação final de ação em português.`
+      : `És a RapiAI, o assistente de Inteligência Artificial mais avançado de e-mail corporativo. O utilizador fornecerá uma instrução para escrever um e-mail.
 Regras Obrigatórias:
 1. Responde EXCLUSIVAMENTE em formato JSON com duas chaves: "subject" (o assunto perfeito, profissional e chamativo) e "body" (o corpo completo do e-mail em português impecável, com saudações executivas e despedida).
 2. Não incluas marcações markdown como \`\`\`json no topo ou fim do texto, responde apenas com o JSON limpo.`;
@@ -34,8 +34,8 @@ Regras Obrigatórias:
       }
     };
 
-    // Tentar modelos do Google AI Studio (gemini-2.5-flash -> gemini-1.5-flash fallback)
-    const models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
+    // Modelos Ativos no Google AI Studio (gemini-3.6-flash -> gemini-3.5-flash)
+    const models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
     let aiResponseText = "";
 
     for (const model of models) {
@@ -50,16 +50,19 @@ Regras Obrigatórias:
           const data = await res.json();
           aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
           if (aiResponseText) break;
+        } else {
+          const errText = await res.text();
+          console.warn(`Model ${model} returned HTTP ${res.statusCode}:`, errText);
         }
       } catch (e) {
-        console.warn(`Model ${model} failed, trying next...`, e);
+        console.warn(`Model ${model} fetch failed:`, e);
       }
     }
 
     if (!aiResponseText) {
       return NextResponse.json({ 
         subject: "Comunicação Oficial",
-        body: `Olá,\n\nRelativamente à sua solicitação ("${prompt}"), venho por este meio comunicar que a nossa equipa está a acompanhar o processo com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`
+        body: `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`
       });
     }
 
@@ -84,7 +87,7 @@ Regras Obrigatórias:
       });
     } catch (parseErr) {
       return NextResponse.json({
-        subject: `Assunto: ${prompt.substring(0, 40)}`,
+        subject: "Comunicação Oficial",
         body: aiResponseText
       });
     }
