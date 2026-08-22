@@ -51,9 +51,9 @@ export async function POST(req: Request) {
       replyTo: fromEmail,
     });
 
-    // 2. Se o domínio não estiver verificado na Resend (ex: marcorei.com), usar automaticamente o domínio verificado rapimoneyit.online como gateway
+    // 2. Se o domínio não estiver verificado na Resend, usar automaticamente o domínio verificado rapiemail.online como gateway
     if (sendResult.error && sendResult.error.message.includes("not verified")) {
-      const verifiedDomain = "rapimoneyit.online";
+      const verifiedDomain = "rapiemail.online";
       const fallbackSender = `${fromName} (${fromEmail}) <noreply@${verifiedDomain}>`;
       
       console.log(`[RapiEmail Gateway] A reencaminhar email através do domínio verificado ${verifiedDomain}`);
