@@ -62,7 +62,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
   };
 
   const handleGenerateAi = async () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() || generatingAi) return;
     setGeneratingAi(true);
     setError("");
     
@@ -91,7 +91,15 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
         
         {/* Header */}
         <div className="bg-[#1e1e24] px-5 py-3.5 flex items-center justify-between border-b border-white/5">
-          <span className="text-sm font-semibold text-white tracking-tight">Escrever email</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white tracking-tight">Escrever email</span>
+            {generatingAi && (
+              <span className="flex items-center gap-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[11px] px-2.5 py-0.5 rounded-full font-bold animate-pulse">
+                <Sparkles className="w-3 h-3 text-indigo-400 animate-spin" />
+                RapiAI a pensar...
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3 text-zinc-400">
             <button onClick={onClose} className="hover:text-white transition-colors"><Minus className="w-4 h-4" /></button>
             <button className="hover:text-white transition-colors"><Maximize2 className="w-4 h-4" /></button>
@@ -164,7 +172,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
               value={subject}
               onChange={e => setSubject(e.target.value)}
               className="flex-1 bg-transparent border-none text-xs text-white font-medium focus:outline-none placeholder-zinc-600" 
-              placeholder="Assunto da mensagem..."
+              placeholder={generatingAi ? "A calcular assunto inteligente com Google Gemini..." : "Assunto da mensagem..."}
             />
           </div>
 
@@ -195,13 +203,37 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
           <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Código"><Code className="w-3.5 h-3.5" /></button>
         </div>
 
-        {/* Large Editor Text Area (Single Scrollbar) */}
-        <div className="flex-1 p-6 bg-[#121215] flex flex-col">
+        {/* Large Editor Text Area (With 3-Dots AI Loading Effect) */}
+        <div className="flex-1 p-6 bg-[#121215] flex flex-col relative">
+          
+          {/* Animated AI Thinking Banner with 3 Bouncing Dots */}
+          {generatingAi && (
+            <div className="mb-4 bg-gradient-to-r from-indigo-950/80 via-purple-950/80 to-indigo-950/80 border border-indigo-500/40 rounded-xl p-4 flex items-center justify-between shadow-lg animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-indigo-400 animate-spin" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-white block">RapiAI a calcular com Google Gemini...</span>
+                  <span className="text-[11px] text-indigo-200/70 block">A preparar a melhor estrutura e argumentos executivos</span>
+                </div>
+              </div>
+
+              {/* 3 Animated Bouncing Dots */}
+              <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-black/40 rounded-full border border-indigo-500/30">
+                <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></span>
+              </div>
+            </div>
+          )}
+
           <textarea 
             value={body}
             onChange={e => setBody(e.target.value)}
-            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto"
-            placeholder="Escreva a tua mensagem aqui..."
+            disabled={generatingAi}
+            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal overflow-y-auto disabled:opacity-50"
+            placeholder={generatingAi ? "A RapiAI está a redigir o corpo da mensagem..." : "Escreva a tua mensagem aqui..."}
           />
         </div>
 
@@ -215,21 +247,29 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
               type="text" 
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
+              disabled={generatingAi}
               onKeyDown={e => { if (e.key === 'Enter') handleGenerateAi(); }}
               placeholder="O que queres escrever? Ex.: convite formal para reunião..."
-              className="flex-1 bg-transparent border-none text-xs text-white placeholder:text-zinc-500 focus:outline-none"
+              className="flex-1 bg-transparent border-none text-xs text-white placeholder:text-zinc-500 focus:outline-none disabled:opacity-50"
             />
-            {aiPrompt && (
+            
+            {generatingAi ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded-full text-xs font-bold text-indigo-300 ml-2">
+                <span>A processar</span>
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce"></span>
+              </div>
+            ) : aiPrompt ? (
               <button 
                 type="button"
                 onClick={handleGenerateAi}
-                disabled={generatingAi}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ml-2 shadow-md shadow-indigo-600/30"
               >
-                {generatingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
                 <span>Gerar Texto com IA</span>
               </button>
-            )}
+            ) : null}
           </div>
 
           {/* Attachments & Send Action */}
@@ -245,7 +285,7 @@ export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
 
             <button 
               onClick={handleSend}
-              disabled={sending}
+              disabled={sending || generatingAi}
               className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
             >
               <span>{sending ? "A enviar..." : "Enviar"}</span>
