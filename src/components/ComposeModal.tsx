@@ -1,6 +1,11 @@
 "use client";
 import React, { useState } from 'react';
-import { X, Minus, Maximize2, Paperclip, Image as ImageIcon, Smile, MoreVertical, Send, Sparkles, Loader2 } from 'lucide-react';
+import { 
+  X, Minus, Maximize2, Paperclip, Image as ImageIcon, Smile, 
+  Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
+  Link as LinkIcon, Code, ChevronDown
+} from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 interface Props {
   isOpen: boolean;
@@ -8,20 +13,26 @@ interface Props {
 }
 
 export function ComposeModal({ isOpen, onClose }: Props) {
+  const { data: session } = useSession();
+  const fromEmail = session?.user?.email || "edson@rapiemail.online";
+
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
-  const [isAiOpen, setIsAiOpen] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSend = async () => {
     if (!to || !subject || !body) {
-      setError("Preencha todos os campos.");
+      setError("Preencha o destinatário, assunto e a mensagem.");
       return;
     }
     setSending(true);
@@ -45,167 +56,190 @@ export function ComposeModal({ isOpen, onClose }: Props) {
         window.location.reload();
       }
     } catch(err) {
-      setError("Erro de rede.");
+      setError("Erro de rede ao enviar.");
     } finally {
       setSending(false);
     }
   };
 
-  const handleGenerateAi = (type?: string) => {
+  const handleGenerateAi = () => {
+    if (!aiPrompt.trim()) return;
     setGeneratingAi(true);
     setTimeout(() => {
-      if (type === 'proposal') {
-        setSubject("Proposta de Parceria & Soluções RapiEmail Pro");
-        setBody(`Estimado(a),\n\nEspero que esta mensagem o(a) encontre bem.\n\nGostaria de apresentar a nossa solução corporativa de e-mail e alojamento web no RapiEmail Pro. Oferecemos infraestrutura de alta velocidade, rastreamento de leitura em tempo real (✓✓) e suporte dedicado.\n\nFico à disposição para agendarmos uma breve conversa esta semana.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`);
-      } else if (type === 'meeting') {
-        setSubject("Agendamento de Reunião de Acompanhamento");
-        setBody(`Olá,\n\nGostaria de agendar uma breve reunião de 15 minutos para alinharmos os próximos passos do nosso projeto.\n\nTens disponibilidade na próxima terça ou quarta-feira às 14:00?\n\nAguardo a tua confirmação.\n\nAbraço,`);
-      } else {
-        setSubject(`Comunicação Oficial: ${aiPrompt || 'Atualização de Serviço'}`);
-        setBody(`Olá,\n\nRelativamente a "${aiPrompt || 'o nosso assunto'}", venho por este meio comunicar que os detalhes foram atualizados com sucesso.\n\nPor favor, confirme a receção desta mensagem.\n\nAtenciosamente,`);
-      }
+      setSubject(`Comunicação Oficial: ${aiPrompt}`);
+      setBody(`Olá,\n\nRelativamente a "${aiPrompt}", venho por este meio comunicar que a nossa equipa já analisou o assunto.\n\nPor favor, confirme a receção desta mensagem para prosseguirmos.\n\nCom os melhores cumprimentos,\n${session?.user?.name || 'Equipa RapiEmail'}\nSent securely from RapiEmail Pro`);
       setGeneratingAi(false);
-      setIsAiOpen(false);
       setAiPrompt("");
-    }, 600);
+    }, 700);
   };
 
   return (
-    <div className="fixed bottom-0 right-24 w-[520px] bg-[#18181b] rounded-t-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden z-50 transform transition-transform duration-300 ease-out origin-bottom">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       
-      {/* Header */}
-      <div className="bg-[#27272a] px-4 py-3 flex items-center justify-between cursor-pointer border-b border-white/5" onClick={onClose}>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">Nova Mensagem</span>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setIsAiOpen(!isAiOpen); }}
-            className="flex items-center gap-1 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold text-indigo-300 transition-all"
-          >
-            <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
-            <span>RapiAI Assistant</span>
-          </button>
+      {/* Large Centered Modal Box (Matching Private Email / Superhuman design) */}
+      <div className="w-[720px] h-[640px] max-h-[90vh] bg-[#141417] rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="bg-[#1e1e24] px-5 py-3.5 flex items-center justify-between border-b border-white/5">
+          <span className="text-sm font-semibold text-white tracking-tight">Escrever email</span>
+          <div className="flex items-center gap-3 text-zinc-400">
+            <button onClick={onClose} className="hover:text-white transition-colors"><Minus className="w-4 h-4" /></button>
+            <button className="hover:text-white transition-colors"><Maximize2 className="w-4 h-4" /></button>
+            <button onClick={onClose} className="hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="text-zinc-400 hover:text-white transition-colors"><Minus className="w-4 h-4" /></button>
-          <button className="text-zinc-400 hover:text-white transition-colors"><Maximize2 className="w-4 h-4" /></button>
-          <button className="text-zinc-400 hover:text-white transition-colors" onClick={onClose}><X className="w-5 h-5" /></button>
-        </div>
-      </div>
 
-      {/* RapiAI Bar Panel */}
-      {isAiOpen && (
-        <div className="bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border-b border-indigo-500/30 p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs text-indigo-200 font-medium">
-            <span className="flex items-center gap-1.5 font-bold">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              O que pretende que a RapiAI redija?
-            </span>
-            <button onClick={() => setIsAiOpen(false)} className="text-zinc-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>
+        {/* Sender & Recipient Fields */}
+        <div className="bg-[#18181c] border-b border-white/5 flex flex-col text-xs text-zinc-300">
+          
+          {/* De: Selector */}
+          <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-3">
+            <span className="text-zinc-500 font-medium w-14">De:</span>
+            <div className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg cursor-pointer border border-white/5 text-zinc-200">
+              <span className="font-semibold">{fromEmail}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            </div>
           </div>
 
-          <div className="flex gap-1.5">
+          {/* Para: Input */}
+          <div className="px-5 py-2.5 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <span className="text-zinc-500 font-medium w-14">Para:</span>
+              <input 
+                type="email" 
+                value={to}
+                onChange={e => setTo(e.target.value)}
+                className="flex-1 bg-transparent border-none text-xs text-white focus:outline-none placeholder-zinc-600" 
+                placeholder="destinatario@empresa.com"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
+              <button onClick={() => setShowCc(!showCc)} className="hover:text-indigo-400 transition-colors">Cc</button>
+              <span>/</span>
+              <button onClick={() => setShowCc(!showCc)} className="hover:text-indigo-400 transition-colors">Bcc</button>
+            </div>
+          </div>
+
+          {/* Cc / Bcc Expandable */}
+          {showCc && (
+            <div className="px-5 py-2 border-b border-white/5 bg-black/20 space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="text-zinc-500 font-medium w-14">Cc:</span>
+                <input 
+                  type="text" 
+                  value={cc}
+                  onChange={e => setCc(e.target.value)}
+                  className="flex-1 bg-transparent text-xs text-white focus:outline-none" 
+                  placeholder="copia@empresa.com"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-zinc-500 font-medium w-14">Bcc:</span>
+                <input 
+                  type="text" 
+                  value={bcc}
+                  onChange={e => setBcc(e.target.value)}
+                  className="flex-1 bg-transparent text-xs text-white focus:outline-none" 
+                  placeholder="oculto@empresa.com"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Assunto: Input */}
+          <div className="px-5 py-2.5 flex items-center gap-3">
+            <span className="text-zinc-500 font-medium w-14">Assunto:</span>
+            <input 
+              type="text" 
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              className="flex-1 bg-transparent border-none text-xs text-white font-medium focus:outline-none placeholder-zinc-600" 
+              placeholder="Assunto da mensagem..."
+            />
+          </div>
+
+        </div>
+
+        {/* Rich Formatting Toolbar (Matching Private Email screenshot) */}
+        <div className="bg-[#1a1a20] border-b border-white/5 px-5 py-2 flex items-center gap-3 text-zinc-400 text-xs overflow-x-auto">
+          <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-zinc-300">
+            <span>Arial</span>
+            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          </div>
+          <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-zinc-300">
+            <span>14</span>
+            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          </div>
+
+          <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Negrito"><Bold className="w-3.5 h-3.5" /></button>
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Itálico"><Italic className="w-3.5 h-3.5" /></button>
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Sublinhado"><Underline className="w-3.5 h-3.5" /></button>
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Riscado"><Strikethrough className="w-3.5 h-3.5" /></button>
+          
+          <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Imagem"><ImageIcon className="w-3.5 h-3.5" /></button>
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Link"><LinkIcon className="w-3.5 h-3.5" /></button>
+          <button className="p-1.5 hover:text-white hover:bg-white/5 rounded transition-colors" title="Inserir Código"><Code className="w-3.5 h-3.5" /></button>
+        </div>
+
+        {/* Large Editor Text Area */}
+        <div className="flex-1 p-6 bg-[#121215] overflow-y-auto">
+          <textarea 
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            className="w-full h-full bg-transparent border-none text-sm text-zinc-200 focus:outline-none resize-none leading-relaxed placeholder:text-zinc-600 font-normal"
+            placeholder="Escreva a tua mensagem aqui..."
+          />
+        </div>
+
+        {/* Bottom AI Prompt Bar & Send Toolbar (Matching Private Email Floating Pill) */}
+        <div className="bg-[#18181c] border-t border-white/5 px-6 py-3.5 flex items-center justify-between gap-4">
+          
+          {/* RapiAI Floating Input Pill */}
+          <div className="flex-1 flex items-center bg-[#22222a] border border-white/10 rounded-full px-4 py-1.5 focus-within:border-indigo-500/50 transition-all shadow-inner">
+            <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse mr-2.5 flex-shrink-0" />
             <input 
               type="text" 
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
-              placeholder="Ex: Pedir orçamento de 50 caixas de email..."
-              className="flex-1 bg-black/40 border border-indigo-500/30 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none"
+              onKeyDown={e => { if (e.key === 'Enter') handleGenerateAi(); }}
+              placeholder="O que queres escrever? Ex.: convite formal para reunião..."
+              className="flex-1 bg-transparent border-none text-xs text-white placeholder:text-zinc-500 focus:outline-none"
             />
+            {aiPrompt && (
+              <button onClick={() => setAiPrompt("")} className="text-zinc-500 hover:text-white ml-2">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {generatingAi && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400 ml-2" />}
+          </div>
+
+          {/* Attachments & Send Action */}
+          <div className="flex items-center gap-3">
+            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" title="Anexar Ficheiro">
+              <Paperclip className="w-4 h-4" />
+            </button>
+            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
+              <Smile className="w-4 h-4" />
+            </button>
+
+            {error && <span className="text-red-400 text-xs">{error}</span>}
+
             <button 
-              onClick={() => handleGenerateAi()}
-              disabled={generatingAi}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
+              onClick={handleSend}
+              disabled={sending}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
             >
-              {generatingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Gerar'}
+              <span>{sending ? "A enviar..." : "Enviar"}</span>
+              <Send className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-[10px] text-zinc-400">Atalhos rápidos:</span>
-            <button 
-              onClick={() => handleGenerateAi('proposal')}
-              className="text-[10px] bg-white/10 hover:bg-white/15 text-zinc-200 px-2 py-0.5 rounded-md"
-            >
-              💼 Proposta Comercial
-            </button>
-            <button 
-              onClick={() => handleGenerateAi('meeting')}
-              className="text-[10px] bg-white/10 hover:bg-white/15 text-zinc-200 px-2 py-0.5 rounded-md"
-            >
-              📅 Marcar Reunião
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Form Fields */}
-      <div className="flex-1 flex flex-col bg-[#121215]">
-        <div className="border-b border-white/5 px-4 py-2 flex items-center">
-          <span className="text-zinc-500 text-xs w-12">Para</span>
-          <input 
-            type="email" 
-            value={to}
-            onChange={e => setTo(e.target.value)}
-            className="flex-1 bg-transparent border-none text-xs text-white focus:outline-none placeholder-zinc-700" 
-            placeholder="destinatario@empresa.com"
-          />
-        </div>
-        <div className="border-b border-white/5 px-4 py-2 flex items-center">
-          <span className="text-zinc-500 text-xs w-12">Assunto</span>
-          <input 
-            type="text" 
-            value={subject}
-            onChange={e => setSubject(e.target.value)}
-            className="flex-1 bg-transparent border-none text-xs text-white font-medium focus:outline-none" 
-            placeholder="Assunto da mensagem..."
-          />
-        </div>
-        
-        {/* Editor Area */}
-        <div className="flex-1 p-4 h-[260px]">
-          <textarea 
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            className="w-full h-full bg-transparent border-none text-xs text-zinc-300 focus:outline-none resize-none leading-relaxed"
-            placeholder="Escreva a sua mensagem aqui ou use a RapiAI no topo..."
-          />
-        </div>
-      </div>
-
-      {/* Footer / Toolbar */}
-      <div className="bg-[#18181b] border-t border-white/5 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleSend}
-            disabled={sending}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50 shadow-lg shadow-indigo-500/20"
-          >
-            {sending ? "A enviar..." : "Enviar"}
-            <Send className="w-3.5 h-3.5" />
-          </button>
-          
-          <div className="h-6 w-px bg-white/10 mx-1"></div>
-          
-          <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-            <Paperclip className="w-4 h-4" />
-          </button>
-          <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-            <ImageIcon className="w-4 h-4" />
-          </button>
-          <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-            <Smile className="w-4 h-4" />
-          </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {error && <span className="text-red-400 text-xs">{error}</span>}
-          <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-            <MoreVertical className="w-4 h-4" />
-          </button>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
     </div>
