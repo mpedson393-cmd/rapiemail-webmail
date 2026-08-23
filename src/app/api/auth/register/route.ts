@@ -44,11 +44,13 @@ export async function POST(req: Request) {
       }
     };
 
-    // Verificar se o email já existe
+    // Verificar se o email já existe no Supabase
     try {
       const existingUser = await runWithRetry(() => prisma.user.findUnique({ where: { email: loginEmail } }));
       if (existingUser) {
-        return NextResponse.json({ error: "Este endereço de e-mail já se encontra registado na plataforma. Por favor, faça login." }, { status: 400 });
+        return NextResponse.json({ 
+          error: "Esta conta de e-mail já foi criada com sucesso! Pode entrar diretamente com a sua palavra-passe." 
+        }, { status: 400 });
       }
     } catch (dbErr) {
       console.warn("DB user check warning:", dbErr);
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, user: { id: user.id }, loginEmail });
     } 
     else if (accountType === "BUSINESS" || accountType === "EMPRESA") {
-      const companyName = data.companyName || "Empresa RapiEmail";
+      const companyName = data.companyName || finalDomain;
 
       // Verificar se a empresa para este domínio já existe no Supabase
       let company = await runWithRetry(() => prisma.company.findUnique({ where: { domainName: finalDomain } }));
@@ -124,8 +126,10 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Register Server Error:", error);
     if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
-      return NextResponse.json({ error: "Este endereço de e-mail ou domínio já está registado na plataforma. Por favor, faça login." }, { status: 400 });
+      return NextResponse.json({ 
+        error: "Esta conta de e-mail já foi criada no banco de dados. Pode iniciar sessão diretamente." 
+      }, { status: 400 });
     }
-    return NextResponse.json({ error: "Servidor a inicializar. Por favor, clique em 'Concluir Configuração' novamente em 3 segundos." }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro ao processar registo." }, { status: 500 });
   }
 }
