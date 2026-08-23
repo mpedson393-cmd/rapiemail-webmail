@@ -140,26 +140,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
     }
   };
 
-  // Simular Abertura (para testes ao vivo)
-  const handleSimulateOpen = async (trackingId: string) => {
-    try {
-      await fetch(`/api/track/open/${trackingId}`);
-      setEmails(prev => prev.map(item => {
-        if (item.trackingId === trackingId) {
-          return {
-            ...item,
-            isOpened: true,
-            openedAt: new Date().toISOString(),
-            openCount: (item.openCount || 0) + 1,
-            userAgent: "Mozilla/5.0 (iPhone; Apple Mail)"
-          };
-        }
-        return item;
-      }));
-    } catch(err) {
-      console.error(err);
-    }
-  };
 
   const handleSendReply = async () => {
     if (!replyText || !selectedEmail) return;
@@ -576,23 +556,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 {/* Email Content Area */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">
                   
-                  {/* Rastreamento de Leitura Banner (Apenas em Emails Enviados) */}
+                  {/* Rastreamento de Leitura Real (Apenas em Emails Enviados) */}
                   {selectedEmail.from === user.email && (
                     <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
                       selectedEmail.isOpened 
                         ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
-                        : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-300'
                     }`}>
                       <div className="flex items-center gap-3.5">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md ${
-                          selectedEmail.isOpened ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                          selectedEmail.isOpened ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-400 border border-white/10'
                         }`}>
-                          {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-xs">
-                              {selectedEmail.isOpened ? '✓✓ Destinatário Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
+                              {selectedEmail.isOpened ? '✓✓ Destinatário Abriu e Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
                             </span>
                             {selectedEmail.isOpened && (
                               <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold">
@@ -602,21 +582,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           </div>
                           <p suppressHydrationWarning className="text-[11px] text-zinc-400 mt-0.5">
                             {selectedEmail.isOpened 
-                              ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent ? 'Cliente de Email' : 'Apple Mail / Web'}`
-                              : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este email.'}
+                              ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent || 'Dispositivo do Destinatário'}`
+                              : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este e-mail.'}
                           </p>
                         </div>
                       </div>
-
-                      {/* Botão de Teste / Simulação */}
-                      {!selectedEmail.isOpened && selectedEmail.trackingId && (
-                        <button
-                          onClick={() => handleSimulateOpen(selectedEmail.trackingId!)}
-                          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-600/20"
-                        >
-                          Simular Leitura
-                        </button>
-                      )}
                     </div>
                   )}
 
