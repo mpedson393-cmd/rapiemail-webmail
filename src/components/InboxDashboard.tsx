@@ -114,8 +114,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   }, [emails, searchQuery, selectedFolder, starredIds]);
 
   const selectedEmail = useMemo(() => {
-    return emails.find(e => e.id === selectedEmailId) || null;
-  }, [emails, selectedEmailId]);
+    return filteredEmails.find(e => e.id === selectedEmailId) || null;
+  }, [filteredEmails, selectedEmailId]);
+
+  const handleSelectFolder = (folderId: string) => {
+    setSelectedFolder(folderId);
+    const targetFolderEmails = emails.filter(e => {
+      if (folderId === 'STARRED') return starredIds.has(e.id);
+      return e.folder === folderId;
+    });
+    setSelectedEmailId(targetFolderEmails[0]?.id || null);
+  };
 
   const toggleStar = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -303,7 +312,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 return (
                   <button
                     key={folder.id}
-                    onClick={() => setSelectedFolder(folder.id)}
+                    onClick={() => handleSelectFolder(folder.id)}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                       isActive 
                         ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20 font-semibold' 
