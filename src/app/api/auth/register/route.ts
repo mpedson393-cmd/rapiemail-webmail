@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       console.warn("DB table check warning:", dbErr);
     }
 
-    if (accountType === "PERSONAL" || !accountType) {
+    if (accountType === "PERSONAL") {
       const user = await prisma.user.create({
         data: {
           accountType: "PERSONAL",
@@ -56,11 +56,12 @@ export async function POST(req: Request) {
       });
       return NextResponse.json({ success: true, user: { id: user.id }, loginEmail });
     } 
-    else if (accountType === "BUSINESS") {
+    else if (accountType === "BUSINESS" || accountType === "EMPRESA") {
+      const companyName = data.companyName || "Empresa RapiEmail";
       const company = await prisma.company.create({
         data: {
-          name: data.companyName || "Empresa RapiEmail",
-          employeeCount: data.employeeCount || "N/A",
+          name: companyName,
+          employeeCount: data.employeeCount || "1-10",
           region: data.region || "PT",
           address: data.address,
           domainStatus: domainStatus || "EXISTING",
@@ -70,8 +71,10 @@ export async function POST(req: Request) {
               accountType: "BUSINESS",
               email: loginEmail,
               password: hashedPassword,
-              firstName: "Admin",
-              lastName: data.companyName || "Empresa",
+              firstName: data.firstName || "Admin",
+              lastName: data.lastName || companyName,
+              domainName: finalDomain,
+              domainStatus: domainStatus || "EXISTING"
             }
           }
         }
@@ -79,7 +82,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, companyId: company.id, loginEmail });
     }
     
-    return NextResponse.json({ error: "Tipo de conta inválido." }, { status: 400 });
+    // Fallback padrão se não for nem PERSONAL nem BUSINESS explícito
+    const defaultUser = await prisma.user.create({
+      data: {
+        accountType: "BUSINESS",
+        email: loginEmail,
+        password: hashedPassword,
+        firstName: data.firstName || "Admin",
+        lastName: data.lastName || "Empresa",
+        domainName: finalDomain,
+        domainStatus: domainStatus || "EXISTING"
+      },
+    });
+
+    return NextResponse.json({ success: true, user: { id: defaultUser.id }, loginEmail });
+
   } catch (error: any) {
     console.error("Register Server Error:", error);
     return NextResponse.json({ error: error?.message || "Erro ao processar registo. Tente novamente." }, { status: 500 });
