@@ -1,11 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 
-const SUPABASE_DB_URL = "postgresql://postgres:Comojete%402005@db.bwhgmmtbrchugjmmydke.supabase.co:5432/postgres";
-
-// Ensure process.env.DATABASE_URL is always valid PostgreSQL URL
-if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith("postgres")) {
-  process.env.DATABASE_URL = SUPABASE_DB_URL;
+// Ensure process.env.DATABASE_URL is always valid PostgreSQL URL with sslmode=require & connect_timeout=15
+let activeUrl = process.env.DATABASE_URL;
+if (!activeUrl || !activeUrl.startsWith("postgres")) {
+  activeUrl = "postgresql://postgres:Comojete%402005@db.bwhgmmtbrchugjmmydke.supabase.co:5432/postgres?sslmode=require&connect_timeout=15";
+} else if (!activeUrl.includes("sslmode=")) {
+  activeUrl += activeUrl.includes("?") ? "&sslmode=require&connect_timeout=15" : "?sslmode=require&connect_timeout=15";
 }
+
+process.env.DATABASE_URL = activeUrl;
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -14,7 +17,7 @@ export const prisma =
   new PrismaClient({
     datasources: {
       db: {
-        url: process.env.DATABASE_URL || SUPABASE_DB_URL,
+        url: activeUrl,
       },
     },
     log: ['error'],

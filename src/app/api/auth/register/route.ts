@@ -30,18 +30,32 @@ export async function POST(req: Request) {
       loginEmail = `${prefix}@${finalDomain}`;
     }
 
-    // Verificar se o email já existe
+    // Função de Execução Resiliente com Retry Automático
+    const runWithRetry = async (fn: () => Promise<any>, retries = 2): Promise<any> => {
+      try {
+        return await fn();
+      } catch (err) {
+        if (retries > 0) {
+          console.warn(`[Supabase DB Retry] A tentar reconectar à base de dados... Tentativas restantes: ${retries}`);
+          await new Promise(res => setTimeout(res, 1000));
+          return runWithRetry(fn, retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    // Verificar se o email já existe com retry
     try {
-      const existingUser = await prisma.user.findUnique({ where: { email: loginEmail } });
+      const existingUser = await runWithRetry(() => prisma.user.findUnique({ where: { email: loginEmail } }));
       if (existingUser) {
         return NextResponse.json({ error: "Este endereço de email já está em uso na plataforma." }, { status: 400 });
       }
     } catch (dbErr) {
-      console.warn("DB table check warning:", dbErr);
+      console.warn("DB user check warning:", dbErr);
     }
 
     if (accountType === "PERSONAL") {
-      const user = await prisma.user.create({
+      const user = await runWithRetry(() => prisma.user.create({
         data: {
           accountType: "PERSONAL",
           email: loginEmail,
@@ -53,12 +67,12 @@ export async function POST(req: Request) {
           domainName: finalDomain,
           domainStatus: domainStatus || "EXISTING"
         },
-      });
+      }));
       return NextResponse.json({ success: true, user: { id: user.id }, loginEmail });
     } 
     else if (accountType === "BUSINESS" || accountType === "EMPRESA") {
       const companyName = data.companyName || "Empresa RapiEmail";
-      const company = await prisma.company.create({
+      const company = await runWithRetry(() => prisma.company.create({
         data: {
           name: companyName,
           employeeCount: data.employeeCount || "1-10",
@@ -78,12 +92,12 @@ export async function POST(req: Request) {
             }
           }
         }
-      });
+      }));
       return NextResponse.json({ success: true, companyId: company.id, loginEmail });
     }
     
     // Fallback padrão se não for nem PERSONAL nem BUSINESS explícito
-    const defaultUser = await prisma.user.create({
+    const defaultUser = await runWithRetry(() => prisma.user.create({
       data: {
         accountType: "BUSINESS",
         email: loginEmail,
@@ -93,12 +107,12 @@ export async function POST(req: Request) {
         domainName: finalDomain,
         domainStatus: domainStatus || "EXISTING"
       },
-    });
+    }));
 
     return NextResponse.json({ success: true, user: { id: defaultUser.id }, loginEmail });
 
   } catch (error: any) {
     console.error("Register Server Error:", error);
-    return NextResponse.json({ error: error?.message || "Erro ao processar registo. Tente novamente." }, { status: 500 });
+    return NextResponse.json({ error: "Servidor ocupado. Por favor, clique em 'Concluir Configuração' novamente em 5 segundos." }, { status: 500 });
   }
 }
