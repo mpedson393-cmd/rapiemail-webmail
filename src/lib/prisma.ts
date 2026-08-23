@@ -1,20 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 
-const SUPABASE_BASE_URL = "postgresql://postgres:Comojete%402005@db.bwhgmmtbrchugjmmydke.supabase.co:5432/postgres";
+// Supabase IPv4 Pooler URL (eu-central-1) - Compatível 100% com Render, Vercel e Servidores Linux
+const SUPABASE_IPV4_POOLER_URL = "postgresql://postgres.bwhgmmtbrchugjmmydke:Comojete%402005@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require";
 
-// Forçar parâmetros de resiliência e pooler para o Render (connect_timeout=30, sslmode=require)
-let activeUrl = process.env.DATABASE_URL || SUPABASE_BASE_URL;
+// Se DATABASE_URL não estiver configurada ou for o endpoint antigo direto (IPv6), usar o IPv4 Pooler
+let activeUrl = process.env.DATABASE_URL || SUPABASE_IPV4_POOLER_URL;
 
-if (!activeUrl.startsWith("postgres")) {
-  activeUrl = SUPABASE_BASE_URL;
-}
-
-// Garantir que todos os parâmetros de estabilidade da nuvem estejam presentes
-if (!activeUrl.includes("sslmode=")) {
+if (!activeUrl.startsWith("postgres") || activeUrl.includes("db.bwhgmmtbrchugjmmydke.supabase.co")) {
+  activeUrl = SUPABASE_IPV4_POOLER_URL;
+} else if (!activeUrl.includes("sslmode=")) {
   activeUrl += activeUrl.includes("?") ? "&sslmode=require" : "?sslmode=require";
-}
-if (!activeUrl.includes("connect_timeout=")) {
-  activeUrl += "&connect_timeout=30";
 }
 
 process.env.DATABASE_URL = activeUrl;
