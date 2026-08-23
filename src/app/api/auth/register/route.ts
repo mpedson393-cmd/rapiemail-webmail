@@ -7,27 +7,35 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const { accountType, password, domainName, domainStatus } = data;
+    const { accountType, password, domainName, domainStatus, email } = data;
 
-    if (!domainName || !password || !accountType) {
-      return NextResponse.json({ error: "Dados incompletos. Domínio e Password são obrigatórios." }, { status: 400 });
+    if ((!domainName && !email) || !password || !accountType) {
+      return NextResponse.json({ error: "Dados incompletos. E-mail/Domínio e Password são obrigatórios." }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Processamento Inteligente do Email de Login
+    // Processamento Inteligente do Email de Login e Domínio
     let loginEmail = "";
-    let finalDomain = domainName.toLowerCase().trim();
-    
-    if (finalDomain.includes("@")) {
-      loginEmail = finalDomain;
-      finalDomain = finalDomain.split("@")[1];
-    } else {
-      let prefix = "admin";
-      if (data.firstName) {
-        prefix = data.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    let finalDomain = "";
+
+    if (email && email.includes("@")) {
+      loginEmail = email.trim().toLowerCase();
+      finalDomain = loginEmail.split("@")[1];
+    } else if (domainName) {
+      const cleanDom = domainName.trim().toLowerCase();
+      if (cleanDom.includes("@")) {
+        loginEmail = cleanDom;
+        finalDomain = cleanDom.split("@")[1];
+      } else {
+        const prefix = data.firstName ? data.firstName.toLowerCase().replace(/[^a-z0-9]/g, "") : "admin";
+        loginEmail = `${prefix}@${cleanDom}`;
+        finalDomain = cleanDom;
       }
-      loginEmail = `${prefix}@${finalDomain}`;
+    }
+
+    if (!loginEmail || !finalDomain) {
+      return NextResponse.json({ error: "Por favor, insira um endereço de e-mail ou domínio válido." }, { status: 400 });
     }
 
     // Função de Execução Resiliente com 3 Retries Automáticos
@@ -49,7 +57,7 @@ export async function POST(req: Request) {
       const existingUser = await runWithRetry(() => prisma.user.findUnique({ where: { email: loginEmail } }));
       if (existingUser) {
         return NextResponse.json({ 
-          error: "Esta conta de e-mail já se encontra criada! Pode iniciar sessão diretamente na página de login." 
+          error: "Esta conta de e-mail já se encontra registada! Pode iniciar sessão diretamente na página de login." 
         }, { status: 400 });
       }
     } catch (dbErr) {
@@ -62,7 +70,7 @@ export async function POST(req: Request) {
           accountType: "PERSONAL",
           email: loginEmail,
           password: hashedPassword,
-          firstName: data.firstName || "Utilizador",
+          firstName: data.firstName || loginEmail.split("@")[0],
           lastName: data.lastName || "",
           dateOfBirth: data.dateOfBirth,
           gender: data.gender,
@@ -97,7 +105,7 @@ export async function POST(req: Request) {
           accountType: "BUSINESS",
           email: loginEmail,
           password: hashedPassword,
-          firstName: data.firstName || "Admin",
+          firstName: data.firstName || loginEmail.split("@")[0],
           lastName: data.lastName || companyName,
           domainName: finalDomain,
           domainStatus: domainStatus || "EXISTING",
@@ -114,7 +122,7 @@ export async function POST(req: Request) {
         accountType: "BUSINESS",
         email: loginEmail,
         password: hashedPassword,
-        firstName: data.firstName || "Admin",
+        firstName: data.firstName || loginEmail.split("@")[0],
         lastName: data.lastName || "Empresa",
         domainName: finalDomain,
         domainStatus: domainStatus || "EXISTING"
@@ -131,7 +139,6 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
     
-    // Tratar erros de conexão (P1001 / Can't reach database server) de forma limpa e profissional
     return NextResponse.json({ 
       error: "A estabilizar a ligação à base de dados na nuvem. Clique em 'Concluir Configuração' novamente em 3 segundos." 
     }, { status: 500 });
