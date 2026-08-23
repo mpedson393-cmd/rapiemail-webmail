@@ -32,7 +32,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative font-sans">
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay pointer-events-none"></div>
       
       <div className="w-full max-w-md bg-zinc-900/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl relative z-10">
         <div className="text-center mb-8">
