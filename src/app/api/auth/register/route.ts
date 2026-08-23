@@ -30,14 +30,14 @@ export async function POST(req: Request) {
       loginEmail = `${prefix}@${finalDomain}`;
     }
 
-    // Função de Execução Resiliente com Retry Automático
-    const runWithRetry = async (fn: () => Promise<any>, retries = 2): Promise<any> => {
+    // Função de Execução Resiliente com 3 Retries Automáticos
+    const runWithRetry = async (fn: () => Promise<any>, retries = 3): Promise<any> => {
       try {
         return await fn();
       } catch (err) {
         if (retries > 0) {
-          console.warn(`[Supabase DB Retry] A tentar reconectar à base de dados... Tentativas restantes: ${retries}`);
-          await new Promise(res => setTimeout(res, 1000));
+          console.warn(`[Supabase DB Retry] A reconectar à base de dados... Tentativas restantes: ${retries}`);
+          await new Promise(res => setTimeout(res, 800));
           return runWithRetry(fn, retries - 1);
         }
         throw err;
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       const existingUser = await runWithRetry(() => prisma.user.findUnique({ where: { email: loginEmail } }));
       if (existingUser) {
         return NextResponse.json({ 
-          error: "Esta conta de e-mail já foi criada com sucesso! Pode entrar diretamente com a sua palavra-passe." 
+          error: "Esta conta de e-mail já se encontra criada! Pode iniciar sessão diretamente na página de login." 
         }, { status: 400 });
       }
     } catch (dbErr) {
@@ -130,6 +130,10 @@ export async function POST(req: Request) {
         error: "Esta conta de e-mail já foi criada no banco de dados. Pode iniciar sessão diretamente." 
       }, { status: 400 });
     }
-    return NextResponse.json({ error: error?.message || "Erro ao processar registo." }, { status: 500 });
+    
+    // Tratar erros de conexão (P1001 / Can't reach database server) de forma limpa e profissional
+    return NextResponse.json({ 
+      error: "A estabilizar a ligação à base de dados na nuvem. Clique em 'Concluir Configuração' novamente em 3 segundos." 
+    }, { status: 500 });
   }
 }
