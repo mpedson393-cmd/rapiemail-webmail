@@ -23,12 +23,16 @@ export const authOptions: NextAuthOptions = {
         const rawPassword = credentials.password;
 
         // Função de Execução Resiliente para Autenticação Supabase
-        const fetchUserWithRetry = async (retries = 2): Promise<any> => {
+        const fetchUserWithRetry = async (retries = 3): Promise<any> => {
           try {
-            return await prisma.user.findUnique({ where: { email: cleanEmail } });
+            return await prisma.user.findFirst({
+              where: {
+                email: { equals: cleanEmail, mode: 'insensitive' }
+              }
+            });
           } catch (err) {
             if (retries > 0) {
-              console.warn(`[NextAuth DB Retry] A reconectar ao Supabase... Tentativas restantes: ${retries}`);
+              console.warn(`[NextAuth DB Retry] Reconectar ao Supabase... (${retries})`);
               await new Promise(res => setTimeout(res, 800));
               return fetchUserWithRetry(retries - 1);
             }
@@ -43,7 +47,12 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const isValid = await bcrypt.compare(rawPassword, user.password);
+        // Testar palavra-passe bruta e com trim
+        let isValid = await bcrypt.compare(rawPassword, user.password);
+        if (!isValid && rawPassword !== rawPassword.trim()) {
+          isValid = await bcrypt.compare(rawPassword.trim(), user.password);
+        }
+
         if (!isValid) {
           console.warn(`[NextAuth] Palavra-passe incorreta para email: ${cleanEmail}`);
           return null;
