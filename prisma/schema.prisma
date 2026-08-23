@@ -35,8 +35,8 @@ model User {
   gender       String?
   accountType  String   @default("PERSONAL")
   
-  // Para contas Pessoais (quando não têm empresa)
-  domainName   String?  @unique
+  // Para contas Pessoais ou Empresariais
+  domainName   String?
   domainStatus String?  // 'EXISTING' | 'TO_BUY'
 
   companyId    String?
