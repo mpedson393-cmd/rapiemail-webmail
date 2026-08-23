@@ -18,7 +18,7 @@ function RegisterForm() {
   // Informações de Utilizador
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [emailUsername, setEmailUsername] = useState(""); // Prefixo do email (ex: edson, mario, admin)
+  const [emailUsername, setEmailUsername] = useState(""); // Prefixo do email (ex: denio, edson, admin)
   const [recoveryEmail, setRecoveryEmail] = useState(""); // Opcional!
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,12 +51,20 @@ function RegisterForm() {
     }
   }, [searchParams]);
 
-  // Limpeza de domínio
-  const cleanDomain = domainName.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^@/, '');
-  const cleanUsername = emailUsername.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
-  const generatedEmail = cleanUsername && cleanDomain ? `${cleanUsername}@${cleanDomain}` : "";
+  // Limpeza e fallback inteligente de domínio e utilizador
+  const cleanDomain = (domainName || "rapiemail.online").trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^@/, '');
+  const effectiveUsername = (emailUsername || firstName || "admin").trim().toLowerCase().replace(/[^a-z0-9._-]/g, '') || "admin";
+  const generatedEmail = `${effectiveUsername}@${cleanDomain.includes("@") ? cleanDomain.split("@")[1] : cleanDomain}`;
 
-  const handleNext = () => { setError(""); setStep(s => s + 1); };
+  const handleNext = () => { 
+    setError(""); 
+    // Auto-preencher emailUsername a partir do primeiro nome se ainda estiver vazio
+    if (!emailUsername && firstName) {
+      setEmailUsername(firstName.toLowerCase().replace(/[^a-z0-9._-]/g, ''));
+    }
+    setStep(s => s + 1); 
+  };
+  
   const handleBack = () => { setError(""); setStep(s => s - 1); };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -64,17 +72,20 @@ function RegisterForm() {
     setLoading(true);
     setError("");
 
-    const finalLoginEmail = generatedEmail || (cleanDomain.includes("@") ? cleanDomain : `admin@${cleanDomain}`);
+    const finalLoginEmail = generatedEmail;
+
+    // Sanitizar recovery email (só envia se for formato de email válido)
+    const validRecoveryEmail = recoveryEmail.includes("@") && recoveryEmail.includes(".") ? recoveryEmail.trim() : undefined;
 
     const payload = {
-      accountType,
-      firstName: firstName || (cleanUsername ? cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1) : "Admin"),
-      lastName: lastName || (accountType === "BUSINESS" ? companyName : ""),
+      accountType: accountType || "BUSINESS",
+      firstName: firstName || effectiveUsername.charAt(0).toUpperCase() + effectiveUsername.slice(1),
+      lastName: lastName || (accountType === "BUSINESS" ? (companyName || "Empresa") : ""),
       password,
       domainStatus: domainStatus || "EXISTING",
       domainName: cleanDomain.includes("@") ? cleanDomain.split("@")[1] : cleanDomain,
       email: finalLoginEmail,
-      recoveryEmail: recoveryEmail || undefined,
+      recoveryEmail: validRecoveryEmail,
       // Personal
       dateOfBirth: dob,
       gender,
@@ -106,7 +117,7 @@ function RegisterForm() {
       });
 
       if (loginRes?.error) {
-        // Se a conta foi criada mas o signIn imediato falhou, redireciona para login com email pré-preenchido
+        // Redireciona para login com email pré-preenchido
         router.push(`/auth/login?email=${encodeURIComponent(data.loginEmail || finalLoginEmail)}`);
       } else {
         router.push("/inbox");
@@ -236,7 +247,7 @@ function RegisterForm() {
                       <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Nome do Administrador *</label>
                       <input 
                         type="text" 
-                        placeholder="Nome próprio" 
+                        placeholder="ex: Denio ou Edson" 
                         value={firstName} 
                         onChange={e => setFirstName(e.target.value)} 
                         className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
@@ -247,7 +258,7 @@ function RegisterForm() {
                       <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Apelido</label>
                       <input 
                         type="text" 
-                        placeholder="Apelido" 
+                        placeholder="Apelido (opcional)" 
                         value={lastName} 
                         onChange={e => setLastName(e.target.value)} 
                         className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
@@ -314,13 +325,13 @@ function RegisterForm() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div 
                     onClick={() => { setDomainStatus("EXISTING"); }} 
-                    className={`p-4 border rounded-2xl cursor-pointer transition-all ${domainStatus === "EXISTING" ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}
+                    className={`p-4 border rounded-2xl cursor-pointer transition-all ${domainStatus === "EXISTING" || !domainStatus ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}
                   >
                     <div className="flex items-center gap-2 mb-1.5">
                       <Globe className="w-4 h-4 text-indigo-400" />
                       <h3 className="font-semibold text-sm text-white">Usar Domínio Existente</h3>
                     </div>
-                    <p className="text-xs text-zinc-400">Tenho um domínio já registado (ex: rapiemail.online ou a minha empresa).</p>
+                    <p className="text-xs text-zinc-400">Tenho um domínio já registado (ex: rapiemail.online ou o meu domínio).</p>
                   </div>
 
                   <div 
@@ -344,7 +355,7 @@ function RegisterForm() {
                   </div>
                 )}
 
-                {domainStatus === "EXISTING" && (
+                {(domainStatus === "EXISTING" || !domainStatus) && (
                   <div className="pt-2 space-y-2">
                     <label className="block text-xs font-semibold text-zinc-300">Insira o seu domínio corporativo</label>
                     <input 
@@ -354,7 +365,7 @@ function RegisterForm() {
                       onChange={e => setDomainName(e.target.value)} 
                       className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
                     />
-                    <p className="text-[11px] text-zinc-500">Pode escrever apenas o domínio (ex: rapiemail.online) ou com e-mail (ex: edson@rapiemail.online).</p>
+                    <p className="text-[11px] text-zinc-500">Pode escrever apenas o domínio (ex: rapiemail.online) ou com e-mail.</p>
                   </div>
                 )}
 
@@ -364,8 +375,7 @@ function RegisterForm() {
                   </button>
                   <button 
                     onClick={handleNext} 
-                    disabled={!domainStatus || !cleanDomain} 
-                    className="bg-white text-black font-semibold rounded-xl px-6 py-3 text-sm hover:bg-zinc-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-white text-black font-semibold rounded-xl px-6 py-3 text-sm hover:bg-zinc-200 transition-all flex items-center gap-2"
                   >
                     Seguinte <ArrowRight className="w-4 h-4" />
                   </button>
@@ -388,28 +398,25 @@ function RegisterForm() {
                     <div className="flex items-center bg-black/60 border border-white/10 rounded-xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition">
                       <input 
                         type="text" 
-                        placeholder={firstName ? firstName.toLowerCase().replace(/[^a-z0-9]/g, '') : "edson"} 
+                        placeholder={firstName ? firstName.toLowerCase().replace(/[^a-z0-9]/g, '') : "denio"} 
                         value={emailUsername} 
                         onChange={e => setEmailUsername(e.target.value)} 
-                        className="bg-transparent px-4 py-3 text-white placeholder-zinc-600 outline-none text-sm flex-1"
-                        required
+                        className="bg-transparent px-4 py-3 text-white placeholder-zinc-500 outline-none text-sm flex-1"
                       />
-                      <span className="px-4 py-3 bg-white/5 border-l border-white/10 text-zinc-400 text-sm font-medium select-none">
+                      <span className="px-4 py-3 bg-white/5 border-l border-white/10 text-zinc-300 text-sm font-medium select-none">
                         @{cleanDomain.includes("@") ? cleanDomain.split("@")[1] : cleanDomain}
                       </span>
                     </div>
                   </div>
 
                   {/* Badge de Pré-visualização ao vivo */}
-                  {generatedEmail && (
-                    <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center gap-2.5">
-                      <Mail className="w-4 h-4 text-indigo-400 shrink-0" />
-                      <div className="text-xs">
-                        <span className="text-zinc-400">O seu e-mail de login será: </span>
-                        <strong className="text-indigo-300 font-semibold">{generatedEmail}</strong>
-                      </div>
+                  <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center gap-2.5">
+                    <Mail className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <div className="text-xs">
+                      <span className="text-zinc-400">O seu e-mail de login será: </span>
+                      <strong className="text-indigo-300 font-semibold">{generatedEmail}</strong>
                     </div>
-                  )}
+                  </div>
 
                   {/* Palavra-passe */}
                   <div>
@@ -440,8 +447,8 @@ function RegisterForm() {
                       <span className="text-[11px] text-zinc-500 font-normal">Opcional</span>
                     </div>
                     <input 
-                      type="email" 
-                      placeholder="ex: gmail ou outro contacto (apenas se tiver)" 
+                      type="text" 
+                      placeholder="ex: gmail ou outro contacto (opcional)" 
                       value={recoveryEmail} 
                       onChange={e => setRecoveryEmail(e.target.value)} 
                       className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
@@ -455,10 +462,10 @@ function RegisterForm() {
                   </button>
                   <button 
                     type="submit" 
-                    disabled={!password || !cleanUsername || loading} 
+                    disabled={!password || loading} 
                     className="bg-white text-black font-semibold rounded-xl px-8 py-3.5 text-sm hover:bg-zinc-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-white/5"
                   >
-                    {loading ? "A Criar Conta..." : "Concluir & Entrar no Webmail"}
+                    {loading ? "A Criar Conta..." : "Concluir e Entrar no Webmail"}
                   </button>
                 </div>
               </form>
@@ -637,10 +644,9 @@ function RegisterForm() {
                         placeholder={firstName ? firstName.toLowerCase().replace(/[^a-z0-9]/g, '') : "edson"} 
                         value={emailUsername} 
                         onChange={e => setEmailUsername(e.target.value)} 
-                        className="bg-transparent px-4 py-3 text-white placeholder-zinc-600 outline-none text-sm flex-1"
-                        required
+                        className="bg-transparent px-4 py-3 text-white placeholder-zinc-500 outline-none text-sm flex-1"
                       />
-                      <span className="px-4 py-3 bg-white/5 border-l border-white/10 text-zinc-400 text-sm font-medium">
+                      <span className="px-4 py-3 bg-white/5 border-l border-white/10 text-zinc-300 text-sm font-medium">
                         @{cleanDomain.includes("@") ? cleanDomain.split("@")[1] : cleanDomain}
                       </span>
                     </div>
@@ -674,10 +680,10 @@ function RegisterForm() {
                   </button>
                   <button 
                     type="submit" 
-                    disabled={!password || !cleanUsername || loading} 
+                    disabled={!password || loading} 
                     className="bg-white text-black font-semibold rounded-xl px-8 py-3.5 text-sm hover:bg-zinc-200 transition-all disabled:opacity-40 flex items-center gap-2 shadow-lg shadow-white/5"
                   >
-                    {loading ? "A Criar Conta..." : "Concluir & Entrar no Webmail"}
+                    {loading ? "A Criar Conta..." : "Concluir e Entrar no Webmail"}
                   </button>
                 </div>
               </form>
