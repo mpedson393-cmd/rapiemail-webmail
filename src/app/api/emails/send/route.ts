@@ -28,8 +28,8 @@ export async function POST(req: Request) {
     // Gerar ID único de Rastreamento (Tracking ID)
     const trackingId = crypto.randomUUID();
     
-    // Obter URL base da aplicação
-    const baseUrl = process.env.NEXTAUTH_URL || "https://rapiemail.online";
+    // Obter URL pública do domínio de produção
+    const baseUrl = "https://rapiemail.online";
     const trackingPixelUrl = `${baseUrl}/api/track/open/${trackingId}`;
 
     // Montar HTML com o Pixel Invisível de Rastreamento
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         <p style="margin: 0; white-space: pre-wrap;">${body.replace(/\n/g, '<br/>')}</p>
         <br/>
         <!-- RapiEmail Stealth Tracking Pixel -->
-        <img src="${trackingPixelUrl}" alt="" width="1" height="1" style="display:none !important; width:1px; height:1px; border:0; outline:0;" />
+        <img src="${trackingPixelUrl}" alt="" width="1" height="1" style="display:block !important; width:1px; height:1px; border:0; outline:0; opacity:0.01;" />
       </div>
     `;
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       ? `${fromName} <${fromEmail}>` 
       : `${fromName} (${fromEmail}) <noreply@rapiemail.online>`;
 
-    console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para "${to}"...`);
+    console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para "${to}" com pixel: "${trackingPixelUrl}"...`);
 
     const sendResult = await resend.emails.send({
       from: sender,
@@ -64,7 +64,9 @@ export async function POST(req: Request) {
     }
 
     // Gravar na Base de Dados Supabase PostgreSQL do utilizador com o trackingId
-    const user = await prisma.user.findUnique({ where: { email: fromEmail } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: fromEmail, mode: 'insensitive' } }
+    });
     
     let createdEmail = null;
     if (user) {
