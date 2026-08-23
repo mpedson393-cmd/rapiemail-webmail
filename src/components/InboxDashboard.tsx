@@ -7,7 +7,8 @@ import {
   Archive, AlertOctagon, Mail, Calendar, Users, Settings, 
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
   HardDrive, Globe, CheckCircle2, ChevronDown, Paperclip,
-  Check, CheckCheck, Edit3, X, Eye, EyeOff, Sparkles, ShieldCheck
+  Check, CheckCheck, Edit3, X, Eye, Sparkles, ShieldCheck,
+  Zap, ArrowUpRight
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -53,26 +54,32 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   const [sendingReply, setSendingReply] = useState(false);
   const [replySuccess, setReplySuccess] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Dynamic domain of user
-  const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapimoneyit.online';
+  const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapiemail.online';
 
-  // Polling automático a cada 8 segundos para verificar a chegada de e-mails em tempo real
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/emails/check");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.emails && Array.isArray(data.emails)) {
-            setEmails(data.emails);
-          }
+  // Fetch emails from Supabase
+  const refreshEmails = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch("/api/emails/check");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.emails && Array.isArray(data.emails)) {
+          setEmails(data.emails);
         }
-      } catch (err) {
-        // Polling silencioso
       }
-    }, 8000);
+    } catch (err) {
+      // Polling silencioso
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
+  // Polling automático suave a cada 6 segundos para verificar a chegada de e-mails em tempo real
+  useEffect(() => {
+    const interval = setInterval(refreshEmails, 6000);
     return () => clearInterval(interval);
   }, []);
 
@@ -149,7 +156,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
     }
   };
 
-
   const handleSendReply = async () => {
     if (!replyText || !selectedEmail) return;
     setSendingReply(true);
@@ -159,7 +165,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: selectedEmail.from === user.email ? selectedEmail.to : selectedEmail.from,
-          subject: `Re: ${selectedEmail.subject}`,
+          subject: selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
           body: replyText
         })
       });
@@ -167,6 +173,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         setReplySuccess(true);
         setReplyText("");
         setTimeout(() => setReplySuccess(false), 3000);
+        refreshEmails();
       }
     } catch(err) {
       console.error(err);
@@ -187,26 +194,31 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-[#09090b] text-zinc-300 font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-[#06070B] text-zinc-300 font-sans overflow-hidden select-none">
       
-      {/* 1. TOP GLOBAL APP BAR (Style Private Email / Superhuman) */}
-      <header className="h-14 border-b border-white/5 bg-[#0e0e11] flex items-center justify-between px-4 z-20 flex-shrink-0">
+      {/* 1. TOP GLOBAL EXECUTIVE APP BAR */}
+      <header className="h-14 border-b border-white/[0.07] bg-[#0A0C13]/80 backdrop-blur-2xl flex items-center justify-between px-4 z-20 flex-shrink-0">
         
         {/* Left: Brand & App Switcher */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#181820] border border-white/10 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
-              <span className="text-indigo-400 font-black text-xs tracking-tight">R</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 border border-indigo-400/30 flex items-center justify-center shadow-lg shadow-indigo-600/25">
+              <span className="text-white font-black text-xs tracking-tight">RE</span>
             </div>
-            <span className="text-white font-bold text-sm tracking-tight hidden sm:inline">RapiEmail</span>
+            <div className="hidden sm:block">
+              <span className="text-white font-bold text-sm tracking-tight">RapiEmail</span>
+              <span className="text-[10px] text-zinc-500 font-semibold block leading-none">Enterprise</span>
+            </div>
           </div>
 
           {/* App Switcher (Mail, Calendar, Contacts) */}
-          <div className="flex items-center bg-white/5 border border-white/5 rounded-lg p-0.5">
+          <div className="flex items-center bg-white/[0.04] border border-white/[0.06] rounded-xl p-1 shadow-inner">
             <button 
               onClick={() => setActiveTab('mail')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeTab === 'mail' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'mail' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
@@ -214,8 +226,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </button>
             <button 
               onClick={() => setActiveTab('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'calendar' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -223,8 +237,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </button>
             <button 
               onClick={() => setActiveTab('contacts')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeTab === 'contacts' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'contacts' 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -242,34 +258,37 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Pesquisar mensagens por remetente, assunto ou texto... (Ctrl+K)" 
-              className="w-full bg-white/[0.04] hover:bg-white/[0.07] border border-white/5 focus:border-indigo-500/40 rounded-xl py-1.5 pl-10 pr-4 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:bg-white/[0.06] transition-all"
+              className="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] focus:border-indigo-500/50 rounded-xl py-1.5 pl-10 pr-12 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:bg-white/[0.05] focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-sm"
             />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded font-mono pointer-events-none">
+              ⌘K
+            </kbd>
           </div>
         </div>
 
         {/* Right: Actions & Status */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button 
-            onClick={() => window.location.reload()}
-            title="Atualizar Correio"
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+            onClick={refreshEmails}
+            title="Atualizar Caixa de Correio"
+            className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all active:scale-95"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
           <div className="relative">
-            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
               <Bell className="w-4 h-4" />
             </button>
-            <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full"></div>
+            <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-sm shadow-indigo-500" />
           </div>
-          <Link href="/settings" title="Definições da Conta" className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+          <Link href="/settings" title="Definições da Conta" className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
             <Settings className="w-4 h-4" />
           </Link>
           
           <div className="h-4 w-px bg-white/10 mx-1"></div>
 
           <Link href="/settings" title="Abrir Perfil" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-600/20">
               {user.initials}
             </div>
           </Link>
@@ -286,26 +305,26 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         <ContactsView user={user} />
       )}
 
-      {/* TAB 3: MAIL VIEW (3-COLUMN WORKSPACE) */}
+      {/* TAB 3: MAIL VIEW (3-COLUMN SPLIT WORKSPACE) */}
       {activeTab === 'mail' && (
         <div className="flex-1 flex overflow-hidden animate-fade-in">
           
           {/* COLUMN 1: LEFT SIDEBAR (Folders & Storage) */}
-          <aside className="w-[240px] border-r border-white/5 bg-[#0b0b0e] flex flex-col flex-shrink-0">
+          <aside className="w-[245px] border-r border-white/[0.06] bg-[#07090E] flex flex-col flex-shrink-0">
             
-            {/* Write Button */}
-            <div className="p-3">
+            {/* Compose Button */}
+            <div className="p-3.5">
               <button 
                 onClick={() => setIsComposeOpen(true)}
-                className="w-full flex items-center justify-center gap-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white py-2.5 px-4 rounded-xl font-semibold text-xs shadow-lg shadow-indigo-600/20 transition-all"
+                className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-semibold text-xs shadow-lg shadow-indigo-600/25 border border-indigo-400/20 transition-all group"
               >
-                <Edit3 className="w-4 h-4" />
+                <Edit3 className="w-4 h-4 group-hover:rotate-6 transition-transform" />
                 <span>Escrever Email</span>
               </button>
             </div>
 
             {/* Folder Navigation */}
-            <nav className="flex-1 px-2 py-1 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 px-2.5 py-1 space-y-1 overflow-y-auto">
               {folders.map(folder => {
                 const Icon = folder.icon;
                 const isActive = selectedFolder === folder.id;
@@ -313,9 +332,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   <button
                     key={folder.id}
                     onClick={() => handleSelectFolder(folder.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                       isActive 
-                        ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20 font-semibold' 
+                        ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/25 font-semibold shadow-sm' 
                         : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
                     }`}
                   >
@@ -325,7 +344,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     </div>
                     {folder.count > 0 && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-indigo-500 text-white' : 'bg-white/10 text-zinc-400'
+                        isActive ? 'bg-indigo-500 text-white' : 'bg-white/10 text-zinc-300'
                       }`}>
                         {folder.count}
                       </span>
@@ -334,9 +353,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 );
               })}
 
-              {/* Alojamento Web Link (Upsell & AI Site Builder) */}
-              <div className="pt-4 mt-4 border-t border-white/5 px-1">
-                <div className="p-3 rounded-xl bg-gradient-to-b from-indigo-950/30 via-purple-950/20 to-transparent border border-indigo-500/20 space-y-2">
+              {/* Alojamento Web Card (Upsell & AI Site Builder) */}
+              <div className="pt-4 mt-4 border-t border-white/[0.06] px-1">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-b from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/20 space-y-2.5 shadow-lg shadow-black/40">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-white font-bold text-xs">
                       <Globe className="w-3.5 h-3.5 text-indigo-400" />
@@ -344,26 +363,26 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     </div>
                     <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">88€/ano</span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-tight">
+                  <p className="text-[11px] text-zinc-400 leading-snug">
                     Crie o site completo da sua loja em 10 segundos com a RapiAI no domínio <span className="text-zinc-200 font-medium">{userDomain}</span>.
                   </p>
                   <button 
                     onClick={() => setIsSiteBuilderOpen(true)}
-                    className="w-full text-center py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-[11px] rounded-lg transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 active:scale-98"
+                    className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-[11px] rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 active:scale-98"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-                    <span>✨ Criar Site com IA</span>
+                    <span>Criar Site com IA</span>
                   </button>
                 </div>
               </div>
             </nav>
 
             {/* Storage Meter (Real Dynamic Storage) */}
-            <div className="p-3 border-t border-white/5 bg-[#09090b]">
+            <div className="p-3.5 border-t border-white/[0.06] bg-[#06070B]">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-zinc-400 flex items-center gap-1.5 font-medium">
-                    <HardDrive className="w-3 h-3 text-zinc-500" />
+                    <HardDrive className="w-3.5 h-3.5 text-zinc-500" />
                     Armazenamento
                   </span>
                   <span className="text-zinc-500 font-mono text-[10px]">{storagePercent}</span>
@@ -383,17 +402,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               </div>
             </div>
 
-            {/* User Profile Footer (Separate Settings & Logout) */}
-            <div className="p-2 border-t border-white/5">
+            {/* User Profile Footer */}
+            <div className="p-2.5 border-t border-white/[0.06]">
               <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
             </div>
           </aside>
 
-          {/* COLUMN 2: MIDDLE LIST PANE (Email List) */}
-          <section className="w-[380px] border-r border-white/5 flex flex-col bg-[#09090b] flex-shrink-0">
+          {/* COLUMN 2: MIDDLE EMAIL LIST PANE */}
+          <section className="w-[390px] border-r border-white/[0.06] flex flex-col bg-[#07090E] flex-shrink-0">
             
             {/* List Header */}
-            <div className="h-12 border-b border-white/5 px-4 flex items-center justify-between bg-[#0e0e11]/50">
+            <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between bg-[#0A0C13]/50">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
                   {folders.find(f => f.id === selectedFolder)?.label || selectedFolder}
@@ -408,13 +427,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </div>
 
             {/* Email Scroll List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
               {filteredEmails.length === 0 ? (
-                <div className="text-center py-20 px-4">
-                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3 text-zinc-600">
+                <div className="text-center py-24 px-4 animate-fade-in">
+                  <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mx-auto mb-3.5 text-zinc-600 shadow-inner">
                     <Inbox className="w-6 h-6" />
                   </div>
-                  <h4 className="text-sm font-medium text-white mb-1">Sem mensagens</h4>
+                  <h4 className="text-sm font-semibold text-white mb-1">Sem mensagens</h4>
                   <p className="text-xs text-zinc-500">Esta pasta está limpa e vazia.</p>
                 </div>
               ) : (
@@ -432,20 +451,20 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3 rounded-xl border transition-all duration-150 cursor-pointer active:scale-[0.985] ${
+                      className={`group relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.985] ${
                         isSelected 
-                          ? 'bg-indigo-600/10 border-indigo-500/30 shadow-md shadow-black/40 scale-[1.005]' 
-                          : 'bg-[#0e0e11]/40 border-white/[0.04] hover:bg-white/[0.06] hover:border-white/10 hover:translate-x-0.5'
+                          ? 'bg-indigo-600/15 border-indigo-500/40 shadow-lg shadow-black/50' 
+                          : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:translate-x-0.5'
                       }`}
                     >
                       {/* Unread dot */}
                       {!email.read && !isSent && (
-                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500 animate-pulse"></div>
                       )}
 
                       <div className="flex items-start gap-3">
                         {/* Sender Avatar */}
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-white/5 flex items-center justify-center text-[11px] font-bold text-zinc-300 flex-shrink-0 mt-0.5">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-white/10 flex items-center justify-center text-[11px] font-bold text-zinc-200 flex-shrink-0 mt-0.5 shadow-sm">
                           {initial}
                         </div>
 
@@ -455,7 +474,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                             <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-white' : 'font-medium text-zinc-300'}`}>
                               {displayFrom}
                             </span>
-                            <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0">
+                            <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0 ml-2">
                               {time}
                             </span>
                           </div>
@@ -472,12 +491,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           {isSent && (
                             <div className="flex items-center gap-1.5 mt-2">
                               {email.isOpened ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-md">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md shadow-sm">
                                   <CheckCheck className="w-3 h-3 text-cyan-400" />
                                   <span>Lido {email.openCount && email.openCount > 1 ? `(${email.openCount}x)` : ''}</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded-md">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-500 bg-white/5 px-2 py-0.5 rounded-md">
                                   <Check className="w-3 h-3 text-zinc-500" />
                                   <span>Enviado</span>
                                 </span>
@@ -490,13 +509,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => toggleStar(email.id, e)} 
-                            className="text-zinc-500 hover:text-yellow-400 transition-colors"
+                            className="text-zinc-500 hover:text-yellow-400 transition-colors p-0.5"
                           >
                             <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-yellow-400 text-yellow-400 opacity-100' : ''}`} />
                           </button>
                           <button 
                             onClick={(e) => handleDeleteEmail(email.id, e)} 
-                            className="text-zinc-500 hover:text-red-400 transition-colors"
+                            className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -509,27 +528,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </div>
           </section>
 
-          {/* COLUMN 3: RIGHT READING PANE (Split-View Reader) */}
-          <main className="flex-1 flex flex-col bg-[#09090b] overflow-hidden">
+          {/* COLUMN 3: RIGHT SPLIT-VIEW READER PANE */}
+          <main className="flex-1 flex flex-col bg-[#05060A] overflow-hidden">
             
             {selectedEmail ? (
               <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
                 
                 {/* Email Toolbar Actions */}
-                <div className="h-12 border-b border-white/5 px-6 flex items-center justify-between bg-[#0e0e11]/30 flex-shrink-0">
+                <div className="h-12 border-b border-white/[0.06] px-6 flex items-center justify-between bg-[#0A0C13]/40 backdrop-blur-md flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => {
                         setReplyText(`\n\n--- Mensagem Original ---\n${selectedEmail.body}`);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-medium text-white transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
                     >
                       <CornerUpLeft className="w-3.5 h-3.5" />
                       <span>Responder</span>
                     </button>
                     <button 
                       onClick={() => setIsComposeOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-medium text-white transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
                     >
                       <CornerUpRight className="w-3.5 h-3.5" />
                       <span>Encaminhar</span>
@@ -538,25 +557,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     <button 
                       onClick={() => handleDeleteEmail(selectedEmail.id)}
                       title="Mover para o Lixo"
-                      className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                      className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                     <button 
                       title="Arquivar"
-                      className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                      className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
                     >
                       <Archive className="w-4 h-4" />
                     </button>
                   </div>
 
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <span suppressHydrationWarning className="font-mono">
+                    <span suppressHydrationWarning className="font-mono text-zinc-400">
                       {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
                         day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                       })}
                     </span>
-                    <button className="p-1 text-zinc-400 hover:text-white rounded">
+                    <button className="p-1 text-zinc-400 hover:text-white rounded-lg">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </div>
@@ -626,9 +645,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   </div>
 
                   {/* Sender Details Card */}
-                  <div className="flex items-center justify-between pb-6 border-b border-white/5">
+                  <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
                     <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-sm font-bold text-white shadow-md">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-sm font-bold text-white shadow-md shadow-indigo-600/20">
                         {selectedEmail.from.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
@@ -655,15 +674,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   </div>
 
                   {/* Body Content */}
-                  <div className="text-sm text-zinc-300 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl">
+                  <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl">
                     {selectedEmail.body}
                   </div>
 
                   {/* Inline Quick Reply Box */}
-                  <div className="mt-12 pt-6 border-t border-white/5 max-w-3xl">
-                    <div className="bg-[#0e0e11] border border-white/5 rounded-2xl p-4 focus-within:border-indigo-500/40 transition-all space-y-3 shadow-xl">
+                  <div className="mt-12 pt-6 border-t border-white/[0.06] max-w-3xl">
+                    <div className="bg-[#0A0C13] border border-white/[0.08] rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl">
                       <div className="flex items-center justify-between text-xs text-zinc-400">
-                        <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+                        <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
                           <CornerUpLeft className="w-3.5 h-3.5 text-indigo-400" />
                           Responder a {selectedEmail.from}
                         </span>
@@ -677,7 +696,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none resize-none"
                       />
 
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
                         <div className="flex items-center gap-2">
                           <button className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors">
                             <Paperclip className="w-4 h-4" />
@@ -694,7 +713,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           <button
                             onClick={handleSendReply}
                             disabled={!replyText || sendingReply}
-                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/20"
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-95"
                           >
                             <Send className="w-3.5 h-3.5" />
                             <span>{sendingReply ? 'A enviar...' : 'Enviar Resposta'}</span>
@@ -708,14 +727,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
               </div>
             ) : (
-              // Empty State (Style Namecheap Private Email / Superhuman)
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+              // Luxury Empty State
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-3xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-zinc-600 shadow-2xl">
+                  <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-zinc-600 shadow-2xl">
                     <Mail className="w-9 h-9 text-zinc-600" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500" />
                   </div>
                 </div>
 
@@ -728,7 +747,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
                 <button 
                   onClick={() => setIsComposeOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all border border-white/5"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold transition-all border border-white/[0.08] shadow-md shadow-black/40 active:scale-95"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Nova Mensagem</span>

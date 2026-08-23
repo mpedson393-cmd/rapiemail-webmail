@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #06070B;
+  --foreground: #F4F4F6;
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @theme inline {
@@ -11,35 +13,114 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-image: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #000000 70%);
+  background: #06070B;
+  color: #F4F4F6;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05), transparent 50%),
+    #06070B;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Micro-interações e Transições Ultra-Fluidas (Estilo Apple / Superhuman) */
+/* Scrollbar Elegante e Minimalista (Estilo macOS) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Transições com Física Natural Apple / Superhuman */
 button, a, input, select, textarea {
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.22s var(--ease-apple);
 }
 
 button:active, a:active {
-  transform: scale(0.96);
+  transform: scale(0.975);
 }
 
-/* Animação suave para troca de separadores e seleção de mensagens */
+/* Animações Fluidas de Entrada */
 .animate-fade-in {
-  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: appleFadeIn 0.28s var(--ease-apple) forwards;
 }
 
-@keyframes fadeIn {
-  from {
+.animate-slide-up {
+  animation: appleSlideUp 0.35s var(--ease-apple) forwards;
+}
+
+.animate-spring {
+  animation: appleSpring 0.4s var(--ease-spring) forwards;
+}
+
+@keyframes appleFadeIn {
+  0% {
     opacity: 0;
-    transform: translateY(4px) scale(0.995);
+    transform: translateY(6px) scale(0.992);
   }
-  to {
+  100% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes appleSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes appleSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Glassmorphism Efeitos Premium */
+.glass-panel {
+  background: rgba(18, 20, 29, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card-hover {
+  transition: all 0.25s var(--ease-apple);
+}
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Pulsação Suave e Elegante */
+@keyframes softPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.95); }
+}
+
+.animate-soft-pulse {
+  animation: softPulse 2.5s ease-in-out infinite;
 }

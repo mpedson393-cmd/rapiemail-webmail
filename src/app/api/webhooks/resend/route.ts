@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Resend Webhook Event] Tipo: ${type}`, JSON.stringify(data, null, 2));
 
-    // 1. Evento de Email Aberto pelo Destinatário (Tracking Nativo do Resend)
+    // 1. Evento de Email Aberto pelo Destinatário
     if (type === "email.opened") {
       const emailId = data?.email_id;
       if (emailId) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    // 2. Evento de Email Recebido (Inbound / Chegada de Nova Mensagem na Caixa de Entrada)
+    // 2. Evento de Email Recebido (Inbound)
     if (type === "email.received" || type === "email.delivery") {
       const toAddresses: string[] = Array.isArray(data?.to) ? data.to : [data?.to];
       const fromAddress = data?.from || "desconhecido@email.com";
@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
         if (!to) continue;
         const cleanTo = to.toLowerCase().trim();
 
-        // Encontrar o utilizador correspondente na base de dados
-        const user = await prisma.user.findUnique({
-          where: { email: cleanTo }
+        // Encontrar o utilizador correspondente no Supabase
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: cleanTo, mode: 'insensitive' } }
         });
 
         if (user) {
