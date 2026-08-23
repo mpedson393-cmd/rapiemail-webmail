@@ -20,11 +20,34 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
         
         const cleanEmail = credentials.email.trim().toLowerCase();
-        const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-        if (!user) return null;
-        
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) return null;
+        const rawPassword = credentials.password;
+
+        // Função de Execução Resiliente para Autenticação Supabase
+        const fetchUserWithRetry = async (retries = 2): Promise<any> => {
+          try {
+            return await prisma.user.findUnique({ where: { email: cleanEmail } });
+          } catch (err) {
+            if (retries > 0) {
+              console.warn(`[NextAuth DB Retry] A reconectar ao Supabase... Tentativas restantes: ${retries}`);
+              await new Promise(res => setTimeout(res, 800));
+              return fetchUserWithRetry(retries - 1);
+            }
+            console.error("NextAuth DB Fetch Error:", err);
+            return null;
+          }
+        };
+
+        const user = await fetchUserWithRetry();
+        if (!user) {
+          console.warn(`[NextAuth] Utilizador não encontrado para email: ${cleanEmail}`);
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(rawPassword, user.password);
+        if (!isValid) {
+          console.warn(`[NextAuth] Palavra-passe incorreta para email: ${cleanEmail}`);
+          return null;
+        }
 
         return { 
           id: user.id, 
