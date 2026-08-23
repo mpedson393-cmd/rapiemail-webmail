@@ -466,7 +466,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                             <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-white' : 'font-medium text-zinc-300'}`}>
                               {displayFrom}
                             </span>
-                            <span className="text-[10px] text-zinc-500 font-mono flex-shrink-0">
+                            <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0">
                               {time}
                             </span>
                           </div>
@@ -562,7 +562,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   </div>
 
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <span className="font-mono">
+                    <span suppressHydrationWarning className="font-mono">
                       {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
                         day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                       })}
@@ -600,7 +600,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                          <p suppressHydrationWarning className="text-[11px] text-zinc-400 mt-0.5">
                             {selectedEmail.isOpened 
                               ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent ? 'Cliente de Email' : 'Apple Mail / Web'}`
                               : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este email.'}
