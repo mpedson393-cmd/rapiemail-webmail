@@ -24,9 +24,25 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  transition: background-color 0.3s var(--ease-apple), color 0.3s var(--ease-apple);
 }
 
-/* Scrollbar Elegante e Minimalista (Estilo macOS) */
+/* Light Mode Luxury Apple Titanium Support */
+html.light, body.light, .light-theme {
+  --background: #F8F9FC;
+  --foreground: #0F172A;
+}
+
+body.light {
+  background: #F8F9FC !important;
+  color: #0F172A !important;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.07), transparent 70%),
+    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.03), transparent 50%),
+    #F8F9FC !important;
+}
+
+/* Scrollbar Minimalista Apple / macOS */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,7 +59,14 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* Transições com Física Natural Apple / Superhuman */
+body.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+}
+body.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Transições com Física Natural Apple */
 button, a, input, select, textarea {
   transition: all 0.22s var(--ease-apple);
 }
