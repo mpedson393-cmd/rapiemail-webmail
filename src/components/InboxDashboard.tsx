@@ -8,7 +8,7 @@ import {
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
   HardDrive, Globe, CheckCircle2, ChevronDown, Paperclip,
   Check, CheckCheck, Edit3, X, Eye, Sparkles, ShieldCheck,
-  Zap, ArrowUpRight, Languages
+  Zap, ArrowUpRight, Languages, Building2
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -40,6 +40,90 @@ interface Props {
   };
   initialEmails: EmailItem[];
   currentFolder: string;
+}
+
+// Utilitário para formatar Remetente e Email Limpos
+function parseSender(fromStr: string): { name: string; email: string; initial: string } {
+  if (!fromStr) return { name: "Desconhecido", email: "", initial: "RE" };
+  
+  const match = fromStr.match(/^(.*?)\s*<([^>]+)>$/);
+  if (match) {
+    const rawName = match[1].replace(/["']/g, '').trim();
+    const rawEmail = match[2].trim();
+    const displayName = rawName || rawEmail.split('@')[0];
+    const initial = displayName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
+    return { name: displayName, email: rawEmail, initial };
+  }
+
+  if (fromStr.includes('@')) {
+    const rawEmail = fromStr.trim();
+    const [userPart] = rawEmail.split('@');
+    const cleanName = userPart.replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const initial = cleanName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
+    return { name: cleanName, email: rawEmail, initial };
+  }
+
+  return { name: fromStr, email: fromStr, initial: fromStr.substring(0, 2).toUpperCase() || 'RE' };
+}
+
+// Obter Logótipo Real da Empresa e Domínio
+function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: string; color: string } {
+  const clean = (emailOrFrom || "").toLowerCase();
+
+  if (clean.includes("stripe.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=stripe.com&sz=128", 
+      companyName: "Stripe", 
+      color: "from-[#635BFF] to-[#0A2540]" 
+    };
+  }
+  if (clean.includes("crassula.io")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=crassula.io&sz=128", 
+      companyName: "Crassula Core Banking", 
+      color: "from-[#00E599] to-[#0B1528]" 
+    };
+  }
+  if (clean.includes("bel.money")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=bel.money&sz=128", 
+      companyName: "Belmoney Financial", 
+      color: "from-[#0066FF] to-[#001F5C]" 
+    };
+  }
+  if (clean.includes("moorwand.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=moorwand.com&sz=128", 
+      companyName: "Moorwand Cards", 
+      color: "from-[#0A0E2A] to-[#1E3A8A]" 
+    };
+  }
+  if (clean.includes("rapiemail.online") || clean.includes("rapimoneyit.online")) {
+    return { 
+      companyName: "RapiMoney IT", 
+      color: "from-indigo-600 to-purple-600" 
+    };
+  }
+  if (clean.includes("gmail.com") || clean.includes("google.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=google.com&sz=128", 
+      companyName: "Google / Gmail", 
+      color: "from-red-500 to-amber-500" 
+    };
+  }
+
+  // Extração automática de Favicon para qualquer empresa corporativa
+  const domainMatch = clean.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (domainMatch && domainMatch[1] && !domainMatch[1].includes("localhost")) {
+    const dom = domainMatch[1];
+    return {
+      logoUrl: `https://www.google.com/s2/favicons?domain=${dom}&sz=128`,
+      companyName: dom.split('.')[0].toUpperCase(),
+      color: "from-indigo-700 to-zinc-900"
+    };
+  }
+
+  return { companyName: "Empresa", color: "from-zinc-700 to-zinc-900" };
 }
 
 export function InboxDashboard({ user, initialEmails, currentFolder: initialFolder }: Props) {
@@ -201,7 +285,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
       return { isForeignLang: true, detectedLanguageName: "Espanhol" };
     }
     // Inglês
-    if (/\b(dear|thank you|hello|hi|please|best regards|regards|sincerely|meeting|setup|partnership|integration|proposal|agreement|pricing|follow up|schedule|review|platform)\b/i.test(b)) {
+    if (/\b(dear|thank you|hello|hi|please|best regards|regards|sincerely|meeting|setup|partnership|integration|proposal|agreement|pricing|follow up|schedule|review|platform|cards|processing)\b/i.test(b)) {
       return { isForeignLang: true, detectedLanguageName: "Inglês" };
     }
 
@@ -496,9 +580,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 filteredEmails.map(email => {
                   const isSelected = selectedEmailId === email.id;
                   const isStarred = starredIds.has(email.id);
-                  const isSent = email.from === user.email;
-                  const displayFrom = isSent ? `Para: ${email.to}` : email.from;
-                  const initial = displayFrom.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
+                  const isSent = email.folder === 'SENT' || email.from === user.email;
+                  
+                  const senderInfo = isSent 
+                    ? parseSender(email.to)
+                    : parseSender(email.from);
+                  
+                  const company = getCompanyInfo(isSent ? email.to : email.from);
                   
                   const d = new Date(email.createdAt);
                   const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
@@ -519,16 +607,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       )}
 
                       <div className="flex items-start gap-3">
-                        {/* Sender Avatar */}
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-white/10 flex items-center justify-center text-[11px] font-bold text-zinc-200 flex-shrink-0 mt-0.5 shadow-sm">
-                          {initial}
+                        {/* Company Logo or Sender Avatar */}
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5 shadow-sm overflow-hidden`}>
+                          {company.logoUrl ? (
+                            <img 
+                              src={company.logoUrl} 
+                              alt={company.companyName} 
+                              className="w-5 h-5 object-contain rounded-md"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <span>{senderInfo.initial}</span>
+                          )}
                         </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
                             <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-white' : 'font-medium text-zinc-300'}`}>
-                              {displayFrom}
+                              {isSent ? `Para: ${senderInfo.name}` : senderInfo.name}
                             </span>
                             <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0 ml-2">
                               {time}
@@ -588,258 +687,283 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           <main className="flex-1 flex flex-col bg-[#05060A] overflow-hidden">
             
             {selectedEmail ? (
-              <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
-                
-                {/* Email Toolbar Actions */}
-                <div className="h-12 border-b border-white/[0.06] px-6 flex items-center justify-between bg-[#0A0C13]/40 backdrop-blur-md flex-shrink-0">
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        setReplyText(`\n\n--- Mensagem Original ---\n${selectedEmail.body}`);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
-                    >
-                      <CornerUpLeft className="w-3.5 h-3.5" />
-                      <span>Responder</span>
-                    </button>
-                    <button 
-                      onClick={() => setIsComposeOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
-                    >
-                      <CornerUpRight className="w-3.5 h-3.5" />
-                      <span>Encaminhar</span>
-                    </button>
-                    <div className="h-4 w-px bg-white/10 mx-1"></div>
-                    <button 
-                      onClick={() => handleDeleteEmail(selectedEmail.id)}
-                      title="Mover para o Lixo"
-                      className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      title="Arquivar"
-                      className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-                    >
-                      <Archive className="w-4 h-4" />
-                    </button>
-                  </div>
+              (() => {
+                const parsedSender = parseSender(selectedEmail.from);
+                const parsedRecipient = parseSender(selectedEmail.to);
+                const company = getCompanyInfo(selectedEmail.from);
 
-                  <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <span suppressHydrationWarning className="font-mono text-zinc-400">
-                      {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
-                        day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                      })}
-                    </span>
-                    <button className="p-1 text-zinc-400 hover:text-white rounded-lg">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                return (
+                  <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
+                    
+                    {/* Email Toolbar Actions */}
+                    <div className="h-12 border-b border-white/[0.06] px-6 flex items-center justify-between bg-[#0A0C13]/40 backdrop-blur-md flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            setReplyText(`\n\n--- Mensagem Original ---\n${selectedEmail.body}`);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
+                        >
+                          <CornerUpLeft className="w-3.5 h-3.5" />
+                          <span>Responder</span>
+                        </button>
+                        <button 
+                          onClick={() => setIsComposeOpen(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
+                        >
+                          <CornerUpRight className="w-3.5 h-3.5" />
+                          <span>Encaminhar</span>
+                        </button>
+                        <div className="h-4 w-px bg-white/10 mx-1"></div>
+                        <button 
+                          onClick={() => handleDeleteEmail(selectedEmail.id)}
+                          title="Mover para o Lixo"
+                          className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          title="Arquivar"
+                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                        >
+                          <Archive className="w-4 h-4" />
+                        </button>
+                      </div>
 
-                {/* Email Content Area */}
-                <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                  
-                  {/* Rastreamento de Leitura Real (Apenas em Emails Enviados) */}
-                  {selectedEmail.from === user.email && (
-                    <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                      selectedEmail.isOpened 
-                        ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
-                        : 'bg-white/[0.02] border-white/10 text-zinc-300'
-                    }`}>
-                      <div className="flex items-center gap-3.5">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md ${
-                          selectedEmail.isOpened ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-400 border border-white/10'
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <span suppressHydrationWarning className="font-mono text-zinc-400">
+                          {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
+                            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                          })}
+                        </span>
+                        <button className="p-1 text-zinc-400 hover:text-white rounded-lg">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Email Content Area */}
+                    <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                      
+                      {/* Rastreamento de Leitura Real (Apenas em Emails Enviados) */}
+                      {selectedEmail.from === user.email && (
+                        <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
+                          selectedEmail.isOpened 
+                            ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
+                            : 'bg-white/[0.02] border-white/10 text-zinc-300'
                         }`}>
-                          {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                          <div className="flex items-center gap-3.5">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md ${
+                              selectedEmail.isOpened ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-400 border border-white/10'
+                            }`}>
+                              {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs">
+                                  {selectedEmail.isOpened ? '✓✓ Destinatário Abriu e Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
+                                </span>
+                                {selectedEmail.isOpened && (
+                                  <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold">
+                                    {selectedEmail.openCount || 1} visualização(ões)
+                                  </span>
+                                )}
+                              </div>
+                              <p suppressHydrationWarning className="text-[11px] text-zinc-400 mt-0.5">
+                                {selectedEmail.isOpened 
+                                  ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent || 'Dispositivo do Destinatário'}`
+                                  : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este e-mail.'}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs">
-                              {selectedEmail.isOpened ? '✓✓ Destinatário Abriu e Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
-                            </span>
-                            {selectedEmail.isOpened && (
-                              <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold">
-                                {selectedEmail.openCount || 1} visualização(ões)
-                              </span>
+                      )}
+
+                      {/* Subject Line & RapiAI Button */}
+                      <div className="flex items-start justify-between gap-4">
+                        <h1 className="text-xl font-bold text-white tracking-tight leading-snug flex-1">
+                          {selectedEmail.subject || '(Sem assunto)'}
+                        </h1>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch("/api/ai/generate", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ prompt: `Assunto: ${selectedEmail.subject}\nDe: ${selectedEmail.from}\n\nCorpo:\n${selectedEmail.body}`, mode: "summary" })
+                              });
+                              const data = await res.json();
+                              alert(data.summary || "Erro ao gerar resumo com RapiAI.");
+                            } catch(err) {
+                              alert("Erro de rede ao comunicar com Google Gemini.");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-xs font-bold text-indigo-300 transition-all shadow-sm flex-shrink-0"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          <span>Resumir com RapiAI</span>
+                        </button>
+                      </div>
+
+                      {/* Sender Details Card with Authentic Company Logos */}
+                      <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-sm font-bold text-white shadow-lg overflow-hidden shrink-0`}>
+                            {company.logoUrl ? (
+                              <img 
+                                src={company.logoUrl} 
+                                alt={company.companyName} 
+                                className="w-7 h-7 object-contain rounded-md"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <span>{parsedSender.initial}</span>
                             )}
                           </div>
-                          <p suppressHydrationWarning className="text-[11px] text-zinc-400 mt-0.5">
-                            {selectedEmail.isOpened 
-                              ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent || 'Dispositivo do Destinatário'}`
-                              : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este e-mail.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Subject Line & RapiAI Button */}
-                  <div className="flex items-start justify-between gap-4">
-                    <h1 className="text-xl font-bold text-white tracking-tight leading-snug flex-1">
-                      {selectedEmail.subject || '(Sem assunto)'}
-                    </h1>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch("/api/ai/generate", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `Assunto: ${selectedEmail.subject}\nDe: ${selectedEmail.from}\n\nCorpo:\n${selectedEmail.body}`, mode: "summary" })
-                          });
-                          const data = await res.json();
-                          alert(data.summary || "Erro ao gerar resumo com RapiAI.");
-                        } catch(err) {
-                          alert("Erro de rede ao comunicar com Google Gemini.");
-                        }
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-xs font-bold text-indigo-300 transition-all shadow-sm flex-shrink-0"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                      <span>Resumir com RapiAI</span>
-                    </button>
-                  </div>
-
-                  {/* Sender Details Card */}
-                  <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-sm font-bold text-white shadow-md shadow-indigo-600/20">
-                        {selectedEmail.from.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-white">
-                            {selectedEmail.from}
-                          </span>
-                          <span className="text-xs text-zinc-500 font-mono">&lt;{selectedEmail.from}&gt;</span>
-                        </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          para <span className="text-zinc-400">{selectedEmail.to}</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={(e) => toggleStar(selectedEmail.id, e)}
-                        className="p-2 text-zinc-400 hover:text-yellow-400 hover:bg-white/5 rounded-xl transition-colors"
-                      >
-                        <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 🌐 Google Translate / DeepL Neural AI Banner */}
-                  {isForeignLang && (
-                    <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-black/30 animate-fade-in">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
-                          <Languages className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">
-                              {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] 
-                                ? `Traduzido: ${translations[selectedEmail.id].sourceLang} → Português`
-                                : `Mensagem em ${detectedLanguageName}`}
-                            </span>
-                            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-white">
+                                {parsedSender.name}
+                              </span>
+                              {company.companyName && (
+                                <span className="text-[10px] bg-white/5 border border-white/10 text-zinc-300 px-2 py-0.5 rounded-md font-semibold">
+                                  {company.companyName}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
+                              <span>&lt;{parsedSender.email}&gt;</span>
+                              <span className="text-zinc-600">•</span>
+                              <span>para <strong className="text-zinc-400 font-medium">{parsedRecipient.name}</strong> &lt;{parsedRecipient.email}&gt;</span>
+                            </p>
                           </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
-                              ? "Tradução neural de alta precisão ativa. Pode alternar para a versão original a qualquer momento."
-                              : "Deseja traduzir esta mensagem para português?"}
-                          </p>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                        {translations[selectedEmail.id] ? (
-                          showOriginalMap[selectedEmail.id] ? (
-                            <button
-                              onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: false }))}
-                              className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all active:scale-95"
-                            >
-                              <Languages className="w-3.5 h-3.5" />
-                              <span>Ver Tradução</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: true }))}
-                              className="text-xs font-semibold text-zinc-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
-                            >
-                              Mostrar original
-                            </button>
-                          )
-                        ) : (
-                          <button
-                            onClick={() => handleTranslateEmail(selectedEmail.id, selectedEmail.body)}
-                            disabled={translatingId === selectedEmail.id}
-                            className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-95"
-                          >
-                            <Languages className="w-3.5 h-3.5" />
-                            <span>{translatingId === selectedEmail.id ? "A traduzir..." : "Traduzir para Português"}</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Body Content (Shows translated or original smoothly) */}
-                  <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in">
-                    {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
-                      ? translations[selectedEmail.id].text
-                      : selectedEmail.body}
-                  </div>
-
-                  {/* Inline Quick Reply Box */}
-                  <div className="mt-12 pt-6 border-t border-white/[0.06] max-w-3xl">
-                    <div className="bg-[#0A0C13] border border-white/[0.08] rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl">
-                      <div className="flex items-center justify-between text-xs text-zinc-400">
-                        <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
-                          <CornerUpLeft className="w-3.5 h-3.5 text-indigo-400" />
-                          Responder a {selectedEmail.from}
-                        </span>
-                      </div>
-
-                      <textarea
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        placeholder="Escreva aqui a sua resposta rápida..."
-                        rows={3}
-                        className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none resize-none"
-                      />
-
-                      <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                        
                         <div className="flex items-center gap-2">
-                          <button className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors">
-                            <Paperclip className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {replySuccess && (
-                            <span className="text-xs text-green-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Resposta enviada com sucesso!
-                            </span>
-                          )}
-                          <button
-                            onClick={handleSendReply}
-                            disabled={!replyText || sendingReply}
-                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-95"
+                          <button 
+                            onClick={(e) => toggleStar(selectedEmail.id, e)}
+                            className="p-2 text-zinc-400 hover:text-yellow-400 hover:bg-white/5 rounded-xl transition-colors"
                           >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>{sendingReply ? 'A enviar...' : 'Enviar Resposta'}</span>
+                            <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                           </button>
                         </div>
                       </div>
+
+                      {/* 🌐 Google Translate / DeepL Neural AI Banner */}
+                      {isForeignLang && (
+                        <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-black/30 animate-fade-in">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
+                              <Languages className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-white">
+                                  {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] 
+                                    ? `Traduzido: ${translations[selectedEmail.id].sourceLang} → Português`
+                                    : `Mensagem em ${detectedLanguageName}`}
+                                </span>
+                                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
+                              </div>
+                              <p className="text-[11px] text-zinc-400 mt-0.5">
+                                {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
+                                  ? "Tradução neural oficial ativa com preservação da estrutura e tom comercial."
+                                  : "Deseja traduzir esta mensagem para português?"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            {translations[selectedEmail.id] ? (
+                              showOriginalMap[selectedEmail.id] ? (
+                                <button
+                                  onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: false }))}
+                                  className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all active:scale-95"
+                                >
+                                  <Languages className="w-3.5 h-3.5" />
+                                  <span>Ver Tradução</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: true }))}
+                                  className="text-xs font-semibold text-zinc-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
+                                >
+                                  Mostrar original
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                onClick={() => handleTranslateEmail(selectedEmail.id, selectedEmail.body)}
+                                disabled={translatingId === selectedEmail.id}
+                                className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-95"
+                              >
+                                <Languages className="w-3.5 h-3.5" />
+                                <span>{translatingId === selectedEmail.id ? "A traduzir..." : "Traduzir para Português"}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Body Content (Shows translated or original smoothly) */}
+                      <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in">
+                        {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
+                          ? translations[selectedEmail.id].text
+                          : selectedEmail.body}
+                      </div>
+
+                      {/* Inline Quick Reply Box */}
+                      <div className="mt-12 pt-6 border-t border-white/[0.06] max-w-3xl">
+                        <div className="bg-[#0A0C13] border border-white/[0.08] rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl">
+                          <div className="flex items-center justify-between text-xs text-zinc-400">
+                            <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
+                              <CornerUpLeft className="w-3.5 h-3.5 text-indigo-400" />
+                              Responder a {parsedSender.name}
+                            </span>
+                          </div>
+
+                          <textarea
+                            value={replyText}
+                            onChange={e => setReplyText(e.target.value)}
+                            placeholder="Escreva aqui a sua resposta rápida..."
+                            rows={3}
+                            className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none resize-none"
+                          />
+
+                          <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                            <div className="flex items-center gap-2">
+                              <button className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors">
+                                <Paperclip className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              {replySuccess && (
+                                <span className="text-xs text-green-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Resposta enviada com sucesso!
+                                </span>
+                              )}
+                              <button
+                                onClick={handleSendReply}
+                                disabled={!replyText || sendingReply}
+                                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-95"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>{sendingReply ? 'A enviar...' : 'Enviar Resposta'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
+
                   </div>
-
-                </div>
-
-              </div>
+                );
+              })()
             ) : (
               // Luxury Empty State
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
