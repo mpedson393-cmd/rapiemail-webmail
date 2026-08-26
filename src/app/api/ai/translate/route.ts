@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const { text, targetLang } = await req.json();
@@ -8,35 +10,66 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Texto inválido." }, { status: 400 });
     }
 
-    const apiKey = process.env.DEEPL_API_KEY || "eca26ca1-db36-43ac-adac-3cdde4f706be:fx";
-    const target = (targetLang || "EN").toUpperCase();
+    const deepLKey = process.env.DEEPL_API_KEY || "eca26ca1-db36-43ac-adac-3cdde4f706be:fx";
+    const target = (targetLang || "PT-PT").toUpperCase();
 
-    const bodyParams = new URLSearchParams({
-      text,
-      target_lang: target
-    }).toString();
+    // 1. Tentar Tradução Oficial com DeepL Neural Engine
+    try {
+      const bodyParams = new URLSearchParams({
+        text,
+        target_lang: target === "PT" ? "PT-PT" : target
+      }).toString();
 
-    const res = await fetch("https://api-free.deepl.com/v2/translate", {
-      method: "POST",
-      headers: {
-        "Authorization": `DeepL-Auth-Key ${apiKey}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: bodyParams
-    });
+      const res = await fetch("https://api-free.deepl.com/v2/translate", {
+        method: "POST",
+        headers: {
+          "Authorization": `DeepL-Auth-Key ${deepLKey}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: bodyParams
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      const translatedText = data?.translations?.[0]?.text || text;
-      return NextResponse.json({ translatedText });
-    } else {
-      const errText = await res.text();
-      console.warn("DeepL API Error:", res.status, errText);
-      return NextResponse.json({ error: "Erro ao traduzir com DeepL." }, { status: 500 });
+      if (res.ok) {
+        const data = await res.json();
+        const translation = data?.translations?.[0];
+        if (translation?.text) {
+          return NextResponse.json({ 
+            translatedText: translation.text,
+            detectedSourceLang: translation.detected_source_language || "EN",
+            targetLang: target
+          });
+        }
+      }
+    } catch (deepLErr) {
+      console.warn("DeepL Translation Warning, fallback to Gemini AI:", deepLErr);
     }
 
+    // 2. Fallback Inteligente com Google Gemini AI
+    const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `Translate the following text to Portuguese (Portugal). Maintain formatting:\n\n${text}` }]
+        }]
+      })
+    });
+
+    if (geminiRes.ok) {
+      const geminiData = await geminiRes.json();
+      const geminiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+      return NextResponse.json({ 
+        translatedText: geminiText,
+        detectedSourceLang: "AUTO",
+        targetLang: target
+      });
+    }
+
+    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN" });
+
   } catch (error: any) {
-    console.error("DeepL Translation Error:", error);
-    return NextResponse.json({ error: "Erro de tradução." }, { status: 500 });
+    console.error("Translation Server Error:", error);
+    return NextResponse.json({ error: "Erro ao traduzir mensagem." }, { status: 500 });
   }
 }

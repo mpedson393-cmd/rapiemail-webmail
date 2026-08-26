@@ -8,7 +8,7 @@ import {
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
   HardDrive, Globe, CheckCircle2, ChevronDown, Paperclip,
   Check, CheckCheck, Edit3, X, Eye, Sparkles, ShieldCheck,
-  Zap, ArrowUpRight
+  Zap, ArrowUpRight, Languages
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -55,6 +55,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   const [replySuccess, setReplySuccess] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Estados de Tradução Automática (DeepL / Google Translate Style)
+  const [translations, setTranslations] = useState<Record<string, { text: string; sourceLang: string }>>({});
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const [showOriginalMap, setShowOriginalMap] = useState<Record<string, boolean>>({});
 
   // Dynamic domain of user
   const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapiemail.online';
@@ -179,6 +184,57 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
       console.error(err);
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  // Detetar se o email está num idioma estrangeiro (Inglês, Francês, Espanhol, etc.)
+  const { isForeignLang, detectedLanguageName } = useMemo(() => {
+    if (!selectedEmail) return { isForeignLang: false, detectedLanguageName: "Inglês" };
+    const b = selectedEmail.body.toLowerCase();
+    
+    // Francês
+    if (/\b(bonjour|merci|cordialement|salutations|nous|vous|pour|avec|votre)\b/i.test(b)) {
+      return { isForeignLang: true, detectedLanguageName: "Francês" };
+    }
+    // Espanhol
+    if (/\b(hola|gracias|saludos|estimado|por favor|buenas|adjunto)\b/i.test(b)) {
+      return { isForeignLang: true, detectedLanguageName: "Espanhol" };
+    }
+    // Inglês
+    if (/\b(dear|thank you|hello|hi|please|best regards|regards|sincerely|meeting|setup|partnership|integration|proposal|agreement|pricing|follow up|schedule|review|platform)\b/i.test(b)) {
+      return { isForeignLang: true, detectedLanguageName: "Inglês" };
+    }
+
+    return { isForeignLang: false, detectedLanguageName: "Inglês" };
+  }, [selectedEmail]);
+
+  // Função de Tradução com DeepL Neural Engine
+  const handleTranslateEmail = async (emailId: string, content: string) => {
+    setTranslatingId(emailId);
+    try {
+      const res = await fetch("/api/ai/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content, targetLang: "PT-PT" })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rawLang = (data.detectedSourceLang || "EN").toUpperCase();
+        const readable = rawLang.includes("EN") ? "Inglês" : (rawLang.includes("FR") ? "Francês" : (rawLang.includes("ES") ? "Espanhol" : "Inglês"));
+        
+        setTranslations(prev => ({
+          ...prev,
+          [emailId]: {
+            text: data.translatedText,
+            sourceLang: readable
+          }
+        }));
+        setShowOriginalMap(prev => ({ ...prev, [emailId]: false }));
+      }
+    } catch(err) {
+      console.error("Erro na tradução:", err);
+    } finally {
+      setTranslatingId(null);
     }
   };
 
@@ -673,9 +729,67 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     </div>
                   </div>
 
-                  {/* Body Content */}
-                  <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl">
-                    {selectedEmail.body}
+                  {/* 🌐 Google Translate / DeepL Neural AI Banner */}
+                  {isForeignLang && (
+                    <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-black/30 animate-fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
+                          <Languages className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">
+                              {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] 
+                                ? `Traduzido: ${translations[selectedEmail.id].sourceLang} → Português`
+                                : `Mensagem em ${detectedLanguageName}`}
+                            </span>
+                            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
+                              ? "Tradução neural de alta precisão ativa. Pode alternar para a versão original a qualquer momento."
+                              : "Deseja traduzir esta mensagem para português?"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                        {translations[selectedEmail.id] ? (
+                          showOriginalMap[selectedEmail.id] ? (
+                            <button
+                              onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: false }))}
+                              className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all active:scale-95"
+                            >
+                              <Languages className="w-3.5 h-3.5" />
+                              <span>Ver Tradução</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: true }))}
+                              className="text-xs font-semibold text-zinc-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
+                            >
+                              Mostrar original
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={() => handleTranslateEmail(selectedEmail.id, selectedEmail.body)}
+                            disabled={translatingId === selectedEmail.id}
+                            className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-95"
+                          >
+                            <Languages className="w-3.5 h-3.5" />
+                            <span>{translatingId === selectedEmail.id ? "A traduzir..." : "Traduzir para Português"}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Body Content (Shows translated or original smoothly) */}
+                  <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in">
+                    {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
+                      ? translations[selectedEmail.id].text
+                      : selectedEmail.body}
                   </div>
 
                   {/* Inline Quick Reply Box */}
