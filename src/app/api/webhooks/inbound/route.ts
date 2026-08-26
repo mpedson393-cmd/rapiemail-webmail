@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { simpleParser } from "mailparser";
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Universal Inbound Email Webhook
- * Recebe emails reais vindos do Gmail, Outlook, Yahoo, Apple Mail e qualquer provedor mundial.
- * Suporta payloads estruturados de Resend Inbound, SendGrid Inbound Parse, Mailgun, Cloudflare Email Routing e Postmark.
+ * Recebe emails reais de todo o mundo em tempo real (Cloudflare Email Routing, Resend, SendGrid, Mailgun, Postmark).
+ * Grava instantaneamente na Caixa de Entrada (INBOX) do utilizador no Supabase.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -19,9 +20,25 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes("application/json")) {
       const json = await req.json();
-      
-      // Resend Inbound format
-      if (json.data) {
+
+      // Caso o payload contenha o email bruto (Cloudflare Worker Raw Email)
+      if (json.raw) {
+        try {
+          const parsed = await simpleParser(json.raw);
+          to = parsed.to ? (Array.isArray(parsed.to) ? parsed.to[0].text : parsed.to.text) : (json.to || "");
+          from = parsed.from ? parsed.from.text : (json.from || "");
+          subject = parsed.subject || json.subject || "(Sem assunto)";
+          body = parsed.text || parsed.html ? parsed.text || "" : json.body || "";
+          html = parsed.html || json.html || "";
+        } catch (e) {
+          // Fallback caso a análise do raw falhe
+          to = json.to || "";
+          from = json.from || "";
+          subject = json.subject || "(Sem assunto)";
+          body = json.text || json.body || "";
+        }
+      } else if (json.data) {
+        // Resend Inbound format
         const d = json.data;
         to = Array.isArray(d.to) ? d.to[0] : (d.to || "");
         from = d.from || "";
@@ -44,13 +61,28 @@ export async function POST(req: NextRequest) {
       subject = (formData.get("subject") as string) || "(Sem assunto)";
       body = (formData.get("text") as string) || (formData.get("body-plain") as string) || "";
       html = (formData.get("html") as string) || (formData.get("body-html") as string) || "";
+    } else {
+      // Raw text/MIME stream
+      const rawText = await req.text();
+      if (rawText) {
+        try {
+          const parsed = await simpleParser(rawText);
+          to = parsed.to ? (Array.isArray(parsed.to) ? parsed.to[0].text : parsed.to.text) : "";
+          from = parsed.from ? parsed.from.text : "";
+          subject = parsed.subject || "(Sem assunto)";
+          body = parsed.text || "";
+          html = parsed.html || "";
+        } catch(e) {
+          body = rawText;
+        }
+      }
     }
 
     if (!to) {
       return NextResponse.json({ error: "Destinatário 'to' não fornecido" }, { status: 400 });
     }
 
-    // Extrair email limpo do destinatário (ex: "Denio <denio@rapiemail.online>" -> "denio@rapiemail.online")
+    // Extrair email limpo do destinatário (ex: "Edson <edson@rapimoneyit.online>" -> "edson@rapimoneyit.online")
     const match = to.match(/<([^>]+)>/);
     const cleanTo = (match ? match[1] : to).trim().toLowerCase();
 
@@ -61,11 +93,23 @@ export async function POST(req: NextRequest) {
       where: { email: { equals: cleanTo, mode: 'insensitive' } }
     });
 
-    // Se o utilizador específico não existir mas o domínio for o da empresa, associar ao admin da empresa
+    // Se o utilizador específico não existir mas o domínio for o da empresa, associar ao utilizador principal do domínio
     if (!user && cleanTo.includes("@")) {
       const domain = cleanTo.split("@")[1];
       user = await prisma.user.findFirst({
-        where: { domainName: { equals: domain, mode: 'insensitive' } }
+        where: {
+          OR: [
+            { email: { endsWith: `@${domain}`, mode: 'insensitive' } },
+            { domainName: { equals: domain, mode: 'insensitive' } }
+          ]
+        }
+      });
+    }
+
+    // Fallback de segurança para o administrador da conta (edson@rapimoneyit.online)
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: { email: { equals: "edson@rapimoneyit.online", mode: 'insensitive' } }
       });
     }
 
@@ -74,13 +118,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Utilizador não encontrado no sistema" }, { status: 404 });
     }
 
+    // Limpar corpo do email
+    const finalBody = body || html?.replace(/<[^>]*>?/gm, '').trim() || "(Mensagem sem texto)";
+
     // Gravar o email recebido na Caixa de Entrada (INBOX) do utilizador
     const created = await prisma.email.create({
       data: {
         from: from || "desconhecido@email.com",
         to: cleanTo,
         subject: subject || "(Sem assunto)",
-        body: body || html.replace(/<[^>]*>?/gm, '') || "(Mensagem sem texto)",
+        body: finalBody,
         folder: "INBOX",
         read: false,
         userId: user.id
