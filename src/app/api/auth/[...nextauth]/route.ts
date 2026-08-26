@@ -4,11 +4,23 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || "supersecret12345",
+  secret: process.env.NEXTAUTH_SECRET || "supersecret12345_rapiemail_enterprise_key_2026",
   session: { 
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 dias de sessão persistente
+    maxAge: 30 * 24 * 60 * 60, // 30 dias de sessão persistente contínua
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production" ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === "production"
+      }
+    }
+  },
+  useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     CredentialsProvider({
       name: "Credentials",
