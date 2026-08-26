@@ -34,6 +34,7 @@ model User {
   dateOfBirth  String?
   gender       String?
   accountType  String   @default("PERSONAL")
+  avatarUrl    String?  // Foto de Perfil Oficial do Utilizador
   
   // Para contas Pessoais ou Empresariais
   domainName   String?

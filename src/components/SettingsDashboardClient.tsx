@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, Shield, Sparkles, Sliders, Filter, Repeat, 
   MessageSquare, FileSignature, Smartphone, Globe, Users, 
   Key, Moon, Sun, Check, ExternalLink, Keyboard, Edit2, 
-  Plus, Trash2, X, CheckCircle2, RefreshCw
+  Plus, Trash2, X, CheckCircle2, RefreshCw, Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 
 interface Props {
@@ -28,6 +28,10 @@ export function SettingsDashboardClient({ user }: Props) {
   const [language, setLanguage] = useState("Português - PT");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [signature, setSignature] = useState(`Com os melhores cumprimentos,\n${user.name}\n${user.email}`);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modals state
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export function SettingsDashboardClient({ user }: Props) {
   ]);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Carregar tema salvo no localStorage no arranque
+  // Carregar tema e foto salvos no arranque
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('rapi_theme') as "dark" | "light" | null;
@@ -53,9 +57,20 @@ export function SettingsDashboardClient({ user }: Props) {
           document.body.classList.remove('light');
         }
       }
-    } catch (e) {
-      // Ignore
-    }
+
+      const cachedAvatar = localStorage.getItem('rapi_avatar');
+      if (cachedAvatar) setAvatarUrl(cachedAvatar);
+
+      fetch("/api/user/avatar")
+        .then(r => r.json())
+        .then(d => {
+          if (d.avatarUrl) {
+            setAvatarUrl(d.avatarUrl);
+            localStorage.setItem('rapi_avatar', d.avatarUrl);
+          }
+        })
+        .catch(() => {});
+    } catch (e) {}
   }, []);
 
   const handleThemeChange = (newTheme: "dark" | "light") => {
@@ -69,15 +84,60 @@ export function SettingsDashboardClient({ user }: Props) {
         document.documentElement.classList.remove('light');
         document.body.classList.remove('light');
       }
-    } catch (e) {
-      // Ignore
-    }
+    } catch (e) {}
     showToast(newTheme === 'light' ? "Tema Claro Apple ativado!" : "Tema Escuro Obsidian ativado!");
   };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3500);
+  };
+
+  // Upload e Gravação de Foto de Perfil Oficial
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      showToast("Por favor escolha uma imagem menor que 4 MB.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64Data = reader.result as string;
+      setAvatarUrl(base64Data);
+      try {
+        localStorage.setItem('rapi_avatar', base64Data);
+        const res = await fetch("/api/user/avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ avatarUrl: base64Data })
+        });
+        if (res.ok) {
+          showToast("Foto de perfil atualizada e sincronizada com sucesso!");
+        }
+      } catch (err) {
+        showToast("Foto salva localmente no navegador!");
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarUrl(null);
+    try {
+      localStorage.removeItem('rapi_avatar');
+      await fetch("/api/user/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: null })
+      });
+      showToast("Foto de perfil removida.");
+    } catch (e) {}
   };
 
   const handleAddForward = (e: React.FormEvent) => {
@@ -105,6 +165,15 @@ export function SettingsDashboardClient({ user }: Props) {
       isLight ? 'bg-[#F4F5F8] text-slate-800' : 'bg-[#09090b] text-zinc-300'
     }`}>
       
+      {/* Hidden File Input for Avatar Upload */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleAvatarFileChange} 
+        accept="image/png, image/jpeg, image/webp, image/gif" 
+        className="hidden" 
+      />
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-in fade-in slide-in-from-top-4">
@@ -136,8 +205,12 @@ export function SettingsDashboardClient({ user }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-500/20">
-            RE
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-500/20 overflow-hidden">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+            ) : (
+              <span>RE</span>
+            )}
           </div>
           <span className={`text-sm font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
             RapiEmail Settings
@@ -152,23 +225,50 @@ export function SettingsDashboardClient({ user }: Props) {
           <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
             Definições da Conta
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">Gerencie a sua identidade, segurança, inteligência artificial e domínios da empresa.</p>
+          <p className="text-sm text-zinc-500 mt-1">Gerencie a sua identidade, foto de perfil, segurança, inteligência artificial e domínios da empresa.</p>
         </div>
 
-        {/* SETTINGS GRID (Clone do Private Email com Dark & Light Mode de Luxo) */}
+        {/* SETTINGS GRID (Clone do Private Email com Foto de Perfil Real & Modo Claro/Escuro) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-          {/* 1. PERFIL CARD */}
+          {/* 1. PERFIL CARD (COM UPLOAD DE FOTO OFICIAL) */}
           <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Perfil</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Perfil &amp; Foto</span>
+                {avatarUrl && (
+                  <button 
+                    onClick={handleRemoveAvatar}
+                    title="Remover Foto de Perfil"
+                    className="text-[10px] text-red-500 hover:text-red-600 font-semibold"
+                  >
+                    Remover Foto
+                  </button>
+                )}
+              </div>
               
-              <div className="flex items-center gap-4 pt-2">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
-                  {user.initials}
+              <div className="flex items-center gap-4 pt-1">
+                {/* Foto / Avatar Interativo com Upload */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Clique para alterar a sua Foto de Perfil"
+                  className="group relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-2xl font-bold text-white shadow-lg cursor-pointer overflow-hidden flex-shrink-0"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{user.initials}</span>
+                  )}
+                  
+                  {/* Overlay ao passar o rato */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white">
+                    <Camera className="w-5 h-5 mb-0.5" />
+                    <span className="text-[9px] font-bold">Mudar</span>
+                  </div>
                 </div>
+
                 <div className="min-w-0 flex-1">
                   {isEditingName ? (
                     <div className="flex items-center gap-2">
@@ -196,6 +296,14 @@ export function SettingsDashboardClient({ user }: Props) {
                     </div>
                   )}
                   <p className="text-xs text-zinc-500 font-mono mt-0.5 truncate">{user.email}</p>
+                  
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] text-indigo-500 hover:text-indigo-600 font-semibold flex items-center gap-1 mt-1.5"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>{uploadingAvatar ? "A carregar..." : "Carregar Foto de Perfil"}</span>
+                  </button>
                 </div>
               </div>
             </div>

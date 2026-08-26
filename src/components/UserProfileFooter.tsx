@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
@@ -11,6 +11,25 @@ interface Props {
 }
 
 export function UserProfileFooter({ initials, name, email }: Props) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('rapi_avatar');
+      if (cached) setAvatarUrl(cached);
+
+      fetch("/api/user/avatar")
+        .then(r => r.json())
+        .then(d => {
+          if (d.avatarUrl) {
+            setAvatarUrl(d.avatarUrl);
+            localStorage.setItem('rapi_avatar', d.avatarUrl);
+          }
+        })
+        .catch(() => {});
+    } catch(e) {}
+  }, []);
+
   return (
     <div className="flex items-center justify-between gap-2 p-1 rounded-2xl bg-white/[0.02] border border-white/5">
       {/* Clickable Profile that goes to Settings */}
@@ -20,8 +39,12 @@ export function UserProfileFooter({ initials, name, email }: Props) {
         className="flex items-center gap-2.5 flex-1 min-w-0 p-1.5 rounded-xl hover:bg-white/5 transition-colors group"
       >
         <div className="relative flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            {initials}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 text-white flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{initials}</span>
+            )}
           </div>
           <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-[#09090b] rounded-full"></div>
         </div>

@@ -140,13 +140,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Estados de Tradução Automática (DeepL / Google Translate Style)
   const [translations, setTranslations] = useState<Record<string, { text: string; sourceLang: string }>>({});
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showOriginalMap, setShowOriginalMap] = useState<Record<string, boolean>>({});
 
-  // Sincronizar Tema com localStorage
+  // Sincronizar Tema e Foto com localStorage e Supabase
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('rapi_theme') as "dark" | "light" | null;
@@ -160,6 +161,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           document.body.classList.remove('light');
         }
       }
+
+      const cachedAvatar = localStorage.getItem('rapi_avatar');
+      if (cachedAvatar) setAvatarUrl(cachedAvatar);
+
+      fetch("/api/user/avatar")
+        .then(r => r.json())
+        .then(d => {
+          if (d.avatarUrl) {
+            setAvatarUrl(d.avatarUrl);
+            localStorage.setItem('rapi_avatar', d.avatarUrl);
+          }
+        })
+        .catch(() => {});
     } catch (e) {}
   }, []);
 
@@ -494,8 +508,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           <div className={`h-4 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
 
           <Link href="/settings" title="Abrir Perfil" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-600/20">
-              {user.initials}
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-600/20 overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <span>{user.initials}</span>
+              )}
             </div>
           </Link>
         </div>
@@ -693,7 +711,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       <div className="flex items-start gap-3">
                         {/* Company Logo or Sender Avatar */}
                         <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5 shadow-sm overflow-hidden`}>
-                          {company.logoUrl ? (
+                          {isSent && avatarUrl ? (
+                            <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                          ) : company.logoUrl ? (
                             <img 
                               src={company.logoUrl} 
                               alt={company.companyName} 
@@ -781,6 +801,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                 const parsedSender = parseSender(selectedEmail.from);
                 const parsedRecipient = parseSender(selectedEmail.to);
                 const company = getCompanyInfo(selectedEmail.from);
+                const isSentByMe = selectedEmail.from === user.email;
 
                 return (
                   <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
@@ -907,11 +928,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         </button>
                       </div>
 
-                      {/* Sender Details Card with Authentic Company Logos */}
+                      {/* Sender Details Card with Authentic Company Logos or Real Avatar */}
                       <div className={`flex items-center justify-between pb-6 border-b ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-sm font-bold text-white shadow-lg overflow-hidden shrink-0`}>
-                            {company.logoUrl ? (
+                            {isSentByMe && avatarUrl ? (
+                              <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                            ) : company.logoUrl ? (
                               <img 
                                 src={company.logoUrl} 
                                 alt={company.companyName} 
