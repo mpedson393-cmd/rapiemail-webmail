@@ -104,6 +104,13 @@ function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: s
       color: "from-indigo-600 to-purple-600" 
     };
   }
+  if (clean.includes("linkedin.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128", 
+      companyName: "LinkedIn", 
+      color: "from-[#0A66C2] to-[#004182]" 
+    };
+  }
   if (clean.includes("gmail.com") || clean.includes("google.com")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=google.com&sz=128", 
