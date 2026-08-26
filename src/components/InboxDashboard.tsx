@@ -8,7 +8,7 @@ import {
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
   HardDrive, Globe, CheckCircle2, ChevronDown, Paperclip,
   Check, CheckCheck, Edit3, X, Eye, Sparkles, ShieldCheck,
-  Zap, ArrowUpRight, Languages, Building2
+  Zap, ArrowUpRight, Languages, Building2, Moon, Sun
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -139,11 +139,46 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   const [replySuccess, setReplySuccess] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   // Estados de Tradução Automática (DeepL / Google Translate Style)
   const [translations, setTranslations] = useState<Record<string, { text: string; sourceLang: string }>>({});
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showOriginalMap, setShowOriginalMap] = useState<Record<string, boolean>>({});
+
+  // Sincronizar Tema com localStorage
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('rapi_theme') as "dark" | "light" | null;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        if (savedTheme === 'light') {
+          document.documentElement.classList.add('light');
+          document.body.classList.add('light');
+        } else {
+          document.documentElement.classList.remove('light');
+          document.body.classList.remove('light');
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    try {
+      localStorage.setItem('rapi_theme', nextTheme);
+      if (nextTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.body.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.body.classList.remove('light');
+      }
+    } catch (e) {}
+  };
+
+  const isLight = theme === 'light';
 
   // Dynamic domain of user
   const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapiemail.online';
@@ -334,10 +369,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-[#06070B] text-zinc-300 font-sans overflow-hidden select-none">
+    <div className={`flex flex-col h-screen font-sans overflow-hidden select-none transition-colors duration-300 ${
+      isLight ? 'bg-[#F8F9FC] text-slate-800' : 'bg-[#06070B] text-zinc-300'
+    }`}>
       
       {/* 1. TOP GLOBAL EXECUTIVE APP BAR */}
-      <header className="h-14 border-b border-white/[0.07] bg-[#0A0C13]/80 backdrop-blur-2xl flex items-center justify-between px-4 z-20 flex-shrink-0">
+      <header className={`h-14 border-b flex items-center justify-between px-4 z-20 flex-shrink-0 backdrop-blur-2xl transition-colors ${
+        isLight ? 'bg-white/85 border-slate-200 shadow-sm' : 'bg-[#0A0C13]/80 border-white/[0.07]'
+      }`}>
         
         {/* Left: Brand & App Switcher */}
         <div className="flex items-center gap-6">
@@ -346,19 +385,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               <span className="text-white font-black text-xs tracking-tight">RE</span>
             </div>
             <div className="hidden sm:block">
-              <span className="text-white font-bold text-sm tracking-tight">RapiEmail</span>
+              <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>RapiEmail</span>
               <span className="text-[10px] text-zinc-500 font-semibold block leading-none">Enterprise</span>
             </div>
           </div>
 
           {/* App Switcher (Mail, Calendar, Contacts) */}
-          <div className="flex items-center bg-white/[0.04] border border-white/[0.06] rounded-xl p-1 shadow-inner">
+          <div className={`flex items-center rounded-xl p-1 shadow-inner border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-white/[0.04] border-white/[0.06]'
+          }`}>
             <button 
               onClick={() => setActiveTab('mail')}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'mail' 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
@@ -369,7 +410,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'calendar' 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -380,7 +421,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'contacts' 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -392,15 +433,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         {/* Center: Search Bar */}
         <div className="flex-1 max-w-xl mx-6">
           <div className="relative group">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-400 transition-colors" />
+            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Pesquisar mensagens por remetente, assunto ou texto... (Ctrl+K)" 
-              className="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] focus:border-indigo-500/50 rounded-xl py-1.5 pl-10 pr-12 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:bg-white/[0.05] focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-sm"
+              className={`w-full border rounded-xl py-1.5 pl-10 pr-12 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-sm ${
+                isLight 
+                  ? 'bg-slate-100 hover:bg-slate-200/60 border-slate-200 focus:border-indigo-500 text-slate-900 placeholder:text-slate-400' 
+                  : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.07] focus:border-indigo-500/50 text-white placeholder:text-zinc-500'
+              }`}
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded font-mono pointer-events-none">
+            <kbd className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded font-mono pointer-events-none border ${
+              isLight ? 'bg-white border-slate-200 text-slate-500' : 'bg-white/5 border-white/10 text-zinc-500'
+            }`}>
               ⌘K
             </kbd>
           </div>
@@ -411,21 +458,40 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           <button 
             onClick={refreshEmails}
             title="Atualizar Caixa de Correio"
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all active:scale-95"
+            className={`p-2 rounded-xl transition-all active:scale-95 ${
+              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-500' : ''}`} />
           </button>
+
+          {/* Botão Rápido de Alternar Tema Claro / Escuro */}
+          <button 
+            onClick={toggleTheme}
+            title={isLight ? "Ativar Modo Escuro" : "Ativar Modo Claro"}
+            className={`p-2 rounded-xl transition-all active:scale-95 ${
+              isLight ? 'text-amber-500 hover:bg-amber-50' : 'text-indigo-300 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {isLight ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           <div className="relative">
-            <button className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+            <button className={`p-2 rounded-xl transition-all ${
+              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}>
               <Bell className="w-4 h-4" />
             </button>
             <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-sm shadow-indigo-500" />
           </div>
-          <Link href="/settings" title="Definições da Conta" className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+          
+          <Link href="/settings" title="Definições da Conta" className={`p-2 rounded-xl transition-all ${
+            isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          }`}>
             <Settings className="w-4 h-4" />
           </Link>
           
-          <div className="h-4 w-px bg-white/10 mx-1"></div>
+          <div className={`h-4 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
 
           <Link href="/settings" title="Abrir Perfil" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-600/20">
@@ -450,7 +516,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
         <div className="flex-1 flex overflow-hidden animate-fade-in">
           
           {/* COLUMN 1: LEFT SIDEBAR (Folders & Storage) */}
-          <aside className="w-[245px] border-r border-white/[0.06] bg-[#07090E] flex flex-col flex-shrink-0">
+          <aside className={`w-[245px] border-r flex flex-col flex-shrink-0 transition-colors ${
+            isLight ? 'bg-[#F8F9FC] border-slate-200/80' : 'bg-[#07090E] border-white/[0.06]'
+          }`}>
             
             {/* Compose Button */}
             <div className="p-3.5">
@@ -474,17 +542,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                     onClick={() => handleSelectFolder(folder.id)}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                       isActive 
-                        ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/25 font-semibold shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                        ? isLight 
+                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold shadow-sm' 
+                          : 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/25 font-semibold shadow-sm'
+                        : isLight 
+                          ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' 
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-zinc-500'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : isLight ? 'text-slate-400' : 'text-zinc-500'}`} />
                       <span>{folder.label}</span>
                     </div>
                     {folder.count > 0 && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-indigo-500 text-white' : 'bg-white/10 text-zinc-300'
+                        isActive ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-zinc-300'
                       }`}>
                         {folder.count}
                       </span>
@@ -494,17 +566,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               })}
 
               {/* Alojamento Web Card (Upsell & AI Site Builder) */}
-              <div className="pt-4 mt-4 border-t border-white/[0.06] px-1">
-                <div className="p-3.5 rounded-2xl bg-gradient-to-b from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/20 space-y-2.5 shadow-lg shadow-black/40">
+              <div className={`pt-4 mt-4 border-t px-1 ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
+                <div className={`p-3.5 rounded-2xl border space-y-2.5 shadow-lg ${
+                  isLight ? 'bg-gradient-to-b from-indigo-50 to-white border-indigo-200 shadow-indigo-100/50' : 'bg-gradient-to-b from-indigo-950/40 via-purple-950/20 to-black/40 border-indigo-500/20 shadow-black/40'
+                }`}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-white font-bold text-xs">
-                      <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                    <div className={`flex items-center gap-2 font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      <Globe className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Criador de Site IA</span>
                     </div>
-                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">88€/ano</span>
+                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-600 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">88€/ano</span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-snug">
-                    Crie o site completo da sua loja em 10 segundos com a RapiAI no domínio <span className="text-zinc-200 font-medium">{userDomain}</span>.
+                  <p className={`text-[11px] leading-snug ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                    Crie o site completo da sua loja em 10 segundos com a RapiAI no domínio <span className={isLight ? 'text-slate-900 font-bold' : 'text-zinc-200 font-medium'}>{userDomain}</span>.
                   </p>
                   <button 
                     onClick={() => setIsSiteBuilderOpen(true)}
@@ -518,43 +592,47 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </nav>
 
             {/* Storage Meter (Real Dynamic Storage) */}
-            <div className="p-3.5 border-t border-white/[0.06] bg-[#06070B]">
+            <div className={`p-3.5 border-t ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#06070B] border-white/[0.06]'}`}>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-400 flex items-center gap-1.5 font-medium">
-                    <HardDrive className="w-3.5 h-3.5 text-zinc-500" />
+                  <span className={`flex items-center gap-1.5 font-medium ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                    <HardDrive className="w-3.5 h-3.5 text-indigo-500" />
                     Armazenamento
                   </span>
-                  <span className="text-zinc-500 font-mono text-[10px]">{storagePercent}</span>
+                  <span className={`font-mono text-[10px] ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}>{storagePercent}</span>
                 </div>
                 
                 {/* Progress bar */}
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                <div className={`w-full h-1.5 rounded-full overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-white/5'}`}>
                   <div 
                     className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(2, parseFloat(storagePercent))}%` }}
                   />
                 </div>
                 
-                <p className="text-[10px] text-zinc-500">
-                  <strong className="text-zinc-300 font-medium">{formattedStorage}</strong> de 10 GB utilizados
+                <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}>
+                  <strong className={isLight ? 'text-slate-800 font-bold' : 'text-zinc-300 font-medium'}>{formattedStorage}</strong> de 10 GB utilizados
                 </p>
               </div>
             </div>
 
             {/* User Profile Footer */}
-            <div className="p-2.5 border-t border-white/[0.06]">
+            <div className={`p-2.5 border-t ${isLight ? 'border-slate-200 bg-white' : 'border-white/[0.06]'}`}>
               <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
             </div>
           </aside>
 
           {/* COLUMN 2: MIDDLE EMAIL LIST PANE */}
-          <section className="w-[390px] border-r border-white/[0.06] flex flex-col bg-[#07090E] flex-shrink-0">
+          <section className={`w-[390px] border-r flex flex-col flex-shrink-0 transition-colors ${
+            isLight ? 'bg-[#FFFFFF] border-slate-200/80' : 'bg-[#07090E] border-white/[0.06]'
+          }`}>
             
             {/* List Header */}
-            <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between bg-[#0A0C13]/50">
+            <div className={`h-12 border-b px-4 flex items-center justify-between ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0A0C13]/50 border-white/[0.06]'
+            }`}>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
                   {folders.find(f => f.id === selectedFolder)?.label || selectedFolder}
                 </span>
                 <span className="text-[11px] text-zinc-500 font-mono">({filteredEmails.length})</span>
@@ -570,10 +648,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
               {filteredEmails.length === 0 ? (
                 <div className="text-center py-24 px-4 animate-fade-in">
-                  <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mx-auto mb-3.5 text-zinc-600 shadow-inner">
+                  <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mx-auto mb-3.5 shadow-inner ${
+                    isLight ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white/[0.02] border-white/[0.06] text-zinc-600'
+                  }`}>
                     <Inbox className="w-6 h-6" />
                   </div>
-                  <h4 className="text-sm font-semibold text-white mb-1">Sem mensagens</h4>
+                  <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>Sem mensagens</h4>
                   <p className="text-xs text-zinc-500">Esta pasta está limpa e vazia.</p>
                 </div>
               ) : (
@@ -597,8 +677,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       onClick={() => handleSelectEmail(email.id)}
                       className={`group relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.985] ${
                         isSelected 
-                          ? 'bg-indigo-600/15 border-indigo-500/40 shadow-lg shadow-black/50' 
-                          : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:translate-x-0.5'
+                          ? isLight 
+                            ? 'bg-indigo-50/80 border-indigo-300 shadow-md shadow-indigo-100/50' 
+                            : 'bg-indigo-600/15 border-indigo-500/40 shadow-lg shadow-black/50'
+                          : isLight 
+                            ? 'bg-slate-50/70 border-slate-200/80 hover:bg-slate-100/80 hover:border-slate-300 hover:translate-x-0.5' 
+                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:translate-x-0.5'
                       }`}
                     >
                       {/* Unread dot */}
@@ -626,7 +710,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
-                            <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-white' : 'font-medium text-zinc-300'}`}>
+                            <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-indigo-600 dark:text-white' : isLight ? 'font-medium text-slate-800' : 'font-medium text-zinc-300'}`}>
                               {isSent ? `Para: ${senderInfo.name}` : senderInfo.name}
                             </span>
                             <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0 ml-2">
@@ -634,7 +718,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                             </span>
                           </div>
 
-                          <p className={`text-xs truncate mb-1 ${!email.read && !isSent ? 'font-semibold text-indigo-300' : 'text-zinc-400'}`}>
+                          <p className={`text-xs truncate mb-1 ${!email.read && !isSent ? 'font-semibold text-indigo-600 dark:text-indigo-300' : isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
                             {email.subject || '(Sem assunto)'}
                           </p>
 
@@ -646,12 +730,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           {isSent && (
                             <div className="flex items-center gap-1.5 mt-2">
                               {email.isOpened ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md shadow-sm">
-                                  <CheckCheck className="w-3 h-3 text-cyan-400" />
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm ${
+                                  isLight ? 'text-cyan-700 bg-cyan-50 border border-cyan-200' : 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/20'
+                                }`}>
+                                  <CheckCheck className="w-3 h-3 text-cyan-500" />
                                   <span>Lido {email.openCount && email.openCount > 1 ? `(${email.openCount}x)` : ''}</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-500 bg-white/5 px-2 py-0.5 rounded-md">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md ${
+                                  isLight ? 'text-slate-500 bg-slate-100' : 'text-zinc-500 bg-white/5'
+                                }`}>
                                   <Check className="w-3 h-3 text-zinc-500" />
                                   <span>Enviado</span>
                                 </span>
@@ -664,13 +752,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => toggleStar(email.id, e)} 
-                            className="text-zinc-500 hover:text-yellow-400 transition-colors p-0.5"
+                            className="text-zinc-400 hover:text-yellow-500 transition-colors p-0.5"
                           >
                             <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-yellow-400 text-yellow-400 opacity-100' : ''}`} />
                           </button>
                           <button 
                             onClick={(e) => handleDeleteEmail(email.id, e)} 
-                            className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"
+                            className="text-zinc-400 hover:text-red-500 transition-colors p-0.5"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -684,7 +772,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           </section>
 
           {/* COLUMN 3: RIGHT SPLIT-VIEW READER PANE */}
-          <main className="flex-1 flex flex-col bg-[#05060A] overflow-hidden">
+          <main className={`flex-1 flex flex-col overflow-hidden transition-colors ${
+            isLight ? 'bg-[#F8F9FC]' : 'bg-[#05060A]'
+          }`}>
             
             {selectedEmail ? (
               (() => {
@@ -696,47 +786,53 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
                     
                     {/* Email Toolbar Actions */}
-                    <div className="h-12 border-b border-white/[0.06] px-6 flex items-center justify-between bg-[#0A0C13]/40 backdrop-blur-md flex-shrink-0">
+                    <div className={`h-12 border-b px-6 flex items-center justify-between backdrop-blur-md flex-shrink-0 ${
+                      isLight ? 'bg-white/80 border-slate-200' : 'bg-[#0A0C13]/40 border-white/[0.06]'
+                    }`}>
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => {
                             setReplyText(`\n\n--- Mensagem Original ---\n${selectedEmail.body}`);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                            isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/[0.05]'
+                          }`}
                         >
                           <CornerUpLeft className="w-3.5 h-3.5" />
                           <span>Responder</span>
                         </button>
                         <button 
                           onClick={() => setIsComposeOpen(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all border border-white/[0.05]"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                            isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/[0.05]'
+                          }`}
                         >
                           <CornerUpRight className="w-3.5 h-3.5" />
                           <span>Encaminhar</span>
                         </button>
-                        <div className="h-4 w-px bg-white/10 mx-1"></div>
+                        <div className={`h-4 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
                         <button 
                           onClick={() => handleDeleteEmail(selectedEmail.id)}
                           title="Mover para o Lixo"
-                          className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-white/5 rounded-xl transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <button 
                           title="Arquivar"
-                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white hover:bg-white/5 rounded-xl transition-colors"
                         >
                           <Archive className="w-4 h-4" />
                         </button>
                       </div>
 
                       <div className="flex items-center gap-3 text-xs text-zinc-500">
-                        <span suppressHydrationWarning className="font-mono text-zinc-400">
+                        <span suppressHydrationWarning className={`font-mono ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
                           {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
                             day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                           })}
                         </span>
-                        <button className="p-1 text-zinc-400 hover:text-white rounded-lg">
+                        <button className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </div>
@@ -749,12 +845,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       {selectedEmail.from === user.email && (
                         <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
                           selectedEmail.isOpened 
-                            ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
-                            : 'bg-white/[0.02] border-white/10 text-zinc-300'
+                            ? isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-900' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
+                            : isLight ? 'bg-slate-100 border-slate-200 text-slate-700' : 'bg-white/[0.02] border-white/10 text-zinc-300'
                         }`}>
                           <div className="flex items-center gap-3.5">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md ${
-                              selectedEmail.isOpened ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-400 border border-white/10'
+                              selectedEmail.isOpened 
+                                ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' 
+                                : isLight ? 'bg-white text-slate-500 border border-slate-200' : 'bg-white/5 text-zinc-400 border border-white/10'
                             }`}>
                               {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
                             </div>
@@ -764,12 +862,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                                   {selectedEmail.isOpened ? '✓✓ Destinatário Abriu e Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
                                 </span>
                                 {selectedEmail.isOpened && (
-                                  <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold">
+                                  <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 px-2 py-0.5 rounded-full font-bold">
                                     {selectedEmail.openCount || 1} visualização(ões)
                                   </span>
                                 )}
                               </div>
-                              <p suppressHydrationWarning className="text-[11px] text-zinc-400 mt-0.5">
+                              <p suppressHydrationWarning className="text-[11px] text-zinc-500 mt-0.5">
                                 {selectedEmail.isOpened 
                                   ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent || 'Dispositivo do Destinatário'}`
                                   : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este e-mail.'}
@@ -781,7 +879,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
                       {/* Subject Line & RapiAI Button */}
                       <div className="flex items-start justify-between gap-4">
-                        <h1 className="text-xl font-bold text-white tracking-tight leading-snug flex-1">
+                        <h1 className={`text-xl font-bold tracking-tight leading-snug flex-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                           {selectedEmail.subject || '(Sem assunto)'}
                         </h1>
                         <button
@@ -798,15 +896,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                               alert("Erro de rede ao comunicar com Google Gemini.");
                             }
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-xs font-bold text-indigo-300 transition-all shadow-sm flex-shrink-0"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm flex-shrink-0 ${
+                            isLight 
+                              ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700' 
+                              : 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border-indigo-500/30 text-indigo-300'
+                          }`}
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
                           <span>Resumir com RapiAI</span>
                         </button>
                       </div>
 
                       {/* Sender Details Card with Authentic Company Logos */}
-                      <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
+                      <div className={`flex items-center justify-between pb-6 border-b ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-sm font-bold text-white shadow-lg overflow-hidden shrink-0`}>
                             {company.logoUrl ? (
@@ -824,19 +926,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-white">
+                              <span className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
                                 {parsedSender.name}
                               </span>
                               {company.companyName && (
-                                <span className="text-[10px] bg-white/5 border border-white/10 text-zinc-300 px-2 py-0.5 rounded-md font-semibold">
+                                <span className={`text-[10px] border px-2 py-0.5 rounded-md font-semibold ${
+                                  isLight ? 'bg-slate-100 border-slate-200 text-slate-700' : 'bg-white/5 border-white/10 text-zinc-300'
+                                }`}>
                                   {company.companyName}
                                 </span>
                               )}
                             </div>
                             <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
                               <span>&lt;{parsedSender.email}&gt;</span>
-                              <span className="text-zinc-600">•</span>
-                              <span>para <strong className="text-zinc-400 font-medium">{parsedRecipient.name}</strong> &lt;{parsedRecipient.email}&gt;</span>
+                              <span className="text-zinc-400">•</span>
+                              <span>para <strong className={isLight ? 'text-slate-700 font-semibold' : 'text-zinc-400 font-medium'}>{parsedRecipient.name}</strong> &lt;{parsedRecipient.email}&gt;</span>
                             </p>
                           </div>
                         </div>
@@ -844,7 +948,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={(e) => toggleStar(selectedEmail.id, e)}
-                            className="p-2 text-zinc-400 hover:text-yellow-400 hover:bg-white/5 rounded-xl transition-colors"
+                            className="p-2 text-zinc-400 hover:text-yellow-500 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors"
                           >
                             <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                           </button>
@@ -853,21 +957,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
                       {/* 🌐 Google Translate / DeepL Neural AI Banner */}
                       {isForeignLang && (
-                        <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border border-indigo-500/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-black/30 animate-fade-in">
+                        <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-fade-in ${
+                          isLight 
+                            ? 'bg-gradient-to-r from-indigo-50 via-purple-50 to-white border-indigo-200 shadow-indigo-100/60' 
+                            : 'bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border-indigo-500/25 shadow-black/30'
+                        }`}>
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0 shadow-sm">
                               <Languages className="w-5 h-5" />
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-white">
+                                <span className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
                                   {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] 
                                     ? `Traduzido: ${translations[selectedEmail.id].sourceLang} → Português`
                                     : `Mensagem em ${detectedLanguageName}`}
                                 </span>
-                                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
+                                <span className="text-[10px] bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
                               </div>
-                              <p className="text-[11px] text-zinc-400 mt-0.5">
+                              <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
                                 {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
                                   ? "Tradução neural oficial ativa com preservação da estrutura e tom comercial."
                                   : "Deseja traduzir esta mensagem para português?"}
@@ -888,7 +996,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                               ) : (
                                 <button
                                   onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: true }))}
-                                  className="text-xs font-semibold text-zinc-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
+                                  className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${
+                                    isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
+                                  }`}
                                 >
                                   Mostrar original
                                 </button>
@@ -908,18 +1018,22 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       )}
 
                       {/* Body Content (Shows translated or original smoothly) */}
-                      <div className="text-sm text-zinc-200 leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in">
+                      <div className={`text-sm leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in ${
+                        isLight ? 'text-slate-800' : 'text-zinc-200'
+                      }`}>
                         {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
                           ? translations[selectedEmail.id].text
                           : selectedEmail.body}
                       </div>
 
                       {/* Inline Quick Reply Box */}
-                      <div className="mt-12 pt-6 border-t border-white/[0.06] max-w-3xl">
-                        <div className="bg-[#0A0C13] border border-white/[0.08] rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl">
-                          <div className="flex items-center justify-between text-xs text-zinc-400">
-                            <span className="flex items-center gap-1.5 font-semibold text-zinc-300">
-                              <CornerUpLeft className="w-3.5 h-3.5 text-indigo-400" />
+                      <div className={`mt-12 pt-6 border-t max-w-3xl ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
+                        <div className={`border rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl ${
+                          isLight ? 'bg-white border-slate-200' : 'bg-[#0A0C13] border-white/[0.08]'
+                        }`}>
+                          <div className="flex items-center justify-between text-xs text-zinc-500">
+                            <span className={`flex items-center gap-1.5 font-semibold ${isLight ? 'text-slate-800' : 'text-zinc-300'}`}>
+                              <CornerUpLeft className="w-3.5 h-3.5 text-indigo-500" />
                               Responder a {parsedSender.name}
                             </span>
                           </div>
@@ -929,19 +1043,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                             onChange={e => setReplyText(e.target.value)}
                             placeholder="Escreva aqui a sua resposta rápida..."
                             rows={3}
-                            className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none resize-none"
+                            className={`w-full bg-transparent text-sm focus:outline-none resize-none ${
+                              isLight ? 'text-slate-900 placeholder:text-slate-400' : 'text-white placeholder:text-zinc-600'
+                            }`}
                           />
 
-                          <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                          <div className={`flex items-center justify-between pt-2 border-t ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
                             <div className="flex items-center gap-2">
-                              <button className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors">
+                              <button className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg transition-colors">
                                 <Paperclip className="w-4 h-4" />
                               </button>
                             </div>
 
                             <div className="flex items-center gap-3">
                               {replySuccess && (
-                                <span className="text-xs text-green-400 flex items-center gap-1">
+                                <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 font-medium">
                                   <CheckCircle2 className="w-3.5 h-3.5" />
                                   Resposta enviada com sucesso!
                                 </span>
@@ -968,15 +1084,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
               // Luxury Empty State
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-zinc-600 shadow-2xl">
-                    <Mail className="w-9 h-9 text-zinc-600" />
+                  <div className={`w-20 h-20 rounded-3xl border flex items-center justify-center shadow-2xl ${
+                    isLight ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white/[0.02] border-white/[0.06] text-zinc-600'
+                  }`}>
+                    <Mail className="w-9 h-9 text-zinc-500" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500" />
                   </div>
                 </div>
 
-                <h3 className="text-base font-bold text-white mb-1.5 tracking-tight">
+                <h3 className={`text-base font-bold mb-1.5 tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
                   Nenhum email selecionado
                 </h3>
                 <p className="text-xs text-zinc-500 max-w-sm leading-relaxed mb-6">
@@ -985,9 +1103,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
 
                 <button 
                   onClick={() => setIsComposeOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold transition-all border border-white/[0.08] shadow-md shadow-black/40 active:scale-95"
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border shadow-md active:scale-95 ${
+                    isLight ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-slate-200/50' : 'bg-white/[0.06] hover:bg-white/[0.1] text-white border-white/[0.08] shadow-black/40'
+                  }`}
                 >
-                  <Edit3 className="w-3.5 h-3.5 text-indigo-400" />
+                  <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
                   <span>Nova Mensagem</span>
                 </button>
               </div>
