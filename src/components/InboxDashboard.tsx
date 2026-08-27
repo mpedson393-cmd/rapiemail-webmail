@@ -1063,10 +1063,82 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
                         />
                       ) : (
-                        <div className={`text-sm leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in ${
-                          isLight ? 'text-slate-800' : 'text-zinc-200'
-                        }`}>
-                          {selectedEmail.body}
+                        <div className="max-w-3xl animate-fade-in space-y-4">
+                          {/* Verificação Inteligente de Convite LinkedIn */}
+                          {selectedEmail.body.includes("Aceitar:") || selectedEmail.body.includes("Ver perfil:") ? (
+                            <div className="space-y-4">
+                              {/* Card do Perfil LinkedIn */}
+                              <div className={`p-5 rounded-2xl border shadow-lg ${
+                                isLight ? 'bg-gradient-to-b from-blue-50/50 to-white border-blue-100 shadow-blue-50/50' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
+                              }`}>
+                                <div className="flex items-start gap-4">
+                                  <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
+                                    {parsedSender.name.charAt(0) || "L"}
+                                  </div>
+                                  <div className="flex-1 space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                        {parsedSender.name}
+                                      </h3>
+                                      <span className="text-[10px] bg-[#0A66C2]/15 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/30">
+                                        LinkedIn
+                                      </span>
+                                    </div>
+                                    <p className={`text-xs leading-relaxed ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                                      {selectedEmail.body.split("Aceitar:")[0].replace(/Olá[^\n]+\n+/i, '').replace(/Aryan[^\n]+aguarda[^\n]+\n+/i, '').trim()}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Botões de Ação LinkedIn */}
+                                <div className="mt-5 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
+                                  {selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/) && (
+                                    <a
+                                      href={selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/)?.[1]}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/30 transition-all cursor-pointer"
+                                    >
+                                      <span>✓ Aceitar Conexão</span>
+                                    </a>
+                                  )}
+                                  {selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/) && (
+                                    <a
+                                      href={selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/)?.[1]}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                                        isLight 
+                                          ? 'border-slate-300 text-slate-700 hover:bg-slate-100' 
+                                          : 'border-white/10 text-zinc-300 hover:bg-white/5'
+                                      }`}
+                                    >
+                                      <span>👤 Ver Perfil no LinkedIn</span>
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Renderização Limpa para outros emails com limpeza de tags [imagem: ...] */
+                            <div className={`text-sm leading-relaxed space-y-3 font-normal ${
+                              isLight ? 'text-slate-800' : 'text-zinc-200'
+                            }`}>
+                              {selectedEmail.body
+                                .replace(/\[imagem:\s*logótipo da empresa\]/gi, '🏢 [Logótipo da Empresa]')
+                                .replace(/\[imagem:\s*LinkedIn\]/gi, '🔗 LinkedIn')
+                                .replace(/\[imagem:\s*Instagram\]/gi, '📸 Instagram')
+                                .replace(/\[imagem:\s*Facebook\]/gi, '👥 Facebook')
+                                .replace(/\[imagem:\s*-\]/gi, '▶ YouTube')
+                                .split('\n\n')
+                                .map((paragraph, idx) => (
+                                  <p key={idx} className="whitespace-pre-line leading-relaxed">
+                                    {paragraph}
+                                  </p>
+                                ))
+                              }
+                            </div>
+                          )}
                         </div>
                       )}
 
