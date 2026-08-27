@@ -8,7 +8,7 @@ import {
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
   CheckCircle2, ChevronDown, Paperclip, Check, CheckCheck, 
   Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
-  Forward, Ban, Code2, HelpCircle
+  Forward, Ban, Code2, ExternalLink
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -67,107 +67,59 @@ function parseSender(fromStr: string): { name: string; email: string; initial: s
   return { name: fromStr, email: fromStr, initial: fromStr.substring(0, 2).toUpperCase() || 'RE' };
 }
 
-// Obter Foto Real do Perfil ou Logótipo de Empresa
-function getSenderVisual(emailOrFrom: string): { photoUrl?: string; logoUrl?: string; companyName: string; initial: string } {
+// Obter avatar limpo oficial: Favicon real da empresa ou Monograma corporativo Google/Apple
+function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: string; bgClass: string; textClass: string } {
   const clean = (emailOrFrom || "").toLowerCase();
-
-  // Fotos Reais de Pessoas
-  if (clean.includes("stephen") || clean.includes("emmanuel") || clean.includes("pawapay.co.uk")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-      companyName: "PawaPay",
-      initial: "SE"
-    };
-  }
-  if (clean.includes("gina") || clean.includes("cohen") || clean.includes("stripe.com")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
-      companyName: "Stripe",
-      initial: "GC"
-    };
-  }
-  if (clean.includes("bukola") || clean.includes("akingbaso") || clean.includes("termii.com")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
-      companyName: "Termii",
-      initial: "BA"
-    };
-  }
-  if (clean.includes("lucia") || clean.includes("homedes") || clean.includes("currencycloud.com")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=120&auto=format&fit=crop&q=80",
-      companyName: "Currencycloud | Visa",
-      initial: "LH"
-    };
-  }
-  if (clean.includes("jemma") || clean.includes("wallace") || clean.includes("impact.com")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-      companyName: "Impact.com",
-      initial: "JW"
-    };
-  }
-  if (clean.includes("aryan") || clean.includes("bhadoria")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80",
-      companyName: "LinkedIn",
-      initial: "AS"
-    };
-  }
-  if (clean.includes("lucíola") || clean.includes("luciola") || clean.includes("coelho")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80",
-      companyName: "LinkedIn",
-      initial: "LC"
-    };
-  }
-  if (clean.includes("branson") || clean.includes("richard")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80",
-      companyName: "Virgin / LinkedIn",
-      initial: "RB"
-    };
-  }
-  if (clean.includes("filipe") || clean.includes("abrantes") || clean.includes("bel.money")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80",
-      companyName: "Belmoney",
-      initial: "FA"
-    };
-  }
-
-  // Logótipos Corporativos
-  if (clean.includes("moorwand.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=moorwand.com&sz=128", 
-      companyName: "Moorwand", 
-      initial: "M" 
-    };
-  }
-  if (clean.includes("crassula.io")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=crassula.io&sz=128", 
-      companyName: "Crassula", 
-      initial: "C" 
-    };
-  }
-  if (clean.includes("apple.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=apple.com&sz=128", 
-      companyName: "Apple", 
-      initial: "A" 
-    };
-  }
-  if (clean.includes("linkedin.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128", 
-      companyName: "LinkedIn", 
-      initial: "IN" 
-    };
-  }
+  const match = clean.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  const domain = match ? match[1] : '';
 
   const sender = parseSender(emailOrFrom);
-  return { companyName: "Business Contact", initial: sender.initial };
+
+  // Paleta de cores corporativas Google/Apple para as iniciais
+  const colors = [
+    { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Google
+    { bg: "bg-[#E6F4EA]", text: "text-[#137333]" }, // Verde
+    { bg: "bg-[#FEF7E0]", text: "text-[#B06000]" }, // Âmbar
+    { bg: "bg-[#FCE8E6]", text: "text-[#C5221F]" }, // Vermelho
+    { bg: "bg-[#F3E8FD]", text: "text-[#9334E6]" }, // Roxo
+    { bg: "bg-[#E0F2FE]", text: "text-[#0284C7]" }, // Ciano
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < sender.name.length; i++) {
+    hash = sender.name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colorIndex = Math.abs(hash) % colors.length;
+  const chosenColor = colors[colorIndex];
+
+  // Domínios com favicons corporativos conhecidos
+  if (domain && !domain.includes("gmail.com") && !domain.includes("outlook.com") && !domain.includes("hotmail.com") && !domain.includes("yahoo.com")) {
+    let lookupDomain = domain;
+    if (domain.includes("pawapay")) lookupDomain = "pawapay.io";
+    if (domain.includes("hubspot")) lookupDomain = "moorwand.com";
+    if (domain.includes("currencycloud")) lookupDomain = "currencycloud.com";
+    if (domain.includes("termii")) lookupDomain = "termii.com";
+    if (domain.includes("stripe")) lookupDomain = "stripe.com";
+    if (domain.includes("impact")) lookupDomain = "impact.com";
+    if (domain.includes("linkedin")) lookupDomain = "linkedin.com";
+    if (domain.includes("bel.money")) lookupDomain = "bel.money";
+    if (domain.includes("apple")) lookupDomain = "apple.com";
+    if (domain.includes("digitalocean")) lookupDomain = "digitalocean.com";
+    if (domain.includes("cloudflare")) lookupDomain = "cloudflare.com";
+
+    return {
+      logoUrl: `https://www.google.com/s2/favicons?domain=${lookupDomain}&sz=128`,
+      initial: sender.initial,
+      bgClass: chosenColor.bg,
+      textClass: chosenColor.text
+    };
+  }
+
+  return {
+    initial: sender.initial,
+    bgClass: chosenColor.bg,
+    textClass: chosenColor.text
+  };
 }
 
 // Formatar data no estilo Private Email (ex: 31/07 ou 18:13)
@@ -183,6 +135,141 @@ function formatEmailDate(dateStr: string): string {
   } catch (e) {
     return "";
   }
+}
+
+// Renderizador Inteligente de Links e Botões de Ação
+function renderParagraphsWithActionButtons(text: string) {
+  const paragraphs = text.split('\n\n');
+  return paragraphs.map((para, idx) => {
+    // 1. Detectar links de ativação de conta (PawaPay, etc.)
+    const activateMatch = para.match(/(?:Activate Account|Ativar Conta|Confirmar Conta)[:\s]*(https:\/\/[^\s]+)/i);
+    if (activateMatch) {
+      const url = activateMatch[1];
+      const intro = para.split(/(?:Activate Account|Ativar Conta|Confirmar Conta)/i)[0].trim();
+      return (
+        <div key={idx} className="my-4 space-y-3">
+          {intro && <p className="leading-relaxed whitespace-pre-line">{intro}</p>}
+          <div>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+            >
+              <span>🚀 Ativar Conta no Portal PawaPay</span>
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Detectar links de agendamento (Stripe discovery call, etc.)
+    const calMatch = para.match(/(https:\/\/stripe\.my\.leandata\.com\/[^\s]+|https:\/\/calendly\.com\/[^\s]+)/i);
+    if (calMatch) {
+      const url = calMatch[1];
+      return (
+        <div key={idx} className="my-4 space-y-3">
+          <div>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#635BFF] hover:bg-[#4E44E5] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+            >
+              <span>📅 Agendar Chamada com a Stripe</span>
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Detectar links de verificação de dispositivo (Termii, LinkedIn)
+    const verifyMatch = para.match(/(?:verify-device|confirm-device|accounts\.termii\.com)[^\s]*/i);
+    if (verifyMatch && para.match(/https:\/\/[^\s]+/)) {
+      const url = para.match(/https:\/\/[^\s]+/)?.[0] || '';
+      return (
+        <div key={idx} className="my-4 space-y-3">
+          <div>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+            >
+              <span>🔐 Confirmar Dispositivo Seguro</span>
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Detectar convites LinkedIn (Aceitar / Conectar)
+    if (para.includes("linkedin.com/comm/mynetwork/invite-accept") || para.includes("Sim, conectar") || para.includes("Aceitar conexão") || para.includes("Você conhece")) {
+      const acceptUrl = para.match(/(https:\/\/[^\s]*invite-accept[^\s]*)/i)?.[1] ||
+                        para.match(/(https:\/\/[^\s]*linkedin\.com\/[^\s]*)/i)?.[1];
+      return (
+        <div key={idx} className="my-4 p-5 rounded-2xl bg-[#F8F9FA] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 space-y-3">
+          <p className="font-semibold text-xs text-[#202124] dark:text-zinc-200">
+            {para.replace(/https?:\/\/[^\s]+/g, '').replace(/Sim, conectar/g, '').trim()}
+          </p>
+          {acceptUrl && (
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href={acceptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+              >
+                <span>✓ Aceitar Conexão no LinkedIn</span>
+              </a>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 5. Citações de resposta
+    if (para.includes("wrote:") || para.includes("escreveu:") || para.startsWith("----")) {
+      return (
+        <div key={idx} className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm italic my-3 whitespace-pre-line">
+          {renderInlineCleanLinks(para)}
+        </div>
+      );
+    }
+
+    // 6. Parágrafo padrão com links limpos inline
+    return (
+      <p key={idx} className="whitespace-pre-line leading-relaxed">
+        {renderInlineCleanLinks(para)}
+      </p>
+    );
+  });
+}
+
+function renderInlineCleanLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      let label = part;
+      try {
+        const u = new URL(part);
+        label = u.hostname.replace('www.', '');
+      } catch(e) {}
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[#1A73E8] hover:text-[#1557B0] hover:underline font-medium break-all"
+        >
+          {label}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
@@ -333,7 +420,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   const parsedSender = selectedEmail ? parseSender(selectedEmail.from) : { name: "", email: "", initial: "RE" };
-  const visualSender = selectedEmail ? getSenderVisual(selectedEmail.from) : { initial: "RE", companyName: "Business" };
+  const visualSender = selectedEmail ? getSenderVisual(selectedEmail.from) : { initial: "RE", bgClass: "bg-[#E8F0FE]", textClass: "text-[#1A73E8]" };
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-150 ${
@@ -597,14 +684,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       )}
 
                       <div className="flex items-start gap-2.5">
-                        {/* Avatar com Foto Real ou Letra */}
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-xs border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8]">
+                        {/* Avatar Corporativo / Favicon */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 overflow-hidden shadow-xs border border-[#E5E7EB] dark:border-white/10 ${
+                          visual.logoUrl ? 'bg-white' : `${visual.bgClass} ${visual.textClass}`
+                        }`}>
                           {isSent && avatarUrl ? (
                             <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                          ) : visual.photoUrl ? (
-                            <img src={visual.photoUrl} alt={senderInfo.name} className="w-full h-full object-cover" />
                           ) : visual.logoUrl ? (
-                            <img src={visual.logoUrl} alt="" className="w-4 h-4 object-contain" />
+                            <img 
+                              src={visual.logoUrl} 
+                              alt="" 
+                              className="w-4 h-4 object-contain"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                              }}
+                            />
                           ) : (
                             <span>{visual.initial}</span>
                           )}
@@ -652,7 +746,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             {selectedEmail ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 
-                {/* Top Action Toolbar with Exact Private Email Icons (Screenshot 3) */}
+                {/* Top Action Toolbar with Exact Private Email Icons */}
                 <div className={`h-11 px-6 border-b flex items-center justify-between text-xs shrink-0 ${
                   isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-white/[0.02]'
                 }`}>
@@ -690,14 +784,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     {selectedEmail.subject || '(Sem assunto)'}
                   </h1>
 
-                  {/* Sender Header Card with Real Person Photo / Avatar */}
+                  {/* Sender Header Card with Real Company Favicon / Google Monogram */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                        {visualSender.photoUrl ? (
-                          <img src={visualSender.photoUrl} alt={parsedSender.name} className="w-full h-full object-cover" />
-                        ) : visualSender.logoUrl ? (
-                          <img src={visualSender.logoUrl} alt="" className="w-6 h-6 object-contain" />
+                      <div className={`w-11 h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center font-bold text-sm shrink-0 shadow-xs ${
+                        visualSender.logoUrl ? 'bg-white' : `${visualSender.bgClass} ${visualSender.textClass}`
+                      }`}>
+                        {visualSender.logoUrl ? (
+                          <img 
+                            src={visualSender.logoUrl} 
+                            alt="" 
+                            className="w-6 h-6 object-contain" 
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none';
+                            }}
+                          />
                         ) : (
                           <span>{visualSender.initial}</span>
                         )}
@@ -732,19 +833,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className={`text-[15px] leading-relaxed space-y-4 font-normal ${
                       isLight ? 'text-[#202124]' : 'text-[#E8EAED]'
                     }`}>
-                      {/* Thread Format (Like PawaPay Stephen Emmanuel in Screenshot 2) */}
+                      {/* Thread Format */}
                       {selectedEmail.body.includes("----\nOn ") ? (
                         <div className="space-y-6">
-                          {/* Turno Mais Recente */}
                           <div className="space-y-3">
-                            {selectedEmail.body.split("----\nOn ")[0].split('\n\n').map((para, idx) => (
-                              <p key={idx} className="whitespace-pre-line leading-relaxed">
-                                {para}
-                              </p>
-                            ))}
+                            {renderParagraphsWithActionButtons(selectedEmail.body.split("----\nOn ")[0])}
                           </div>
 
-                          {/* Resposta Anterior em Thread com Foto */}
                           <div className="pt-4 border-t border-[#E5E7EB] dark:border-white/10 space-y-3">
                             <div className="flex items-center gap-2.5 text-xs text-zinc-400 font-semibold mb-2">
                               <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 flex items-center justify-center font-bold text-[10px] overflow-hidden">
@@ -753,32 +848,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               <span>edson &lt;edson@rapimoneyit.online&gt; escreveu:</span>
                             </div>
                             <div className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm whitespace-pre-line leading-relaxed">
-                              {selectedEmail.body.split("----\nOn ")[1]}
+                              {renderParagraphsWithActionButtons(selectedEmail.body.split("----\nOn ")[1])}
                             </div>
                           </div>
                         </div>
                       ) : (
-                        /* Standard Natural Text */
-                        selectedEmail.body.split('\n\n').map((para, idx) => {
-                          if (para.includes("wrote:") || para.includes("escreveu:") || para.startsWith("----")) {
-                            return (
-                              <div key={idx} className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm italic my-3 whitespace-pre-line">
-                                {para}
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <p key={idx} className="whitespace-pre-line leading-relaxed">
-                              {para}
-                            </p>
-                          );
-                        })
+                        renderParagraphsWithActionButtons(selectedEmail.body)
                       )}
                     </div>
                   )}
 
-                  {/* Bottom Action Buttons (Screenshot 3) */}
+                  {/* Bottom Action Buttons */}
                   <div className="pt-6 border-t border-[#E5E7EB] dark:border-white/10 flex items-center gap-4 text-xs font-semibold text-[#1A73E8]">
                     <button onClick={() => setIsComposeOpen(true)} className="flex items-center gap-1.5 hover:underline">
                       <Reply className="w-4 h-4" />
