@@ -32,9 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="pt"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased light`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased light`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="h-screen w-screen overflow-hidden flex flex-col m-0 p-0">{children}</body>
     </html>
   );
 }
