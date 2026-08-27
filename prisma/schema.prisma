@@ -44,6 +44,7 @@ model User {
   company      Company? @relation(fields: [companyId], references: [id])
   createdAt    DateTime @default(now())
   emails       Email[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Email {
@@ -66,4 +67,14 @@ model Email {
   userAgent   String?
 
   createdAt   DateTime  @default(now())
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

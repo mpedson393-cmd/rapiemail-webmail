@@ -137,6 +137,19 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ [RapiEmail Universal Inbound] Email guardado na Caixa de Entrada (ID: ${created.id}) para ${user.email}!`);
 
+    // Disparar Notificação Push em Tempo Real para o Telemóvel / Computador (mesmo com o ecrã fechado!)
+    try {
+      const { sendPushNotificationToUser } = await import("@/lib/push");
+      const senderName = from.split('<')[0].replace(/["']/g, '').trim() || from;
+      await sendPushNotificationToUser(user.id, {
+        title: `Novo E-mail de ${senderName}`,
+        body: subject || "(Sem assunto)",
+        url: "/inbox"
+      });
+    } catch(pushErr) {
+      console.warn("[Inbound Push Notification Error]:", pushErr);
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: "Email recebido e processado na Caixa de Entrada com sucesso!",

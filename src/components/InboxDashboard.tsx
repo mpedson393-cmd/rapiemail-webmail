@@ -334,25 +334,60 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
   const handleRequestNotifications = async () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    
+    try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         playNotificationSound();
 
-        if ('serviceWorker' in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          reg.showNotification('RapiEmail Enterprise', {
-            body: '🔔 Notificações em tempo real ativadas com sucesso no telemóvel e PC!',
-            icon: '/favicon.ico'
-          });
+        // Registar Web Push com VAPID no Service Worker para alertas com a app fechada!
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const vapidPublicKey = "BCC2cdUC5qyeJwwL_OwCQYISuI2-tMl9wuhRx_x7jgQ2k77sL1yA0UrurhtF6l33oN7BU2QOEJtF14f4kk6GEIs";
+            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+            let sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+              sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+              });
+            }
+
+            // Enviar subscrição push para o Supabase
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub })
+            });
+
+            setToastMessage("🔔 Alertas ativados! Receberás notificações mesmo com a app fechada.");
+            setTimeout(() => setToastMessage(null), 4000);
+            return;
+          } catch (pushErr) {
+            console.warn("Push subscription warning:", pushErr);
+          }
         }
 
-        setToastMessage("🔔 Alertas ativados no telemóvel e PC!");
+        setToastMessage("🔔 Alertas ativados!");
         setTimeout(() => setToastMessage(null), 3000);
       }
-    }
+    } catch(e) {}
   };
 
   useEffect(() => {
