@@ -71,6 +71,20 @@ function parseSender(fromStr: string): { name: string; email: string; initial: s
 function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: string; color: string } {
   const clean = (emailOrFrom || "").toLowerCase();
 
+  if (clean.includes("termii.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=termii.com&sz=128", 
+      companyName: "Termii", 
+      color: "from-emerald-600 to-teal-800" 
+    };
+  }
+  if (clean.includes("currencycloud.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=currencycloud.com&sz=128", 
+      companyName: "Currencycloud | Visa", 
+      color: "from-blue-600 to-indigo-900" 
+    };
+  }
   if (clean.includes("stripe.com")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=stripe.com&sz=128", 
@@ -81,7 +95,7 @@ function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: s
   if (clean.includes("crassula.io")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=crassula.io&sz=128", 
-      companyName: "Crassula Core Banking", 
+      companyName: "Crassula", 
       color: "from-[#00E599] to-[#0B1528]" 
     };
   }
@@ -99,12 +113,6 @@ function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: s
       color: "from-[#0A0E2A] to-[#1E3A8A]" 
     };
   }
-  if (clean.includes("rapiemail.online") || clean.includes("rapimoneyit.online")) {
-    return { 
-      companyName: "RapiMoney IT", 
-      color: "from-indigo-600 to-purple-600" 
-    };
-  }
   if (clean.includes("linkedin.com")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128", 
@@ -112,171 +120,147 @@ function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: s
       color: "from-[#0A66C2] to-[#004182]" 
     };
   }
-  if (clean.includes("gmail.com") || clean.includes("google.com")) {
+  if (clean.includes("apple.com")) {
     return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=google.com&sz=128", 
-      companyName: "Google / Gmail", 
-      color: "from-red-500 to-amber-500" 
+      logoUrl: "https://www.google.com/s2/favicons?domain=apple.com&sz=128", 
+      companyName: "Apple", 
+      color: "from-zinc-800 to-black" 
+    };
+  }
+  if (clean.includes("impact.com")) {
+    return { 
+      logoUrl: "https://www.google.com/s2/favicons?domain=impact.com&sz=128", 
+      companyName: "Impact.com", 
+      color: "from-purple-600 to-indigo-900" 
     };
   }
 
-  // Extração automática de Favicon para qualquer empresa corporativa
-  const domainMatch = clean.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-  if (domainMatch && domainMatch[1] && !domainMatch[1].includes("localhost")) {
-    const dom = domainMatch[1];
-    return {
-      logoUrl: `https://www.google.com/s2/favicons?domain=${dom}&sz=128`,
-      companyName: dom.split('.')[0].toUpperCase(),
-      color: "from-indigo-700 to-zinc-900"
-    };
-  }
-
-  return { companyName: "Empresa", color: "from-zinc-700 to-zinc-900" };
+  return { companyName: "Business Contact", color: "from-blue-600 to-indigo-800" };
 }
 
-export function InboxDashboard({ user, initialEmails, currentFolder: initialFolder }: Props) {
-  const [activeTab, setActiveTab] = useState<'mail' | 'calendar' | 'contacts'>('mail');
-  const [selectedFolder, setSelectedFolder] = useState<string>(initialFolder || 'INBOX');
+// Formatar data no estilo Private Email (ex: 31/07 ou 18:13)
+function formatEmailDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    }
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+  } catch (e) {
+    return "";
+  }
+}
+
+export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [emails, setEmails] = useState<EmailItem[]>(initialEmails);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(initialEmails[0]?.id || null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState(currentFolder || 'INBOX');
+  const [activeTab, setActiveTab] = useState<'mail' | 'calendar' | 'contacts'>('mail');
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [sendingReply, setSendingReply] = useState(false);
-  const [replySuccess, setReplySuccess] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [replyText, setReplyText] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Estados de Tradução Automática (DeepL / Google Translate Style)
-  const [translations, setTranslations] = useState<Record<string, { text: string; sourceLang: string }>>({});
-  const [translatingId, setTranslatingId] = useState<string | null>(null);
-  const [showOriginalMap, setShowOriginalMap] = useState<Record<string, boolean>>({});
+  // Sistema de Tema: Padrão Claro Clean (Claro/Escuro)
+  const [isLight, setIsLight] = useState<boolean>(true);
 
-  // Sincronizar Tema e Foto com localStorage e Supabase
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('rapi_theme') as "dark" | "light" | null;
-      if (savedTheme) {
-        setTheme(savedTheme);
-        if (savedTheme === 'light') {
-          document.documentElement.classList.add('light');
-          document.body.classList.add('light');
-        } else {
-          document.documentElement.classList.remove('light');
-          document.body.classList.remove('light');
-        }
-      }
-
-      const cachedAvatar = localStorage.getItem('rapi_avatar');
-      if (cachedAvatar) setAvatarUrl(cachedAvatar);
-
-      fetch("/api/user/avatar")
-        .then(r => r.json())
-        .then(d => {
-          if (d.avatarUrl) {
-            setAvatarUrl(d.avatarUrl);
-            localStorage.setItem('rapi_avatar', d.avatarUrl);
-          }
-        })
-        .catch(() => {});
-    } catch (e) {}
+    const saved = localStorage.getItem('rapi_theme');
+    if (saved === 'dark') {
+      setIsLight(false);
+      document.documentElement.classList.remove('light');
+      document.body.classList.remove('light');
+    } else {
+      setIsLight(true);
+      document.documentElement.classList.add('light');
+      document.body.classList.add('light');
+    }
   }, []);
 
   const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    try {
-      localStorage.setItem('rapi_theme', nextTheme);
-      if (nextTheme === 'light') {
-        document.documentElement.classList.add('light');
-        document.body.classList.add('light');
-      } else {
-        document.documentElement.classList.remove('light');
-        document.body.classList.remove('light');
-      }
-    } catch (e) {}
-  };
-
-  const isLight = theme === 'light';
-
-  // Dynamic domain of user
-  const userDomain = user.email.includes('@') ? user.email.split('@')[1] : 'rapiemail.online';
-
-  // Fetch emails from Supabase
-  const refreshEmails = async () => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch("/api/emails/check");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.emails && Array.isArray(data.emails)) {
-          setEmails(data.emails);
-        }
-      }
-    } catch (err) {
-      // Polling silencioso
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
+    const next = !isLight;
+    setIsLight(next);
+    if (next) {
+      localStorage.setItem('rapi_theme', 'light');
+      document.documentElement.classList.add('light');
+      document.body.classList.add('light');
+    } else {
+      localStorage.setItem('rapi_theme', 'dark');
+      document.documentElement.classList.remove('light');
+      document.body.classList.remove('light');
     }
   };
 
-  // Polling automático suave a cada 6 segundos para verificar a chegada de e-mails em tempo real
+  // Carregar Avatar Real
   useEffect(() => {
-    const interval = setInterval(refreshEmails, 6000);
-    return () => clearInterval(interval);
+    fetch('/api/user/avatar')
+      .then(res => res.json())
+      .then(data => {
+        if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+      })
+      .catch(() => {});
   }, []);
 
-  // Dynamic real storage calculation
-  const totalBytes = useMemo(() => {
-    const emailBytes = emails.reduce((sum, e) => sum + (e.body?.length || 0) + (e.subject?.length || 0) + 2048, 0);
-    return Math.max(15360, emailBytes); // At least ~15 KB
-  }, [emails]);
+  // Polling automático de novos emails em tempo real
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/emails/check?folder=${selectedFolder}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.emails && Array.isArray(data.emails)) {
+            setEmails(data.emails);
+          }
+        }
+      } catch (err) {}
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [selectedFolder]);
 
-  const formattedStorage = useMemo(() => {
-    if (totalBytes < 1024 * 1024) {
-      return `${(totalBytes / 1024).toFixed(1)} KB`;
-    }
-    return `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
-  }, [totalBytes]);
+  const userDomain = useMemo(() => {
+    const parts = user.email.split('@');
+    return parts.length > 1 ? parts[1] : 'rapimoneyit.online';
+  }, [user.email]);
 
-  const storagePercent = useMemo(() => {
-    const maxBytes = 10 * 1024 * 1024 * 1024; // 10 GB
-    const pct = (totalBytes / maxBytes) * 100;
-    return pct < 0.01 ? "0.01%" : `${pct.toFixed(2)}%`;
-  }, [totalBytes]);
+  const folders = useMemo(() => [
+    { id: 'INBOX', label: 'Caixa de entrada', icon: Inbox, count: emails.filter(e => e.folder === 'INBOX' && !e.read).length },
+    { id: 'DRAFT', label: 'Rascunhos', icon: FileText, count: emails.filter(e => e.folder === 'DRAFT').length },
+    { id: 'SENT', label: 'Enviados', icon: Send, count: emails.filter(e => e.folder === 'SENT').length },
+    { id: 'SPAM', label: 'Spam', icon: AlertOctagon, count: emails.filter(e => e.folder === 'SPAM').length },
+    { id: 'TRASH', label: 'Lixo', icon: Trash2, count: emails.filter(e => e.folder === 'TRASH').length },
+    { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, count: emails.filter(e => e.folder === 'ARCHIVE').length },
+  ], [emails]);
 
-  // Filter emails by search query and folder
   const filteredEmails = useMemo(() => {
-    return emails.filter(e => {
-      const matchesSearch = 
-        e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      if (!matchesSearch) return false;
-
-      if (selectedFolder === 'STARRED') {
-        return starredIds.has(e.id);
-      }
-      return e.folder === selectedFolder;
+    return emails.filter(email => {
+      const matchFolder = email.folder === selectedFolder;
+      const matchSearch = searchQuery === '' || 
+        email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.body.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchFolder && matchSearch;
     });
-  }, [emails, searchQuery, selectedFolder, starredIds]);
+  }, [emails, selectedFolder, searchQuery]);
 
   const selectedEmail = useMemo(() => {
-    return filteredEmails.find(e => e.id === selectedEmailId) || null;
-  }, [filteredEmails, selectedEmailId]);
+    return emails.find(e => e.id === selectedEmailId) || filteredEmails[0] || null;
+  }, [emails, selectedEmailId, filteredEmails]);
 
   const handleSelectFolder = (folderId: string) => {
     setSelectedFolder(folderId);
-    const targetFolderEmails = emails.filter(e => {
-      if (folderId === 'STARRED') return starredIds.has(e.id);
-      return e.folder === folderId;
-    });
-    setSelectedEmailId(targetFolderEmails[0]?.id || null);
+    const inFolder = emails.filter(e => e.folder === folderId);
+    setSelectedEmailId(inFolder[0]?.id || null);
+  };
+
+  const handleSelectEmail = (id: string) => {
+    setSelectedEmailId(id);
+    setEmails(prev => prev.map(e => e.id === id ? { ...e, read: true } : e));
   };
 
   const toggleStar = (id: string, e: React.MouseEvent) => {
@@ -289,161 +273,100 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
     });
   };
 
-  const handleSelectEmail = (id: string) => {
-    setSelectedEmailId(id);
-    setEmails(prev => prev.map(item => item.id === id ? { ...item, read: true } : item));
-  };
-
-  const handleDeleteEmail = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setEmails(prev => prev.filter(item => item.id !== id));
-    if (selectedEmailId === id) {
-      setSelectedEmailId(null);
-    }
-  };
-
-  const handleSendReply = async () => {
-    if (!replyText || !selectedEmail) return;
-    setSendingReply(true);
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
     try {
-      const res = await fetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: selectedEmail.from === user.email ? selectedEmail.to : selectedEmail.from,
-          subject: selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
-          body: replyText
-        })
-      });
-      if (res.ok) {
-        setReplySuccess(true);
-        setReplyText("");
-        setTimeout(() => setReplySuccess(false), 3000);
-        refreshEmails();
-      }
-    } catch(err) {
-      console.error(err);
-    } finally {
-      setSendingReply(false);
-    }
-  };
-
-  // Detetar se o email está num idioma estrangeiro (Inglês, Francês, Espanhol, etc.)
-  const { isForeignLang, detectedLanguageName } = useMemo(() => {
-    if (!selectedEmail) return { isForeignLang: false, detectedLanguageName: "Inglês" };
-    const b = selectedEmail.body.toLowerCase();
-    
-    // Francês
-    if (/\b(bonjour|merci|cordialement|salutations|nous|vous|pour|avec|votre)\b/i.test(b)) {
-      return { isForeignLang: true, detectedLanguageName: "Francês" };
-    }
-    // Espanhol
-    if (/\b(hola|gracias|saludos|estimado|por favor|buenas|adjunto)\b/i.test(b)) {
-      return { isForeignLang: true, detectedLanguageName: "Espanhol" };
-    }
-    // Inglês
-    if (/\b(dear|thank you|hello|hi|please|best regards|regards|sincerely|meeting|setup|partnership|integration|proposal|agreement|pricing|follow up|schedule|review|platform|cards|processing)\b/i.test(b)) {
-      return { isForeignLang: true, detectedLanguageName: "Inglês" };
-    }
-
-    return { isForeignLang: false, detectedLanguageName: "Inglês" };
-  }, [selectedEmail]);
-
-  // Função de Tradução com DeepL Neural Engine
-  const handleTranslateEmail = async (emailId: string, content: string) => {
-    setTranslatingId(emailId);
-    try {
-      const res = await fetch("/api/ai/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: content, targetLang: "PT-PT" })
-      });
+      const res = await fetch(`/api/emails/check?folder=${selectedFolder}`);
       if (res.ok) {
         const data = await res.json();
-        const rawLang = (data.detectedSourceLang || "EN").toUpperCase();
-        const readable = rawLang.includes("EN") ? "Inglês" : (rawLang.includes("FR") ? "Francês" : (rawLang.includes("ES") ? "Espanhol" : "Inglês"));
-        
-        setTranslations(prev => ({
-          ...prev,
-          [emailId]: {
-            text: data.translatedText,
-            sourceLang: readable
-          }
-        }));
-        setShowOriginalMap(prev => ({ ...prev, [emailId]: false }));
+        if (data.emails && Array.isArray(data.emails)) {
+          setEmails(data.emails);
+          setToastMessage("Caixa de entrada atualizada!");
+          setTimeout(() => setToastMessage(null), 3000);
+        }
       }
-    } catch(err) {
-      console.error("Erro na tradução:", err);
+    } catch (err) {
+      setToastMessage("Erro ao sincronizar.");
+      setTimeout(() => setToastMessage(null), 3000);
     } finally {
-      setTranslatingId(null);
+      setIsRefreshing(false);
     }
   };
 
-  // Folders definition
-  const folders = [
-    { id: 'INBOX', label: 'Caixa de entrada', icon: Inbox, count: emails.filter(e => e.folder === 'INBOX' && !e.read).length },
-    { id: 'STARRED', label: 'Com estrela', icon: Star, count: starredIds.size },
-    { id: 'SENT', label: 'Enviados', icon: Send, count: emails.filter(e => e.folder === 'SENT').length },
-    { id: 'DRAFTS', label: 'Rascunhos', icon: FileText, count: 0 },
-    { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, count: 0 },
-    { id: 'SPAM', label: 'Spam', icon: AlertOctagon, count: 0 },
-    { id: 'TRASH', label: 'Lixo', icon: Trash2, count: 0 },
-  ];
+  const handleDeleteEmail = async () => {
+    if (!selectedEmail) return;
+    setEmails(prev => prev.filter(e => e.id !== selectedEmail.id));
+    setToastMessage("Email movido para o lixo.");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const parsedSender = selectedEmail ? parseSender(selectedEmail.from) : { name: "", email: "", initial: "RE" };
+  const companyInfo = selectedEmail ? getCompanyInfo(selectedEmail.from) : { companyName: "", color: "from-blue-600 to-indigo-800" };
 
   return (
-    <div className={`flex flex-col h-screen font-sans overflow-hidden select-none transition-colors duration-300 ${
-      isLight ? 'bg-[#F8F9FC] text-slate-800' : 'bg-[#06070B] text-zinc-300'
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-150 ${
+      isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
     }`}>
       
-      {/* 1. TOP GLOBAL EXECUTIVE APP BAR */}
-      <header className={`h-14 border-b flex items-center justify-between px-4 z-20 flex-shrink-0 backdrop-blur-2xl transition-colors ${
-        isLight ? 'bg-white/85 border-slate-200 shadow-sm' : 'bg-[#0A0C13]/80 border-white/[0.07]'
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-[#202124] text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-medium flex items-center gap-2 animate-fade-in border border-white/10">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* TOP EXECUTIVE HEADER (Clean Enterprise Standard) */}
+      <header className={`h-14 border-b flex items-center justify-between px-5 z-20 flex-shrink-0 transition-colors ${
+        isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
       }`}>
         
-        {/* Left: Brand & App Switcher */}
+        {/* Brand & Left Navigation */}
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 border border-indigo-400/30 flex items-center justify-center shadow-lg shadow-indigo-600/25">
-              <span className="text-white font-black text-xs tracking-tight">RE</span>
+          <Link href="/inbox" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-[#1A73E8] flex items-center justify-center text-white shadow-sm font-bold text-sm">
+              <Mail className="w-4 h-4" />
             </div>
-            <div className="hidden sm:block">
-              <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>RapiEmail</span>
-              <span className="text-[10px] text-zinc-500 font-semibold block leading-none">Enterprise</span>
+            <div className="flex flex-col">
+              <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-[#202124]' : 'text-white'}`}>
+                RapiEmail
+              </span>
+              <span className="text-[10px] text-zinc-400 font-medium -mt-0.5">Enterprise</span>
             </div>
-          </div>
+          </Link>
 
-          {/* App Switcher (Mail, Calendar, Contacts) */}
-          <div className={`flex items-center rounded-xl p-1 shadow-inner border ${
-            isLight ? 'bg-slate-100 border-slate-200' : 'bg-white/[0.04] border-white/[0.06]'
+          {/* Apps Switcher (Correio, Calendário, Contactos) */}
+          <div className={`flex items-center p-0.5 rounded-lg border ${
+            isLight ? 'bg-[#F1F3F4] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
           }`}>
-            <button 
+            <button
               onClick={() => setActiveTab('mail')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'mail' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'mail'
+                  ? 'bg-[#1A73E8] text-white shadow-sm'
+                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Correio</span>
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'calendar' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'calendar'
+                  ? 'bg-[#1A73E8] text-white shadow-sm'
+                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>Calendário</span>
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('contacts')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'contacts' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
-                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'contacts'
+                  ? 'bg-[#1A73E8] text-white shadow-sm'
+                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -452,113 +375,106 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
           </div>
         </div>
 
-        {/* Center: Search Bar */}
-        <div className="flex-1 max-w-xl mx-6">
-          <div className="relative group">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
+        {/* Global Search Bar */}
+        <div className="flex-1 max-w-xl mx-6 hidden md:block">
+          <div className="relative">
+            <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
             <input 
-              type="text" 
+              type="text"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar mensagens por remetente, assunto ou texto... (Ctrl+K)" 
-              className={`w-full border rounded-xl py-1.5 pl-10 pr-12 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-sm ${
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Pesquisar correio por remetente, assunto ou texto..."
+              className={`w-full text-xs pl-10 pr-4 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#1A73E8] transition-all ${
                 isLight 
-                  ? 'bg-slate-100 hover:bg-slate-200/60 border-slate-200 focus:border-indigo-500 text-slate-900 placeholder:text-slate-400' 
-                  : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.07] focus:border-indigo-500/50 text-white placeholder:text-zinc-500'
+                  ? 'bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#1A73E8] text-[#202124] placeholder-[#5F6368]' 
+                  : 'bg-white/5 border-white/10 text-white placeholder-zinc-500'
               }`}
             />
-            <kbd className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded font-mono pointer-events-none border ${
-              isLight ? 'bg-white border-slate-200 text-slate-500' : 'bg-white/5 border-white/10 text-zinc-500'
-            }`}>
-              ⌘K
-            </kbd>
           </div>
         </div>
 
-        {/* Right: Actions & Status */}
+        {/* Right Tools: Refresh, Theme Switcher, Settings, Profile */}
         <div className="flex items-center gap-2.5">
           <button 
-            onClick={refreshEmails}
-            title="Atualizar Caixa de Correio"
-            className={`p-2 rounded-xl transition-all active:scale-95 ${
-              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            onClick={handleManualRefresh}
+            title="Atualizar emails"
+            className={`p-2 rounded-lg transition-colors ${
+              isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-500' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#1A73E8]' : ''}`} />
           </button>
 
-          {/* Botão Rápido de Alternar Tema Claro / Escuro */}
           <button 
             onClick={toggleTheme}
             title={isLight ? "Ativar Modo Escuro" : "Ativar Modo Claro"}
-            className={`p-2 rounded-xl transition-all active:scale-95 ${
-              isLight ? 'text-amber-500 hover:bg-amber-50' : 'text-indigo-300 hover:text-white hover:bg-white/5'
+            className={`p-2 rounded-lg transition-colors ${
+              isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            {isLight ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
           </button>
 
-          <div className="relative">
-            <button className={`p-2 rounded-xl transition-all ${
-              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
-            }`}>
-              <Bell className="w-4 h-4" />
-            </button>
-            <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse shadow-sm shadow-indigo-500" />
-          </div>
-          
-          <Link href="/settings" title="Definições da Conta" className={`p-2 rounded-xl transition-all ${
-            isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}>
+          <Link
+            href="/settings"
+            title="Definições"
+            className={`p-2 rounded-lg transition-colors ${
+              isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
             <Settings className="w-4 h-4" />
           </Link>
-          
-          <div className={`h-4 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
 
-          <Link href="/settings" title="Abrir Perfil" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 border border-indigo-400/30 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-600/20 overflow-hidden">
+          {/* User Profile Avatar */}
+          <Link href="/settings" className="relative ml-1 block">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
               ) : (
                 <span>{user.initials}</span>
               )}
             </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#07090E]"></div>
           </Link>
         </div>
       </header>
 
-      {/* TAB 1: CALENDAR VIEW */}
+      {/* VIEW: CALENDAR */}
       {activeTab === 'calendar' && (
-        <CalendarView user={user} />
+        <main className="flex-1 overflow-y-auto">
+          <CalendarView userEmail={user.email} />
+        </main>
       )}
 
-      {/* TAB 2: CONTACTS VIEW */}
+      {/* VIEW: CONTACTS */}
       {activeTab === 'contacts' && (
-        <ContactsView user={user} />
+        <main className="flex-1 overflow-y-auto">
+          <ContactsView userEmail={user.email} />
+        </main>
       )}
 
-      {/* TAB 3: MAIL VIEW (3-COLUMN SPLIT WORKSPACE) */}
+      {/* VIEW: MAIL (3-Column Workspace) */}
       {activeTab === 'mail' && (
-        <div className="flex-1 flex overflow-hidden animate-fade-in">
+        <div className="flex-1 flex overflow-hidden">
           
           {/* COLUMN 1: LEFT SIDEBAR (Folders & Storage) */}
-          <aside className={`w-[245px] border-r flex flex-col flex-shrink-0 transition-colors ${
-            isLight ? 'bg-[#F8F9FC] border-slate-200/80' : 'bg-[#07090E] border-white/[0.06]'
+          <aside className={`w-[220px] border-r flex flex-col flex-shrink-0 transition-colors ${
+            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#07090E] border-white/[0.08]'
           }`}>
             
-            {/* Compose Button */}
+            {/* "Escrever" Button (Clean Royal Blue Pill) */}
             <div className="p-3.5">
               <button 
                 onClick={() => setIsComposeOpen(true)}
-                className="w-full flex items-center justify-center gap-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-md shadow-blue-600/20 border border-blue-500/20 transition-all group"
+                className="w-full flex items-center justify-center gap-2 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-sm transition-all"
               >
-                <Edit3 className="w-4 h-4 group-hover:rotate-6 transition-transform" />
-                <span>Escrever Email</span>
+                <Edit3 className="w-4 h-4" />
+                <span>Escrever</span>
               </button>
             </div>
 
-            {/* Folder Navigation */}
-            <nav className="flex-1 px-2.5 py-1 space-y-1 overflow-y-auto">
+            {/* Folders Navigation */}
+            <nav className="flex-1 px-2.5 py-1 space-y-0.5 overflow-y-auto">
               {folders.map(folder => {
                 const Icon = folder.icon;
                 const isActive = selectedFolder === folder.id;
@@ -566,23 +482,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   <button
                     key={folder.id}
                     onClick={() => handleSelectFolder(folder.id)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                       isActive 
                         ? isLight 
-                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold shadow-sm' 
-                          : 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/25 font-semibold shadow-sm'
+                          ? 'bg-[#E8F0FE] text-[#1967D2] font-bold' 
+                          : 'bg-white/10 text-white font-bold'
                         : isLight 
-                          ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' 
-                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                          ? 'text-[#202124] hover:bg-[#F1F3F4]' 
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : isLight ? 'text-slate-400' : 'text-zinc-500'}`} />
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#1A73E8]' : isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
                       <span>{folder.label}</span>
                     </div>
                     {folder.count > 0 && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-indigo-600 text-white' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-zinc-300'
+                        isActive ? 'bg-[#1A73E8] text-white' : isLight ? 'bg-[#E8EAED] text-[#202124]' : 'bg-white/10 text-zinc-300'
                       }`}>
                         {folder.count}
                       </span>
@@ -590,207 +506,110 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                   </button>
                 );
               })}
-
-              {/* Alojamento Web Card (Upsell & AI Site Builder) */}
-              <div className={`pt-4 mt-4 border-t px-1 ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
-                <div className={`p-3.5 rounded-2xl border space-y-2.5 shadow-lg ${
-                  isLight ? 'bg-gradient-to-b from-indigo-50 to-white border-indigo-200 shadow-indigo-100/50' : 'bg-gradient-to-b from-indigo-950/40 via-purple-950/20 to-black/40 border-indigo-500/20 shadow-black/40'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className={`flex items-center gap-2 font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      <Globe className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Criador de Site IA</span>
-                    </div>
-                    <span className="text-[9px] font-bold bg-indigo-500/20 text-indigo-600 border border-indigo-500/30 px-1.5 py-0.5 rounded-md">88€/ano</span>
-                  </div>
-                  <p className={`text-[11px] leading-snug ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                    Crie o site completo da sua loja em 10 segundos com a RapiAI no domínio <span className={isLight ? 'text-slate-900 font-bold' : 'text-zinc-200 font-medium'}>{userDomain}</span>.
-                  </p>
-                  <button 
-                    onClick={() => setIsSiteBuilderOpen(true)}
-                    className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-[11px] rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 active:scale-98"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-                    <span>Criar Site com IA</span>
-                  </button>
-                </div>
-              </div>
             </nav>
 
-            {/* Storage Meter (Real Dynamic Storage) */}
-            <div className={`p-3.5 border-t ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#06070B] border-white/[0.06]'}`}>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className={`flex items-center gap-1.5 font-medium ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                    <HardDrive className="w-3.5 h-3.5 text-indigo-500" />
-                    Armazenamento
-                  </span>
-                  <span className={`font-mono text-[10px] ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}>{storagePercent}</span>
-                </div>
-                
-                {/* Progress bar */}
-                <div className={`w-full h-1.5 rounded-full overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-white/5'}`}>
-                  <div 
-                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(2, parseFloat(storagePercent))}%` }}
-                  />
-                </div>
-                
-                <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}>
-                  <strong className={isLight ? 'text-slate-800 font-bold' : 'text-zinc-300 font-medium'}>{formattedStorage}</strong> de 10 GB utilizados
-                </p>
+            {/* Storage Meter (Private Email Style) */}
+            <div className={`p-3.5 border-t text-xs ${isLight ? 'border-[#E5E7EB] bg-[#F8F9FA]' : 'border-white/[0.08] bg-black/20'}`}>
+              <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-zinc-500">
+                <span>Armazenamento</span>
+                <span>0.1%</span>
               </div>
+              <div className="w-full h-1.5 bg-[#E5E7EB] dark:bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-[#1A73E8] rounded-full w-[2%]"></div>
+              </div>
+              <span className="text-[10px] text-zinc-400 block mt-1">107.2 KB de 10 GB utilizados</span>
             </div>
 
             {/* User Profile Footer */}
-            <div className={`p-2.5 border-t ${isLight ? 'border-slate-200 bg-white' : 'border-white/[0.06]'}`}>
-              <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
-            </div>
+            <UserProfileFooter user={user} userDomain={userDomain} />
           </aside>
 
-          {/* COLUMN 2: MIDDLE EMAIL LIST PANE */}
-          <section className={`w-[390px] border-r flex flex-col flex-shrink-0 transition-colors ${
-            isLight ? 'bg-[#FFFFFF] border-slate-200/80' : 'bg-[#07090E] border-white/[0.06]'
+          {/* COLUMN 2: EMAIL LIST (Flat Clean Dividers like Private Email) */}
+          <section className={`w-[340px] md:w-[380px] border-r flex flex-col flex-shrink-0 transition-colors ${
+            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
           }`}>
             
-            {/* List Header */}
-            <div className={`h-12 border-b px-4 flex items-center justify-between ${
-              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0A0C13]/50 border-white/[0.06]'
+            {/* Header */}
+            <div className={`h-11 px-4 border-b flex items-center justify-between text-xs font-semibold ${
+              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FAFAFA]' : 'border-white/[0.08] text-zinc-400 bg-white/[0.02]'
             }`}>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                  {folders.find(f => f.id === selectedFolder)?.label || selectedFolder}
-                </span>
-                <span className="text-[11px] text-zinc-500 font-mono">({filteredEmails.length})</span>
+                <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
+                <span className="text-[11px] text-zinc-400">({filteredEmails.length})</span>
               </div>
-              
-              <div className="flex items-center gap-1 text-zinc-500 text-xs">
-                <span>Mais recentes</span>
-                <ChevronDown className="w-3 h-3" />
-              </div>
+              <span className="text-[11px]">Mais recentes</span>
             </div>
 
-            {/* Email Scroll List */}
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
+            {/* List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.06]">
               {filteredEmails.length === 0 ? (
-                <div className="text-center py-24 px-4 animate-fade-in">
-                  <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mx-auto mb-3.5 shadow-inner ${
-                    isLight ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white/[0.02] border-white/[0.06] text-zinc-600'
-                  }`}>
-                    <Inbox className="w-6 h-6" />
-                  </div>
-                  <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>Sem mensagens</h4>
-                  <p className="text-xs text-zinc-500">Esta pasta está limpa e vazia.</p>
+                <div className="p-8 text-center text-zinc-400 text-xs">
+                  <Inbox className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <span>Sem mensagens nesta pasta.</span>
                 </div>
               ) : (
                 filteredEmails.map(email => {
-                  const isSelected = selectedEmailId === email.id;
+                  const isSelected = selectedEmail?.id === email.id;
                   const isStarred = starredIds.has(email.id);
                   const isSent = email.folder === 'SENT' || email.from === user.email;
-                  
-                  const senderInfo = isSent 
-                    ? parseSender(email.to)
-                    : parseSender(email.from);
-                  
+                  const senderInfo = isSent ? parseSender(email.to) : parseSender(email.from);
                   const company = getCompanyInfo(isSent ? email.to : email.from);
-                  
-                  const d = new Date(email.createdAt);
-                  const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                  const dateDisplay = formatEmailDate(email.createdAt);
 
                   return (
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.985] ${
+                      className={`group relative p-3.5 transition-colors cursor-pointer ${
                         isSelected 
-                          ? isLight 
-                            ? 'bg-[#EEF2FF] border-[#6366F1]/50 shadow-sm' 
-                            : 'bg-indigo-600/15 border-indigo-500/40 shadow-lg shadow-black/50'
-                          : isLight 
-                            ? 'bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 hover:translate-x-0.5 shadow-xs' 
-                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:translate-x-0.5'
+                          ? isLight ? 'bg-[#E8F0FE]' : 'bg-white/10'
+                          : isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-transparent hover:bg-white/[0.04]'
                       }`}
                     >
-                      {/* Unread dot */}
-                      {!email.read && !isSent && (
-                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500 animate-pulse"></div>
+                      {/* Active Left Indicator */}
+                      {isSelected && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1A73E8]"></div>
                       )}
 
                       <div className="flex items-start gap-3">
-                        {/* Company Logo or Sender Avatar */}
-                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5 shadow-sm overflow-hidden`}>
-                          {isSent && avatarUrl ? (
-                            <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                          ) : company.logoUrl ? (
-                            <img 
-                              src={company.logoUrl} 
-                              alt={company.companyName} 
-                              className="w-5 h-5 object-contain rounded-md"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
-                            />
+                        {/* Avatar / Favicon */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-xs ${
+                          company.logoUrl ? 'bg-white border border-[#E5E7EB]' : 'bg-[#1A73E8]'
+                        }`}>
+                          {company.logoUrl ? (
+                            <img src={company.logoUrl} alt="" className="w-4 h-4 object-contain" />
                           ) : (
                             <span>{senderInfo.initial}</span>
                           )}
                         </div>
 
-                        {/* Content */}
+                        {/* Text Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
-                            <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-indigo-600 dark:text-white' : isLight ? 'font-medium text-slate-800' : 'font-medium text-zinc-300'}`}>
+                            <span className={`text-xs truncate ${!email.read && !isSent ? 'font-bold text-[#202124] dark:text-white' : 'font-semibold text-[#3C4043] dark:text-zinc-300'}`}>
                               {isSent ? `Para: ${senderInfo.name}` : senderInfo.name}
                             </span>
-                            <span suppressHydrationWarning className="text-[10px] text-zinc-500 font-mono flex-shrink-0 ml-2">
-                              {time}
+                            <span className="text-[10px] text-zinc-400 shrink-0 ml-2 font-mono">
+                              {dateDisplay}
                             </span>
                           </div>
 
-                          <p className={`text-xs truncate mb-1 ${!email.read && !isSent ? 'font-semibold text-indigo-600 dark:text-indigo-300' : isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                          <p className={`text-xs truncate mb-0.5 ${!email.read && !isSent ? 'font-bold text-[#202124] dark:text-white' : 'font-medium text-[#3C4043] dark:text-zinc-300'}`}>
                             {email.subject || '(Sem assunto)'}
                           </p>
 
-                          <p className="text-[11px] text-zinc-500 truncate leading-snug">
-                            {email.body}
+                          <p className="text-[11px] text-[#5F6368] dark:text-zinc-400 truncate leading-tight">
+                            {email.body.replace(/\s+/g, ' ').slice(0, 80)}
                           </p>
-
-                          {/* Email Tracking Double Checkmark Badge for Sent Emails */}
-                          {isSent && (
-                            <div className="flex items-center gap-1.5 mt-2">
-                              {email.isOpened ? (
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm ${
-                                  isLight ? 'text-cyan-700 bg-cyan-50 border border-cyan-200' : 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/20'
-                                }`}>
-                                  <CheckCheck className="w-3 h-3 text-cyan-500" />
-                                  <span>Lido {email.openCount && email.openCount > 1 ? `(${email.openCount}x)` : ''}</span>
-                                </span>
-                              ) : (
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md ${
-                                  isLight ? 'text-slate-500 bg-slate-100' : 'text-zinc-500 bg-white/5'
-                                }`}>
-                                  <Check className="w-3 h-3 text-zinc-500" />
-                                  <span>Enviado</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
 
-                        {/* Quick Actions (Hover) */}
-                        <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={(e) => toggleStar(email.id, e)} 
-                            className="text-zinc-400 hover:text-yellow-500 transition-colors p-0.5"
-                          >
-                            <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-yellow-400 text-yellow-400 opacity-100' : ''}`} />
-                          </button>
-                          <button 
-                            onClick={(e) => handleDeleteEmail(email.id, e)} 
-                            className="text-zinc-400 hover:text-red-500 transition-colors p-0.5"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {/* Star Button */}
+                        <button
+                          onClick={(e) => toggleStar(email.id, e)}
+                          className="text-zinc-300 hover:text-amber-400 shrink-0 pt-0.5"
+                        >
+                          <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-amber-400 text-amber-400' : ''}`} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -799,597 +618,234 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             </div>
           </section>
 
-          {/* COLUMN 3: RIGHT SPLIT-VIEW READER PANE */}
+          {/* COLUMN 3: EMAIL READER PANE (Pure Clean Reading Experience) */}
           <main className={`flex-1 flex flex-col overflow-hidden transition-colors ${
-            isLight ? 'bg-[#F8F9FC]' : 'bg-[#05060A]'
+            isLight ? 'bg-[#FFFFFF]' : 'bg-[#07090E]'
           }`}>
-            
             {selectedEmail ? (
-              (() => {
-                const parsedSender = parseSender(selectedEmail.from);
-                const parsedRecipient = parseSender(selectedEmail.to);
-                const company = getCompanyInfo(selectedEmail.from);
-                const isSentByMe = selectedEmail.from === user.email;
-
-                return (
-                  <div key={selectedEmail.id} className="flex-1 flex flex-col overflow-hidden animate-fade-in">
-                    
-                    {/* Email Toolbar Actions */}
-                    <div className={`h-12 border-b px-6 flex items-center justify-between backdrop-blur-md flex-shrink-0 ${
-                      isLight ? 'bg-white/80 border-slate-200' : 'bg-[#0A0C13]/40 border-white/[0.06]'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => {
-                            setReplyText(`\n\n--- Mensagem Original ---\n${selectedEmail.body}`);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                            isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/[0.05]'
-                          }`}
-                        >
-                          <CornerUpLeft className="w-3.5 h-3.5" />
-                          <span>Responder</span>
-                        </button>
-                        <button 
-                          onClick={() => setIsComposeOpen(true)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                            isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/[0.05]'
-                          }`}
-                        >
-                          <CornerUpRight className="w-3.5 h-3.5" />
-                          <span>Encaminhar</span>
-                        </button>
-                        <div className={`h-4 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
-                        <button 
-                          onClick={() => handleDeleteEmail(selectedEmail.id)}
-                          title="Mover para o Lixo"
-                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-white/5 rounded-xl transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          title="Arquivar"
-                          className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-                        >
-                          <Archive className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-zinc-500">
-                        <span suppressHydrationWarning className={`font-mono ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                          {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { 
-                            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                          })}
-                        </span>
-                        <button className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Email Content Area */}
-                    <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                      
-                      {/* Rastreamento de Leitura Real (Apenas em Emails Enviados) */}
-                      {selectedEmail.from === user.email && (
-                        <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                          selectedEmail.isOpened 
-                            ? isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-900' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200' 
-                            : isLight ? 'bg-slate-100 border-slate-200 text-slate-700' : 'bg-white/[0.02] border-white/10 text-zinc-300'
-                        }`}>
-                          <div className="flex items-center gap-3.5">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-md ${
-                              selectedEmail.isOpened 
-                                ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' 
-                                : isLight ? 'bg-white text-slate-500 border border-slate-200' : 'bg-white/5 text-zinc-400 border border-white/10'
-                            }`}>
-                              {selectedEmail.isOpened ? <CheckCheck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs">
-                                  {selectedEmail.isOpened ? '✓✓ Destinatário Abriu e Leu a Mensagem' : '✓ Entregue com Sucesso (A aguardar abertura)'}
-                                </span>
-                                {selectedEmail.isOpened && (
-                                  <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 px-2 py-0.5 rounded-full font-bold">
-                                    {selectedEmail.openCount || 1} visualização(ões)
-                                  </span>
-                                )}
-                              </div>
-                              <p suppressHydrationWarning className="text-[11px] text-zinc-500 mt-0.5">
-                                {selectedEmail.isOpened 
-                                  ? `Lido às ${new Date(selectedEmail.openedAt || '').toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} • Dispositivo: ${selectedEmail.userAgent || 'Dispositivo do Destinatário'}`
-                                  : 'O pixel stealth do RapiEmail notificará em tempo real quando o destinatário abrir este e-mail.'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Subject Line & RapiAI Button */}
-                      <div className="flex items-start justify-between gap-4">
-                        <h1 className={`text-xl font-bold tracking-tight leading-snug flex-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                          {selectedEmail.subject || '(Sem assunto)'}
-                        </h1>
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetch("/api/ai/generate", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ prompt: `Assunto: ${selectedEmail.subject}\nDe: ${selectedEmail.from}\n\nCorpo:\n${selectedEmail.body}`, mode: "summary" })
-                              });
-                              const data = await res.json();
-                              alert(data.summary || "Erro ao gerar resumo com RapiAI.");
-                            } catch(err) {
-                              alert("Erro de rede ao comunicar com Google Gemini.");
-                            }
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm flex-shrink-0 ${
-                            isLight 
-                              ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700' 
-                              : 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border-indigo-500/30 text-indigo-300'
-                          }`}
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-                          <span>Resumir com RapiAI</span>
-                        </button>
-                      </div>
-
-                      {/* Sender Details Card with Authentic Company Logos or Real Avatar */}
-                      <div className={`flex items-center justify-between pb-6 border-b ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${company.color} border border-white/10 flex items-center justify-center text-sm font-bold text-white shadow-lg overflow-hidden shrink-0`}>
-                            {isSentByMe && avatarUrl ? (
-                              <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                            ) : company.logoUrl ? (
-                              <img 
-                                src={company.logoUrl} 
-                                alt={company.companyName} 
-                                className="w-7 h-7 object-contain rounded-md"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <span>{parsedSender.initial}</span>
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                {parsedSender.name}
-                              </span>
-                              {company.companyName && (
-                                <span className={`text-[10px] border px-2 py-0.5 rounded-md font-semibold ${
-                                  isLight ? 'bg-slate-100 border-slate-200 text-slate-700' : 'bg-white/5 border-white/10 text-zinc-300'
-                                }`}>
-                                  {company.companyName}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
-                              <span>&lt;{parsedSender.email}&gt;</span>
-                              <span className="text-zinc-400">•</span>
-                              <span>para <strong className={isLight ? 'text-slate-700 font-semibold' : 'text-zinc-400 font-medium'}>{parsedRecipient.name}</strong> &lt;{parsedRecipient.email}&gt;</span>
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={(e) => toggleStar(selectedEmail.id, e)}
-                            className="p-2 text-zinc-400 hover:text-yellow-500 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors"
-                          >
-                            <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 🌐 Google Translate / DeepL Neural AI Banner */}
-                      {isForeignLang && (
-                        <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-fade-in ${
-                          isLight 
-                            ? 'bg-gradient-to-r from-indigo-50 via-purple-50 to-white border-indigo-200 shadow-indigo-100/60' 
-                            : 'bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black/40 border-indigo-500/25 shadow-black/30'
-                        }`}>
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0 shadow-sm">
-                              <Languages className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                  {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] 
-                                    ? `Traduzido: ${translations[selectedEmail.id].sourceLang} → Português`
-                                    : `Mensagem em ${detectedLanguageName}`}
-                                </span>
-                                <span className="text-[10px] bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-semibold">DeepL AI</span>
-                              </div>
-                              <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                                {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
-                                  ? "Tradução neural oficial ativa com preservação da estrutura e tom comercial."
-                                  : "Deseja traduzir esta mensagem para português?"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                            {translations[selectedEmail.id] ? (
-                              showOriginalMap[selectedEmail.id] ? (
-                                <button
-                                  onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: false }))}
-                                  className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all active:scale-95"
-                                >
-                                  <Languages className="w-3.5 h-3.5" />
-                                  <span>Ver Tradução</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => setShowOriginalMap(prev => ({ ...prev, [selectedEmail.id]: true }))}
-                                  className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${
-                                    isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200' : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
-                                  }`}
-                                >
-                                  Mostrar original
-                                </button>
-                              )
-                            ) : (
-                              <button
-                                onClick={() => handleTranslateEmail(selectedEmail.id, selectedEmail.body)}
-                                disabled={translatingId === selectedEmail.id}
-                                className="text-xs font-bold text-white px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-600/25 flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-95"
-                              >
-                                <Languages className="w-3.5 h-3.5" />
-                                <span>{translatingId === selectedEmail.id ? "A traduzir..." : "Traduzir para Português"}</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Body Content (Shows translated or original rich HTML / text smoothly) */}
-                      {selectedEmail.html && (!translations[selectedEmail.id] || showOriginalMap[selectedEmail.id]) ? (
-                        <div 
-                          className={`email-rich-html text-sm leading-relaxed max-w-3xl rounded-2xl p-4 border overflow-x-auto animate-fade-in ${
-                            isLight ? 'bg-white border-slate-200/80 text-slate-900 shadow-sm' : 'bg-[#0a0c13] border-white/5 text-zinc-100'
-                          }`}
-                          dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
-                        />
-                      ) : (
-                        (() => {
-                          const activeText = (translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id])
-                            ? translations[selectedEmail.id].text
-                            : selectedEmail.body;
-
-                          return (
-                            <div className="max-w-3xl animate-fade-in space-y-6">
-                              {/* CASO 1: CONVITE DE CONEXÃO DIRETO LINKEDIN */}
-                              {(activeText.includes("Aceitar:") || activeText.includes("Ver perfil:") || (activeText.includes("convite") && activeText.includes("linkedin")) || activeText.includes("aguarda sua resposta")) && (
-                                (() => {
-                                  // Limpeza cirúrgica de todo o lixo de URLs e tracking no texto da bio
-                                  let cleanBio = activeText
-                                    .split(/Aceitar:|Ver perfil:|Ver todas as conexões/i)[0]
-                                    .replace(/Olá[^\n]*\n+/gi, '')
-                                    .replace(/^[^\n]*aguarda sua resposta[^\n]*/gi, '')
-                                    .replace(/https?:\/\/[^\s]+/g, '')
-                                    .replace(/sharedKey=[^\s]+/g, '')
-                                    .replace(/invitationId=[^\s]+/g, '')
-                                    .replace(/midToken=[^\s]+/g, '')
-                                    .replace(/email_career_insights[^\s]+/g, '')
-                                    .trim();
-
-                                  // Se o nome do remetente estiver repetido no início da bio, remove
-                                  if (cleanBio.startsWith(parsedSender.name)) {
-                                    cleanBio = cleanBio.slice(parsedSender.name.length).trim();
-                                  }
-
-                                  const acceptUrl = activeText.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*|\baccept\b[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1] ||
-                                                    activeText.match(/https:\/\/[^\s]*linkedin\.com\/comm\/mynetwork\/invite-accept[^\s]*/i)?.[0];
-                                  const profileUrl = activeText.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1] ||
-                                                     activeText.match(/https:\/\/[^\s]*linkedin\.com\/comm\/in\/[^\s]*/i)?.[0];
-
-                                  return (
-                                    <div className={`p-6 rounded-2xl border shadow-sm ${
-                                      isLight ? 'bg-white border-slate-200 shadow-slate-100' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
-                                    }`}>
-                                      <div className="flex items-start gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
-                                          {parsedSender.name.charAt(0) || "L"}
-                                        </div>
-                                        <div className="flex-1 space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                              {parsedSender.name}
-                                            </h3>
-                                            <span className="text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
-                                              LinkedIn
-                                            </span>
-                                          </div>
-                                          <p className={`text-sm leading-relaxed ${isLight ? 'text-slate-700' : 'text-zinc-300'}`}>
-                                            {cleanBio || "Gostaria de se conectar com você no LinkedIn."}
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
-                                        {acceptUrl && (
-                                          <a
-                                            href={acceptUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/25 transition-all cursor-pointer"
-                                          >
-                                            <span>✓ Aceitar Conexão</span>
-                                          </a>
-                                        )}
-                                        {profileUrl && (
-                                          <a
-                                            href={profileUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
-                                              isLight 
-                                                ? 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50' 
-                                                : 'border-white/10 text-zinc-300 hover:bg-white/5'
-                                            }`}
-                                          >
-                                            <span>👤 Ver Perfil no LinkedIn</span>
-                                          </a>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })()
-                              )}
-
-                              {/* CASO 2: NOTIFICAÇÃO DE BUSCA/REDE LINKEDIN (ex: Andrew Mreana, Edson MP) */}
-                              {!activeText.includes("Aceitar:") && (activeText.includes("linkedin.com/comm/in/") || activeText.includes("Tendências de carreira")) && (
-                                <div className="space-y-4">
-                                  {/* Header da Notificação */}
-                                  <div className={`p-4 rounded-2xl border flex items-center justify-between ${
-                                    isLight ? 'bg-indigo-50/60 border-indigo-200' : 'bg-indigo-950/20 border-indigo-500/20'
-                                  }`}>
-                                    <div>
-                                      <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                        Tendências de Carreira & Oportunidades na sua Rede
-                                      </h4>
-                                      <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                                        Notificação inteligente do LinkedIn Network
-                                      </p>
-                                    </div>
-                                    {activeText.match(/https:\/\/www\.linkedin\.com\/comm\/search\/results\/people\/[^\s]+/i) && (
-                                      <a
-                                        href={activeText.match(/https:\/\/www\.linkedin\.com\/comm\/search\/results\/people\/[^\s]+/i)?.[0]}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-3.5 py-1.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-                                      >
-                                        Ver Todos no LinkedIn
-                                      </a>
-                                    )}
-                                  </div>
-
-                                  {/* Lista de Perfis / Pessoas Mencionadas */}
-                                  <div className="grid grid-cols-1 gap-3.5">
-                                    {activeText.split(/(?=(?:Andrew Mreana|Edson MP|[A-Z][a-z]+ [A-Z][a-z]+)\n)/g).filter(chunk => chunk.includes("linkedin.com/comm/in/")).map((personChunk, pIdx) => {
-                                      const lines = personChunk.trim().split('\n').filter(l => l.trim().length > 0);
-                                      const name = lines[0] || "Contacto LinkedIn";
-                                      const role = lines.find(l => !l.includes("http") && !l.includes("Enviar mensagem") && l !== name) || "Membro LinkedIn";
-                                      const msgLinkMatch = personChunk.match(/https:\/\/www\.linkedin\.com\/comm\/in\/[^\s]+/i);
-                                      const msgLink = msgLinkMatch ? msgLinkMatch[0] : null;
-
-                                      return (
-                                        <div key={pIdx} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
-                                          isLight ? 'bg-white border-slate-200/80 shadow-slate-100' : 'bg-[#0B0E17] border-white/[0.08]'
-                                        }`}>
-                                          <div className="flex items-center gap-3.5">
-                                            <div className="w-10 h-10 rounded-full bg-[#0A66C2]/15 border border-[#0A66C2]/30 text-[#0A66C2] flex items-center justify-center font-bold text-sm shrink-0">
-                                              {name.charAt(0)}
-                                            </div>
-                                            <div>
-                                              <div className="flex items-center gap-2">
-                                                <span className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                                  {name}
-                                                </span>
-                                                <span className="text-[9px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">
-                                                  Buscando Emprego
-                                                </span>
-                                              </div>
-                                              <p className={`text-[11px] line-clamp-2 mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                                                {role}
-                                              </p>
-                                            </div>
-                                          </div>
-
-                                          {msgLink && (
-                                            <a
-                                              href={msgLink}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="self-end sm:self-auto px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-bold rounded-xl shadow-md shadow-[#0A66C2]/25 flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-                                            >
-                                              <span>💬 Enviar Mensagem</span>
-                                            </a>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* CASO 3: PARCERIAS, EMPRESAS (Impact.com, Belmoney, Stripe, etc.) COM LINKS FORMATADOS EM BOTÕES */}
-                              {!activeText.includes("Aceitar:") && !activeText.includes("Tendências de carreira") && !activeText.includes("linkedin.com/comm/in/") && (
-                                <div className={`text-sm leading-relaxed space-y-4 font-normal ${
-                                  isLight ? 'text-slate-800' : 'text-zinc-200'
-                                }`}>
-                                  {activeText
-                                    .replace(/\[imagem:\s*logótipo da empresa\]/gi, '🏢 [Logótipo Oficial da Empresa]')
-                                    .replace(/\[imagem:\s*LinkedIn\]/gi, '🔗 LinkedIn')
-                                    .replace(/\[imagem:\s*Instagram\]/gi, '📸 Instagram')
-                                    .replace(/\[imagem:\s*Facebook\]/gi, '👥 Facebook')
-                                    .replace(/\[imagem:\s*-\]/gi, '▶ YouTube')
-                                    .replace(/\[imagem:\s*([^\]]+)\]/gi, '🏷️ $1')
-                                    .split('\n\n')
-                                    .map((paragraph, idx) => {
-                                      // Se o parágrafo contém URLs longos, transforma em botões/links limpos
-                                      if (paragraph.includes("http://") || paragraph.includes("https://")) {
-                                        const parts = paragraph.split(/(https?:\/\/[^\s<>]+)/g);
-                                        return (
-                                          <p key={idx} className="whitespace-pre-line leading-relaxed">
-                                            {parts.map((part, pIdx) => {
-                                              if (part.startsWith("http://") || part.startsWith("https://")) {
-                                                let cleanLabel = part;
-                                                try {
-                                                  const urlObj = new URL(part);
-                                                  const host = urlObj.hostname.replace('www.', '');
-                                                  if (part.toLowerCase().includes('pdf') || part.toLowerCase().includes('ebook')) {
-                                                    cleanLabel = `📄 Descarregar Ebook (${host})`;
-                                                  } else if (part.toLowerCase().includes('ppc-partnerships')) {
-                                                    cleanLabel = `🤝 Consultoria & Parcerias (${host})`;
-                                                  } else if (part.toLowerCase().includes('linkedin.com')) {
-                                                    cleanLabel = `🔗 LinkedIn`;
-                                                  } else if (part.toLowerCase().includes('facebook.com')) {
-                                                    cleanLabel = `👥 Facebook`;
-                                                  } else if (part.toLowerCase().includes('instagram.com')) {
-                                                    cleanLabel = `📸 Instagram`;
-                                                  } else if (part.toLowerCase().includes('youtube.com')) {
-                                                    cleanLabel = `▶ YouTube`;
-                                                  } else {
-                                                    cleanLabel = `🔗 ${host}` + (urlObj.pathname.length > 1 ? urlObj.pathname.slice(0, 12) + '...' : '');
-                                                  }
-                                                } catch (e) {}
-
-                                                return (
-                                                  <a
-                                                    key={pIdx}
-                                                    href={part}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 my-1 mx-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm active:scale-95"
-                                                  >
-                                                    <span>{cleanLabel}</span>
-                                                  </a>
-                                                );
-                                              }
-                                              return part;
-                                            })}
-                                          </p>
-                                        );
-                                      }
-
-                                      return (
-                                        <p key={idx} className="whitespace-pre-line leading-relaxed">
-                                          {paragraph}
-                                        </p>
-                                      );
-                                    })
-                                  }
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()
-                      )}
-
-                      {/* Inline Quick Reply Box */}
-                      <div className={`mt-12 pt-6 border-t max-w-3xl ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
-                        <div className={`border rounded-2xl p-4 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/25 transition-all space-y-3 shadow-2xl ${
-                          isLight ? 'bg-white border-slate-200' : 'bg-[#0A0C13] border-white/[0.08]'
-                        }`}>
-                          <div className="flex items-center justify-between text-xs text-zinc-500">
-                            <span className={`flex items-center gap-1.5 font-semibold ${isLight ? 'text-slate-800' : 'text-zinc-300'}`}>
-                              <CornerUpLeft className="w-3.5 h-3.5 text-indigo-500" />
-                              Responder a {parsedSender.name}
-                            </span>
-                          </div>
-
-                          <textarea
-                            value={replyText}
-                            onChange={e => setReplyText(e.target.value)}
-                            placeholder="Escreva aqui a sua resposta rápida..."
-                            rows={3}
-                            className={`w-full bg-transparent text-sm focus:outline-none resize-none ${
-                              isLight ? 'text-slate-900 placeholder:text-slate-400' : 'text-white placeholder:text-zinc-600'
-                            }`}
-                          />
-
-                          <div className={`flex items-center justify-between pt-2 border-t ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
-                            <div className="flex items-center gap-2">
-                              <button className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg transition-colors">
-                                <Paperclip className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              {replySuccess && (
-                                <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 font-medium">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  Resposta enviada com sucesso!
-                                </span>
-                              )}
-                              <button
-                                onClick={handleSendReply}
-                                disabled={!replyText || sendingReply}
-                                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-95"
-                              >
-                                <Send className="w-3.5 h-3.5" />
-                                <span>{sendingReply ? 'A enviar...' : 'Enviar Resposta'}</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-
+              <div className="flex-1 flex flex-col overflow-hidden">
+                
+                {/* Action Bar */}
+                <div className={`h-11 px-6 border-b flex items-center justify-between text-xs shrink-0 ${
+                  isLight ? 'border-[#E5E7EB] bg-[#FAFAFA]' : 'border-white/[0.08] bg-white/[0.02]'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setIsComposeOpen(true)}
+                      className={`px-3 py-1 rounded-md border flex items-center gap-1.5 font-medium transition-all ${
+                        isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
+                      }`}
+                    >
+                      <CornerUpLeft className="w-3.5 h-3.5" />
+                      <span>Responder</span>
+                    </button>
+                    <button 
+                      onClick={() => setIsComposeOpen(true)}
+                      className={`px-3 py-1 rounded-md border flex items-center gap-1.5 font-medium transition-all ${
+                        isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
+                      }`}
+                    >
+                      <CornerUpRight className="w-3.5 h-3.5" />
+                      <span>Encaminhar</span>
+                    </button>
+                    <button 
+                      onClick={handleDeleteEmail}
+                      className={`p-1.5 rounded-md border text-zinc-400 hover:text-red-500 transition-all ${
+                        isLight ? 'bg-white border-[#E5E7EB] hover:bg-red-50' : 'bg-white/5 border-white/10'
+                      }`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                );
-              })()
-            ) : (
-              // Luxury Empty State
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                <div className="relative mb-6">
-                  <div className={`w-20 h-20 rounded-3xl border flex items-center justify-center shadow-2xl ${
-                    isLight ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white/[0.02] border-white/[0.06] text-zinc-600'
-                  }`}>
-                    <Mail className="w-9 h-9 text-zinc-500" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500" />
-                  </div>
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })} às {new Date(selectedEmail.createdAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
 
-                <h3 className={`text-base font-bold mb-1.5 tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                  Nenhum email selecionado
-                </h3>
-                <p className="text-xs text-zinc-500 max-w-sm leading-relaxed mb-6">
-                  Selecione uma mensagem da lista ao lado para ler o conteúdo completo, ou clique no botão para compor um novo email.
-                </p>
+                {/* Email Content Body */}
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 max-w-4xl">
+                  
+                  {/* Subject */}
+                  <h1 className={`text-xl font-bold tracking-tight leading-snug ${isLight ? 'text-[#202124]' : 'text-white'}`}>
+                    {selectedEmail.subject || '(Sem assunto)'}
+                  </h1>
 
-                <button 
-                  onClick={() => setIsComposeOpen(true)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border shadow-md active:scale-95 ${
-                    isLight ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-slate-200/50' : 'bg-white/[0.06] hover:bg-white/[0.1] text-white border-white/[0.08] shadow-black/40'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Nova Mensagem</span>
-                </button>
+                  {/* Sender Row */}
+                  <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#1A73E8] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                        {parsedSender.name.charAt(0) || "U"}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold text-sm ${isLight ? 'text-[#202124]' : 'text-white'}`}>
+                            {parsedSender.name}
+                          </span>
+                          <span className="text-xs text-zinc-400 font-normal">
+                            &lt;{parsedSender.email || selectedEmail.from}&gt;
+                          </span>
+                        </div>
+                        <span className="text-xs text-zinc-400">
+                          para <strong className={isLight ? 'text-[#202124]' : 'text-white'}>Edson</strong> &lt;{selectedEmail.to}&gt;
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body Content */}
+                  {selectedEmail.html ? (
+                    <div 
+                      className="email-rich-html text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED]"
+                      dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
+                    />
+                  ) : (
+                    <div className={`text-[15px] leading-relaxed space-y-4 font-normal ${
+                      isLight ? 'text-[#202124]' : 'text-[#E8EAED]'
+                    }`}>
+                      {/* LinkedIn Card if applicable */}
+                      {(selectedEmail.body.includes("Aceitar:") || selectedEmail.body.includes("Ver perfil:") || selectedEmail.body.includes("aguarda sua resposta")) ? (
+                        <div className={`p-6 rounded-xl border ${
+                          isLight ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
+                        }`}>
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-xs">
+                              {parsedSender.name.charAt(0)}
+                            </div>
+                            <div className="flex-1 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <h3 className={`font-bold text-base ${isLight ? 'text-[#202124]' : 'text-white'}`}>
+                                  {parsedSender.name}
+                                </h3>
+                                <span className="text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
+                                  LinkedIn
+                                </span>
+                              </div>
+                              <p className={`text-sm leading-relaxed ${isLight ? 'text-[#3C4043]' : 'text-zinc-300'}`}>
+                                {selectedEmail.body
+                                  .split(/Aceitar:|Ver perfil:|Ver todas as conexões/i)[0]
+                                  .replace(/Olá[^\n]*\n+/gi, '')
+                                  .replace(/^[^\n]*aguarda sua resposta[^\n]*/gi, '')
+                                  .replace(/https?:\/\/[^\s]+/g, '')
+                                  .replace(/sharedKey=[^\s]+/g, '')
+                                  .replace(/invitationId=[^\s]+/g, '')
+                                  .trim() || "Gostaria de se conectar com você no LinkedIn."}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 pt-4 border-t border-[#E5E7EB] dark:border-white/10 flex flex-wrap items-center gap-3">
+                            {selectedEmail.body.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/i) && (
+                              <a
+                                href={selectedEmail.body.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-5 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white font-bold text-xs rounded-lg shadow-sm transition-all"
+                              >
+                                ✓ Aceitar Conexão
+                              </a>
+                            )}
+                            {selectedEmail.body.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i) && (
+                              <a
+                                href={selectedEmail.body.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                                  isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
+                                }`}
+                              >
+                                👤 Ver Perfil no LinkedIn
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Standard Clean Email Paragraphs */
+                        selectedEmail.body.split('\n\n').map((para, idx) => {
+                          // Se for uma citação de resposta (On ..., wrote:)
+                          if (para.includes("wrote:") || para.includes("escreveu:") || para.startsWith("----")) {
+                            return (
+                              <div key={idx} className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm italic my-3 whitespace-pre-line">
+                                {para}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <p key={idx} className="whitespace-pre-line leading-relaxed">
+                              {para}
+                            </p>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* Inline Quick Reply */}
+                  <div className={`mt-10 pt-6 border-t ${isLight ? 'border-[#E5E7EB]' : 'border-white/10'}`}>
+                    <div className={`border rounded-xl p-4 shadow-sm ${
+                      isLight ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-[#5F6368] dark:text-zinc-400">
+                        <CornerUpLeft className="w-3.5 h-3.5 text-[#1A73E8]" />
+                        <span>Responder a {parsedSender.name}</span>
+                      </div>
+                      <textarea
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        placeholder="Escreva aqui a sua resposta..."
+                        rows={3}
+                        className={`w-full bg-transparent text-sm focus:outline-none resize-none ${
+                          isLight ? 'text-[#202124] placeholder-zinc-400' : 'text-white placeholder-zinc-500'
+                        }`}
+                      />
+                      <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB] dark:border-white/10 mt-2">
+                        <div className="text-zinc-400 text-xs">
+                          Pressione Enviar para responder via <span className="font-semibold text-[#1A73E8]">edson@rapimoneyit.online</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!replyText.trim()) return;
+                            setToastMessage("Resposta enviada com sucesso!");
+                            setReplyText("");
+                            setTimeout(() => setToastMessage(null), 3000);
+                          }}
+                          className="px-4 py-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold rounded-lg shadow-sm transition-all"
+                        >
+                          Enviar Resposta
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-zinc-400 text-xs">
+                Selecione uma mensagem para ler.
               </div>
             )}
-
           </main>
 
         </div>
       )}
 
-      {/* Floating Compose Modal */}
-      <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} userEmail={user.email} />
+      {/* Modais */}
+      {isComposeOpen && (
+        <ComposeModal 
+          isOpen={isComposeOpen} 
+          onClose={() => setIsComposeOpen(false)} 
+          userEmail={user.email} 
+          userName={user.name} 
+        />
+      )}
 
-      {/* RapiSite AI Website Builder & DigitalOcean Hosting Modal */}
-      <RapiSiteBuilderModal isOpen={isSiteBuilderOpen} onClose={() => setIsSiteBuilderOpen(false)} userDomain={userDomain} />
+      {isSiteBuilderOpen && (
+        <RapiSiteBuilderModal 
+          isOpen={isSiteBuilderOpen} 
+          onClose={() => setIsSiteBuilderOpen(false)} 
+          domainName={userDomain} 
+        />
+      )}
 
     </div>
   );
