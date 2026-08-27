@@ -6,9 +6,10 @@ import {
   Inbox, Star, Send, FileText, Search, Bell, Clock, Trash2, 
   Archive, AlertOctagon, Mail, Calendar, Users, Settings, 
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
-  CheckCircle2, ChevronDown, ChevronRight, Paperclip, Check, CheckCheck, 
+  CheckCircle2, ChevronDown, Paperclip, Check, CheckCheck, 
   Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
-  Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing
+  Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
+  Sparkles
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -43,10 +44,11 @@ interface Props {
   currentFolder: string;
 }
 
-// Utilitário para formatar Remetente e Email Limpos
+// Utilitário para formatar Remetente e Email Limpos (Sem quaisquer caracteres < >)
 function parseSender(fromStr: string): { name: string; email: string; initial: string } {
   if (!fromStr) return { name: "Desconhecido", email: "", initial: "RE" };
   
+  const cleanStr = fromStr.replace(/[<>]/g, ' ').trim();
   const match = fromStr.match(/^(.*?)\s*<([^>]+)>$/);
   if (match) {
     const rawName = match[1].replace(/["']/g, '').trim();
@@ -57,14 +59,14 @@ function parseSender(fromStr: string): { name: string; email: string; initial: s
   }
 
   if (fromStr.includes('@')) {
-    const rawEmail = fromStr.trim();
+    const rawEmail = cleanStr;
     const [userPart] = rawEmail.split('@');
     const cleanName = userPart.replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     const initial = cleanName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
     return { name: cleanName, email: rawEmail, initial };
   }
 
-  return { name: fromStr, email: fromStr, initial: fromStr.substring(0, 2).toUpperCase() || 'RE' };
+  return { name: cleanStr, email: cleanStr, initial: cleanStr.substring(0, 2).toUpperCase() || 'RE' };
 }
 
 // Obter avatar limpo: Monograma Autêntico para Pessoas ou Logótipo Oficial para Empresas
@@ -75,7 +77,6 @@ function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: stri
 
   const sender = parseSender(emailOrFrom);
 
-  // Paleta oficial de cores suaves Google / Private Email
   const colors = [
     { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Private Email
     { bg: "bg-[#E6F4EA]", text: "text-[#137333]" }, // Verde
@@ -93,7 +94,7 @@ function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: stri
   const chosenColor = colors[colorIndex];
 
   // Logótipos Corporativos para contas de sistema/serviço
-  if (clean.includes("linkedin.com") || clean.includes("dlocalgo") || clean.includes("moorwand.com") || clean.includes("crassula.io") || clean.includes("support@") || clean.includes("noreply")) {
+  if (clean.includes("linkedin.com") || clean.includes("dlocalgo") || clean.includes("moorwand.com") || clean.includes("crassula.io") || clean.includes("support@") || clean.includes("noreply") || clean.includes("fca.org.uk")) {
     let lookupDomain = domain;
     if (domain.includes("pawapay")) lookupDomain = "pawapay.io";
     if (domain.includes("hubspot")) lookupDomain = "moorwand.com";
@@ -102,6 +103,7 @@ function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: stri
     if (domain.includes("stripe")) lookupDomain = "stripe.com";
     if (domain.includes("linkedin")) lookupDomain = "linkedin.com";
     if (domain.includes("crassula")) lookupDomain = "crassula.io";
+    if (domain.includes("fca.org.uk")) lookupDomain = "fca.org.uk";
 
     return {
       logoUrl: `https://www.google.com/s2/favicons?domain=${lookupDomain}&sz=128`,
@@ -111,15 +113,12 @@ function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: stri
     };
   }
 
-  // Para pessoas reais (Filipe Abrantes, Stephen Emmanuel, Gina Cohen, Junaid Khan, etc.): Monograma limpo oficial (ex: "F")
   return {
     initial: sender.name.charAt(0).toUpperCase() || sender.initial.charAt(0) || "U",
     bgClass: chosenColor.bg,
     textClass: chosenColor.text
   };
 }
-
-
 
 // Tocar Som de Notificação
 function playNotificationSound() {
@@ -156,11 +155,23 @@ function formatEmailDate(dateStr: string): string {
   }
 }
 
-// Componente para Histórico de E-mails com Quotes Colapsáveis
+// Limpar snippet da lista de e-mails (remove links feios, parâmetros colados, etc.)
+function cleanSnippetText(body: string): string {
+  if (!body) return "";
+  return body
+    .replace(/https?:\/\/[^\s]+/g, '')
+    .replace(/Sim,\s*conectar/gi, '')
+    .replace(/Ver convite/gi, '')
+    .replace(/Aceitar conexão/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
+// Renderizador Inteligente com Colapso de Quotes
 function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
   const [showQuoted, setShowQuoted] = useState(false);
 
-  // Detetar se há mensagens encadeadas (On ..., wrote:, > ..., >> ..., etc.)
   const quoteSplitMatch = bodyText.match(/(?:On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+.*wrote:|>+\s+On\s+.*wrote:)/i);
   
   if (quoteSplitMatch && quoteSplitMatch.index !== undefined) {
@@ -169,12 +180,10 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
 
     return (
       <div className="space-y-4">
-        {/* Mensagem Principal / Nova */}
         <div className="space-y-3">
           {renderParagraphs(mainMessage)}
         </div>
 
-        {/* Botão Retrátil Estilo Gmail [...] */}
         <div className="pt-2">
           <button
             onClick={() => setShowQuoted(!showQuoted)}
@@ -210,11 +219,12 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
 
 function renderParagraphs(text: string) {
   return text.split('\n\n').map((para, idx) => {
-    // Detectar links de ativação de conta (PawaPay)
-    const activateMatch = para.match(/(?:Activate Account|Ativar Conta)[:\s]*(https:\/\/[^\s]+)/i);
+    // Detectar links de ativação de conta (FCA, PawaPay, etc.)
+    const activateMatch = para.match(/(?:Activate Account|Ativar Conta|Activation Link|Link de Ativação)[:\s]*(https:\/\/[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/i);
     if (activateMatch) {
-      const url = activateMatch[1];
-      const intro = para.split(/(?:Activate Account|Ativar Conta)/i)[0].trim();
+      let url = activateMatch[1];
+      if (!url.startsWith("http")) url = `https://${url}`;
+      const intro = para.split(/(?:Activate Account|Ativar Conta|Activation Link|Link de Ativação)/i)[0].trim();
       return (
         <div key={idx} className="my-3 space-y-2">
           {intro && <p className="leading-relaxed whitespace-pre-line">{intro}</p>}
@@ -223,9 +233,9 @@ function renderParagraphs(text: string) {
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
             >
-              <span>🚀 Ativar Conta no Portal PawaPay</span>
+              <span>🚀 Concluir Registo / Ativar Conta</span>
             </a>
           </div>
         </div>
@@ -243,11 +253,36 @@ function renderParagraphs(text: string) {
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#635BFF] hover:bg-[#4E44E5] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#635BFF] hover:bg-[#4E44E5] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
             >
               <span>📅 Agendar Chamada com a Stripe</span>
             </a>
           </div>
+        </div>
+      );
+    }
+
+    // Detectar convites LinkedIn
+    if (para.includes("linkedin.com/comm/mynetwork/invite-accept") || para.includes("Sim, conectar") || para.includes("Você conhece")) {
+      const acceptUrl = para.match(/(https:\/\/[^\s]*invite-accept[^\s]*)/i)?.[1] ||
+                        para.match(/(https:\/\/[^\s]*linkedin\.com\/[^\s]*)/i)?.[1];
+      return (
+        <div key={idx} className="my-3 p-4 rounded-xl bg-[#F8F9FA] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 space-y-2">
+          <p className="font-semibold text-xs text-[#202124] dark:text-zinc-200">
+            {para.replace(/https?:\/\/[^\s]+/g, '').replace(/Sim,\s*conectar/gi, '').trim()}
+          </p>
+          {acceptUrl && (
+            <div className="pt-1">
+              <a
+                href={acceptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-lg shadow-sm transition-all"
+              >
+                <span>✓ Conectar no LinkedIn</span>
+              </a>
+            </div>
+          )}
         </div>
       );
     }
@@ -261,22 +296,24 @@ function renderParagraphs(text: string) {
 }
 
 function renderInlineLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov)[^\s]*)/g;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
+      let href = part;
+      if (!href.startsWith("http")) href = `https://${href}`;
       let label = part;
       try {
-        const u = new URL(part);
-        label = u.hostname.replace('www.', '');
+        const u = new URL(href);
+        label = u.hostname.replace('www.', '') + (u.pathname !== '/' ? u.pathname : '');
       } catch(e) {}
       return (
         <a
           key={i}
-          href={part}
+          href={href}
           target="_blank"
           rel="noreferrer"
-          className="text-[#1A73E8] hover:underline font-medium break-all"
+          className="text-[#1A73E8] hover:underline font-semibold break-all"
         >
           {label}
         </a>
@@ -299,14 +336,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Estados Mobile
+  // Estados Mobile & Notificações
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
+  // Estado de Tradução com DeepL AI
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [isTranslating, setIsTranslating] = useState(false);
+
   const prevEmailCountRef = useRef<number>(initialEmails.length);
   const [isLight, setIsLight] = useState<boolean>(true);
 
+  // Inicializar Service Worker e Tema
   useEffect(() => {
     const saved = localStorage.getItem('rapi_theme');
     if (saved === 'dark') {
@@ -317,6 +359,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       setIsLight(true);
       document.documentElement.classList.add('light');
       document.body.classList.add('light');
+    }
+
+    // Registar Service Worker no telemóvel e desktop
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -346,7 +393,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         playNotificationSound();
-        setToastMessage("🔔 Alertas ativados!");
+
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          reg.showNotification('RapiEmail Enterprise', {
+            body: '🔔 Notificações em tempo real ativadas com sucesso no telemóvel e PC!',
+            icon: '/favicon.ico'
+          });
+        }
+
+        setToastMessage("🔔 Alertas ativados no telemóvel e PC!");
         setTimeout(() => setToastMessage(null), 3000);
       }
     }
@@ -361,6 +417,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       .catch(() => {});
   }, []);
 
+  // Polling automático com Disparo de Notificação no Telemóvel (via Service Worker)
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -373,12 +430,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               const latest = newEmails[0];
               if (latest && !latest.read) {
                 playNotificationSound();
+                const sInfo = parseSender(latest.from);
+                
                 if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                  const sInfo = parseSender(latest.from);
-                  new Notification(`Novo E-mail de ${sInfo.name}`, {
-                    body: latest.subject || "(Sem assunto)",
-                    icon: "/favicon.ico"
-                  });
+                  if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(reg => {
+                      reg.showNotification(`Novo E-mail de ${sInfo.name}`, {
+                        body: latest.subject || "(Sem assunto)",
+                        icon: "/favicon.ico",
+                        badge: "/favicon.ico"
+                      });
+                    });
+                  } else {
+                    new Notification(`Novo E-mail de ${sInfo.name}`, {
+                      body: latest.subject || "(Sem assunto)",
+                      icon: "/favicon.ico"
+                    });
+                  }
                 }
               }
             }
@@ -474,8 +542,54 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     setMobileView('list');
   };
 
+  // Função para Traduzir E-mail com DeepL AI
+  const handleTranslateEmail = async () => {
+    if (!selectedEmail) return;
+    
+    // Se já está traduzido, voltar ao original
+    if (translations[selectedEmail.id]) {
+      setTranslations(prev => {
+        const next = { ...prev };
+        delete next[selectedEmail.id];
+        return next;
+      });
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const textToTranslate = selectedEmail.body;
+      const res = await fetch('/api/ai/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToTranslate, targetLang: 'PT-PT' })
+      });
+      const data = await res.json();
+      if (data.translatedText) {
+        setTranslations(prev => ({
+          ...prev,
+          [selectedEmail.id]: data.translatedText
+        }));
+        setToastMessage("✨ Mensagem traduzida para Português com DeepL AI!");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch(e) {
+      setToastMessage("Erro ao traduzir mensagem.");
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const parsedSender = selectedEmail ? parseSender(selectedEmail.from) : { name: "", email: "", initial: "RE" };
   const visualSender = selectedEmail ? getSenderVisual(selectedEmail.from) : { initial: "RE", bgClass: "bg-[#E8F0FE]", textClass: "text-[#1A73E8]" };
+  
+  // Limpeza de emails para cabeçalho sem caracteres < ou >
+  const cleanSenderEmail = selectedEmail ? (parsedSender.email || selectedEmail.from).replace(/[<>]/g, '').trim() : "";
+  const cleanToEmail = selectedEmail ? selectedEmail.to.replace(/[<>]/g, '').trim() : "";
+
+  // Conteúdo ativo a exibir (Traduzido ou Original)
+  const activeBodyText = selectedEmail ? (translations[selectedEmail.id] || selectedEmail.body) : "";
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col font-sans select-none transition-colors duration-150 ${
@@ -490,7 +604,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         </div>
       )}
 
-      {/* TOP HEADER (Fixo no topo, NUNCA sai da tela!) */}
+      {/* TOP HEADER */}
       <header className={`h-14 border-b flex items-center justify-between px-3 md:px-5 z-20 shrink-0 transition-colors ${
         isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
       }`}>
@@ -574,7 +688,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           {!notificationsEnabled && (
             <button
               onClick={handleRequestNotifications}
-              title="Ativar Alertas"
+              title="Ativar Notificações no Telemóvel e PC"
               className="px-2 py-1 bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 hover:bg-amber-500/25 transition-all"
             >
               <BellRing className="w-3 h-3 md:w-3.5 md:h-3.5 text-amber-600 animate-bounce" />
@@ -694,7 +808,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         </main>
       )}
 
-      {/* VIEW: MAIL (3 Colunas com Scroll Totalmente Independente!) */}
+      {/* VIEW: MAIL */}
       {activeTab === 'mail' && (
         <div className="flex-1 flex overflow-hidden min-h-0 relative">
           
@@ -757,7 +871,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
           </aside>
 
-          {/* COLUMN 2: EMAIL LIST (Scroll Independente, Fixo!) */}
+          {/* COLUMN 2: EMAIL LIST (Sem URLs colados no preview snippet) */}
           <section className={`${
             mobileView === 'detail' ? 'hidden md:flex' : 'flex'
           } w-full md:w-[340px] lg:w-[380px] border-r flex-col shrink-0 h-full overflow-hidden transition-colors ${
@@ -774,7 +888,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
             </div>
 
-            {/* Lista com scroll isolado dentro da coluna */}
             <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.06]">
               {filteredEmails.length === 0 ? (
                 <div className="p-8 text-center text-zinc-400 text-xs">
@@ -790,6 +903,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   const visual = getSenderVisual(isSent ? email.to : email.from);
                   const dateDisplay = formatEmailDate(email.createdAt);
                   const isUnread = !email.read && !isSent;
+                  const cleanPreview = cleanSnippetText(email.body);
 
                   return (
                     <div
@@ -858,7 +972,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           <p className={`text-[11px] truncate leading-tight ${
                             isUnread ? 'text-[#3C4043] dark:text-zinc-300' : 'text-[#70757A] dark:text-zinc-500'
                           }`}>
-                            {email.body.replace(/\s+/g, ' ').slice(0, 80)}
+                            {cleanPreview}
                           </p>
                         </div>
 
@@ -886,7 +1000,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </div>
           </section>
 
-          {/* COLUMN 3: EMAIL READER PANE (Scroll Totalmente Isolado Apenas Nesta Coluna!) */}
+          {/* COLUMN 3: EMAIL READER PANE */}
           <main className={`${
             mobileView === 'list' ? 'hidden md:flex' : 'flex'
           } flex-1 flex-col h-full overflow-hidden transition-colors ${
@@ -895,7 +1009,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             {selectedEmail ? (
               <div className="flex-1 flex flex-col h-full overflow-hidden">
                 
-                {/* Action Toolbar Fixo no Topo da Leitura */}
+                {/* Action Toolbar */}
                 <div className={`h-12 md:h-11 px-4 md:px-6 border-b flex items-center justify-between text-xs shrink-0 ${
                   isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-white/[0.02]'
                 }`}>
@@ -931,7 +1045,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </span>
                 </div>
 
-                {/* Área de Leitura: O SCROLL ACONTECE EXCLUSIVAMENTE AQUI DENTRO! */}
+                {/* Área de Leitura */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 md:space-y-6 max-w-4xl">
                   
                   {/* Subject Header */}
@@ -939,7 +1053,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     {selectedEmail.subject || '(Sem assunto)'}
                   </h1>
 
-                  {/* Sender Header Card com Foto Real */}
+                  {/* Sender Header Card (Sem quaisquer caracteres < ou >) */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center font-bold text-xs md:text-sm shrink-0 shadow-xs ${
@@ -959,23 +1073,49 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className={`font-bold text-xs md:text-sm ${isLight ? 'text-[#202124]' : 'text-white'}`}>
                             {parsedSender.name}
                           </span>
-                          <span className="text-[11px] text-zinc-400 truncate">
-                            &lt;{parsedSender.email || selectedEmail.from}&gt;
+                          <span className="text-xs text-zinc-500 font-medium">
+                            {cleanSenderEmail}
                           </span>
                         </div>
-                        <span className="text-[11px] text-zinc-400 block">
-                          Para: &lt;{selectedEmail.to}&gt;
+                        <span className="text-[11px] text-zinc-400 block mt-0.5">
+                          para {cleanToEmail === user.email.toLowerCase() ? 'mim' : cleanToEmail}
                         </span>
                       </div>
                     </div>
                   </div>
 
+                  {/* Barra de Tradução com DeepL AI */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F9FA] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Languages className="w-4 h-4 text-[#1A73E8]" />
+                      <span className="font-semibold text-[#202124] dark:text-zinc-200">
+                        {translations[selectedEmail.id] ? "Mensagem traduzida para Português (DeepL AI)" : "Traduzir mensagem com DeepL AI"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleTranslateEmail}
+                      disabled={isTranslating}
+                      className="px-3 py-1 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isTranslating ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>A traduzir...</span>
+                        </>
+                      ) : translations[selectedEmail.id] ? (
+                        <span>Ver Original</span>
+                      ) : (
+                        <span>🌐 Traduzir para Português</span>
+                      )}
+                    </button>
+                  </div>
+
                   {/* Body Content */}
-                  {selectedEmail.html ? (
+                  {selectedEmail.html && !translations[selectedEmail.id] ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED]"
                       dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
@@ -984,7 +1124,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className={`text-sm md:text-[15px] leading-relaxed space-y-4 font-normal ${
                       isLight ? 'text-[#202124]' : 'text-[#E8EAED]'
                     }`}>
-                      <SmartEmailBodyRenderer bodyText={selectedEmail.body} />
+                      <SmartEmailBodyRenderer bodyText={activeBodyText} />
                     </div>
                   )}
 

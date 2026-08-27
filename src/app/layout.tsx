@@ -23,8 +23,15 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "RapiEmail — Webmail Corporativo & Sovereign Suite",
   description: "Webmail corporativo de alta performance com inteligência artificial, sincronização instantânea e segurança de ponta a ponta.",
+  manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "RapiEmail",
   }
 };
 
