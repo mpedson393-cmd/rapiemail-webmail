@@ -52,6 +52,7 @@ model Email {
   to          String
   subject     String
   body        String
+  html        String?   // Conteúdo HTML Rico Completo (Botões, Imagens, Estilos)
   folder      String    @default("INBOX") // INBOX, SENT, DRAFT, TRASH
   read        Boolean   @default(false)
   userId      String

@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
         to: cleanTo,
         subject: subject || "(Sem assunto)",
         body: finalBody,
+        html: html || undefined,
         folder: "INBOX",
         read: false,
         userId: user.id

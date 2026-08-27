@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       to: e.to,
       subject: e.subject,
       body: e.body,
+      html: e.html || undefined,
       folder: e.folder,
       read: e.read,
       createdAt: e.createdAt.toISOString(),

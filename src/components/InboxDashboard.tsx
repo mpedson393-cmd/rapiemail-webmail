@@ -22,6 +22,7 @@ export interface EmailItem {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   folder: string;
   read: boolean;
   createdAt: string;
@@ -1047,14 +1048,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                         </div>
                       )}
 
-                      {/* Body Content (Shows translated or original smoothly) */}
-                      <div className={`text-sm leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in ${
-                        isLight ? 'text-slate-800' : 'text-zinc-200'
-                      }`}>
-                        {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id]
-                          ? translations[selectedEmail.id].text
-                          : selectedEmail.body}
-                      </div>
+                      {/* Body Content (Shows translated or original rich HTML / text smoothly) */}
+                      {translations[selectedEmail.id] && !showOriginalMap[selectedEmail.id] ? (
+                        <div className={`text-sm leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in ${
+                          isLight ? 'text-slate-800' : 'text-zinc-200'
+                        }`}>
+                          {translations[selectedEmail.id].text}
+                        </div>
+                      ) : selectedEmail.html ? (
+                        <div 
+                          className={`email-rich-html text-sm leading-relaxed max-w-3xl rounded-2xl p-4 border overflow-x-auto animate-fade-in ${
+                            isLight ? 'bg-white border-slate-200/80 text-slate-900 shadow-sm' : 'bg-[#0a0c13] border-white/5 text-zinc-100'
+                          }`}
+                          dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
+                        />
+                      ) : (
+                        <div className={`text-sm leading-relaxed space-y-4 whitespace-pre-wrap font-normal max-w-3xl animate-fade-in ${
+                          isLight ? 'text-slate-800' : 'text-zinc-200'
+                        }`}>
+                          {selectedEmail.body}
+                        </div>
+                      )}
 
                       {/* Inline Quick Reply Box */}
                       <div className={`mt-12 pt-6 border-t max-w-3xl ${isLight ? 'border-slate-200' : 'border-white/[0.06]'}`}>
