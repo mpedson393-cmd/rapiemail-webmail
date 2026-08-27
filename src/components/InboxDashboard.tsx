@@ -168,15 +168,29 @@ function cleanSnippetText(body: string): string {
     .slice(0, 80);
 }
 
+// Limpar artefactos de conversão de imagem e codificação de URL em texto simples
+function cleanPlainTextBody(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\[image:\s*Company\s*logo\]/gi, '')
+    .replace(/\[image:\s*([^\]]+)\]\s*<([^%>\s]+)(?:%3E|>)?/gi, '$1: $2')
+    .replace(/\[image:\s*([^\]]+)\]/gi, '')
+    .replace(/<([^>\s]+)%3E/gi, '$1')
+    .replace(/<([^>\s]+)>/g, '$1')
+    .replace(/%3E/gi, '')
+    .trim();
+}
+
 // Renderizador Inteligente com Colapso de Quotes
 function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
   const [showQuoted, setShowQuoted] = useState(false);
+  const cleanedText = cleanPlainTextBody(bodyText);
 
-  const quoteSplitMatch = bodyText.match(/(?:On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+.*wrote:|>+\s+On\s+.*wrote:)/i);
+  const quoteSplitMatch = cleanedText.match(/(?:On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+.*wrote:|>+\s+On\s+.*wrote:)/i);
   
   if (quoteSplitMatch && quoteSplitMatch.index !== undefined) {
-    const mainMessage = bodyText.substring(0, quoteSplitMatch.index).trim();
-    const quotedContent = bodyText.substring(quoteSplitMatch.index).trim();
+    const mainMessage = cleanedText.substring(0, quoteSplitMatch.index).trim();
+    const quotedContent = cleanedText.substring(quoteSplitMatch.index).trim();
 
     return (
       <div className="space-y-4">
@@ -212,7 +226,7 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
 
   return (
     <div className="space-y-3">
-      {renderParagraphs(bodyText)}
+      {renderParagraphs(cleanedText)}
     </div>
   );
 }
@@ -226,13 +240,16 @@ function renderParagraphs(text: string) {
 }
 
 function renderInlineLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app)[^\s]*)/g;
+  const urlRegex = /(https?:\/\/[^\s<>"]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app|ly)[^\s<>"]*)/gi;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
-      let href = part;
-      if (!href.startsWith("http")) href = `https://${href}`;
-      let label = part;
+      let cleanUrl = part.replace(/[<>%]/g, '').replace(/%3E/gi, '').trim();
+      let href = cleanUrl;
+      if (!href.startsWith("http://") && !href.startsWith("https://")) {
+        href = `https://${href}`;
+      }
+      let label = cleanUrl;
       try {
         const u = new URL(href);
         label = u.hostname.replace('www.', '') + (u.pathname !== '/' ? u.pathname : '');
