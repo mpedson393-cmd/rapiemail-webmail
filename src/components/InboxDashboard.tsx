@@ -218,85 +218,15 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
 }
 
 function renderParagraphs(text: string) {
-  return text.split('\n\n').map((para, idx) => {
-    // Detectar links de ativação de conta (FCA, PawaPay, etc.)
-    const activateMatch = para.match(/(?:Activate Account|Ativar Conta|Activation Link|Link de Ativação)[:\s]*(https:\/\/[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/i);
-    if (activateMatch) {
-      let url = activateMatch[1];
-      if (!url.startsWith("http")) url = `https://${url}`;
-      const intro = para.split(/(?:Activate Account|Ativar Conta|Activation Link|Link de Ativação)/i)[0].trim();
-      return (
-        <div key={idx} className="my-3 space-y-2">
-          {intro && <p className="leading-relaxed whitespace-pre-line">{intro}</p>}
-          <div>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
-            >
-              <span>🚀 Concluir Registo / Ativar Conta</span>
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    // Detectar agendamento Stripe
-    const calMatch = para.match(/(https:\/\/stripe\.my\.leandata\.com\/[^\s]+|https:\/\/calendly\.com\/[^\s]+)/i);
-    if (calMatch) {
-      const url = calMatch[1];
-      return (
-        <div key={idx} className="my-3 space-y-2">
-          <div>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#635BFF] hover:bg-[#4E44E5] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
-            >
-              <span>📅 Agendar Chamada com a Stripe</span>
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    // Detectar convites LinkedIn
-    if (para.includes("linkedin.com/comm/mynetwork/invite-accept") || para.includes("Sim, conectar") || para.includes("Você conhece")) {
-      const acceptUrl = para.match(/(https:\/\/[^\s]*invite-accept[^\s]*)/i)?.[1] ||
-                        para.match(/(https:\/\/[^\s]*linkedin\.com\/[^\s]*)/i)?.[1];
-      return (
-        <div key={idx} className="my-3 p-4 rounded-xl bg-[#F8F9FA] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 space-y-2">
-          <p className="font-semibold text-xs text-[#202124] dark:text-zinc-200">
-            {para.replace(/https?:\/\/[^\s]+/g, '').replace(/Sim,\s*conectar/gi, '').trim()}
-          </p>
-          {acceptUrl && (
-            <div className="pt-1">
-              <a
-                href={acceptUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-lg shadow-sm transition-all"
-              >
-                <span>✓ Conectar no LinkedIn</span>
-              </a>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <p key={idx} className="whitespace-pre-line leading-relaxed">
-        {renderInlineLinks(para)}
-      </p>
-    );
-  });
+  return text.split('\n\n').map((para, idx) => (
+    <p key={idx} className="whitespace-pre-line leading-relaxed">
+      {renderInlineLinks(para)}
+    </p>
+  ));
 }
 
 function renderInlineLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov)[^\s]*)/g;
+  const urlRegex = /(https?:\/\/[^\s]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app)[^\s]*)/g;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
