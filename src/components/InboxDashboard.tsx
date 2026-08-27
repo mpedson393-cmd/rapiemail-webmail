@@ -471,14 +471,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       {/* VIEW: CALENDAR */}
       {activeTab === 'calendar' && (
         <main className="flex-1 overflow-y-auto">
-          <CalendarView userEmail={user.email} />
+          <CalendarView user={user} />
         </main>
       )}
 
       {/* VIEW: CONTACTS */}
       {activeTab === 'contacts' && (
         <main className="flex-1 overflow-y-auto">
-          <ContactsView userEmail={user.email} />
+          <ContactsView user={user} />
         </main>
       )}
 
@@ -546,7 +546,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </div>
 
             {/* User Profile Footer */}
-            <UserProfileFooter user={user} userDomain={userDomain} />
+            <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
           </aside>
 
           {/* COLUMN 2: EMAIL LIST (Flat Clean Dividers like Private Email) */}
@@ -812,7 +812,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           isOpen={isComposeOpen} 
           onClose={() => setIsComposeOpen(false)} 
           userEmail={user.email} 
-          userName={user.name} 
         />
       )}
 
@@ -820,7 +819,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         <RapiSiteBuilderModal 
           isOpen={isSiteBuilderOpen} 
           onClose={() => setIsSiteBuilderOpen(false)} 
-          domainName={userDomain} 
+          userDomain={userDomain} 
         />
       )}
 
