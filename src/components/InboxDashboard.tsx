@@ -550,7 +550,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
             <div className="p-3.5">
               <button 
                 onClick={() => setIsComposeOpen(true)}
-                className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-semibold text-xs shadow-lg shadow-indigo-600/25 border border-indigo-400/20 transition-all group"
+                className="w-full flex items-center justify-center gap-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-md shadow-blue-600/20 border border-blue-500/20 transition-all group"
               >
                 <Edit3 className="w-4 h-4 group-hover:rotate-6 transition-transform" />
                 <span>Escrever Email</span>
@@ -704,10 +704,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                       className={`group relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer active:scale-[0.985] ${
                         isSelected 
                           ? isLight 
-                            ? 'bg-indigo-50/80 border-indigo-300 shadow-md shadow-indigo-100/50' 
+                            ? 'bg-[#EEF2FF] border-[#6366F1]/50 shadow-sm' 
                             : 'bg-indigo-600/15 border-indigo-500/40 shadow-lg shadow-black/50'
                           : isLight 
-                            ? 'bg-slate-50/70 border-slate-200/80 hover:bg-slate-100/80 hover:border-slate-300 hover:translate-x-0.5' 
+                            ? 'bg-white border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 hover:translate-x-0.5 shadow-xs' 
                             : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:translate-x-0.5'
                       }`}
                     >
@@ -1065,56 +1065,82 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           return (
                             <div className="max-w-3xl animate-fade-in space-y-6">
                               {/* CASO 1: CONVITE DE CONEXÃO DIRETO LINKEDIN */}
-                              {(activeText.includes("Aceitar:") || activeText.includes("Ver perfil:") || activeText.includes("convite") && activeText.includes("linkedin")) && (
-                                <div className={`p-6 rounded-2xl border shadow-lg ${
-                                  isLight ? 'bg-gradient-to-b from-blue-50/60 to-white border-blue-200 shadow-blue-50/50' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
-                                }`}>
-                                  <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
-                                      {parsedSender.name.charAt(0) || "L"}
-                                    </div>
-                                    <div className="flex-1 space-y-1.5">
-                                      <div className="flex items-center gap-2">
-                                        <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                          {parsedSender.name}
-                                        </h3>
-                                        <span className="text-[10px] bg-[#0A66C2]/15 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/30">
-                                          LinkedIn
-                                        </span>
-                                      </div>
-                                      <p className={`text-xs leading-relaxed ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                                        {activeText.split("Aceitar:")[0].replace(/Olá[^\n]+\n+/i, '').replace(/Aryan[^\n]+aguarda[^\n]+\n+/i, '').trim()}
-                                      </p>
-                                    </div>
-                                  </div>
+                              {(activeText.includes("Aceitar:") || activeText.includes("Ver perfil:") || (activeText.includes("convite") && activeText.includes("linkedin")) || activeText.includes("aguarda sua resposta")) && (
+                                (() => {
+                                  // Limpeza cirúrgica de todo o lixo de URLs e tracking no texto da bio
+                                  let cleanBio = activeText
+                                    .split(/Aceitar:|Ver perfil:|Ver todas as conexões/i)[0]
+                                    .replace(/Olá[^\n]*\n+/gi, '')
+                                    .replace(/^[^\n]*aguarda sua resposta[^\n]*/gi, '')
+                                    .replace(/https?:\/\/[^\s]+/g, '')
+                                    .replace(/sharedKey=[^\s]+/g, '')
+                                    .replace(/invitationId=[^\s]+/g, '')
+                                    .replace(/midToken=[^\s]+/g, '')
+                                    .replace(/email_career_insights[^\s]+/g, '')
+                                    .trim();
 
-                                  <div className="mt-5 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
-                                    {activeText.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/) && (
-                                      <a
-                                        href={activeText.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/)?.[1]}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/30 transition-all cursor-pointer"
-                                      >
-                                        <span>✓ Aceitar Conexão</span>
-                                      </a>
-                                    )}
-                                    {activeText.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/) && (
-                                      <a
-                                        href={activeText.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/)?.[1]}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
-                                          isLight 
-                                            ? 'border-slate-300 text-slate-700 hover:bg-slate-100' 
-                                            : 'border-white/10 text-zinc-300 hover:bg-white/5'
-                                        }`}
-                                      >
-                                        <span>👤 Ver Perfil no LinkedIn</span>
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
+                                  // Se o nome do remetente estiver repetido no início da bio, remove
+                                  if (cleanBio.startsWith(parsedSender.name)) {
+                                    cleanBio = cleanBio.slice(parsedSender.name.length).trim();
+                                  }
+
+                                  const acceptUrl = activeText.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*|\baccept\b[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1] ||
+                                                    activeText.match(/https:\/\/[^\s]*linkedin\.com\/comm\/mynetwork\/invite-accept[^\s]*/i)?.[0];
+                                  const profileUrl = activeText.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1] ||
+                                                     activeText.match(/https:\/\/[^\s]*linkedin\.com\/comm\/in\/[^\s]*/i)?.[0];
+
+                                  return (
+                                    <div className={`p-6 rounded-2xl border shadow-sm ${
+                                      isLight ? 'bg-white border-slate-200 shadow-slate-100' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
+                                    }`}>
+                                      <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                                          {parsedSender.name.charAt(0) || "L"}
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                          <div className="flex items-center gap-2">
+                                            <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                              {parsedSender.name}
+                                            </h3>
+                                            <span className="text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
+                                              LinkedIn
+                                            </span>
+                                          </div>
+                                          <p className={`text-sm leading-relaxed ${isLight ? 'text-slate-700' : 'text-zinc-300'}`}>
+                                            {cleanBio || "Gostaria de se conectar com você no LinkedIn."}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
+                                        {acceptUrl && (
+                                          <a
+                                            href={acceptUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/25 transition-all cursor-pointer"
+                                          >
+                                            <span>✓ Aceitar Conexão</span>
+                                          </a>
+                                        )}
+                                        {profileUrl && (
+                                          <a
+                                            href={profileUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                                              isLight 
+                                                ? 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50' 
+                                                : 'border-white/10 text-zinc-300 hover:bg-white/5'
+                                            }`}
+                                          >
+                                            <span>👤 Ver Perfil no LinkedIn</span>
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })()
                               )}
 
                               {/* CASO 2: NOTIFICAÇÃO DE BUSCA/REDE LINKEDIN (ex: Andrew Mreana, Edson MP) */}

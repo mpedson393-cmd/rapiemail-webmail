@@ -16,30 +16,23 @@ body {
   background: #06070B;
   color: #F4F4F6;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent 70%),
-    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05), transparent 50%),
-    #06070B;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  transition: background-color 0.3s var(--ease-apple), color 0.3s var(--ease-apple);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Light Mode Luxury Apple Titanium Support */
+/* Light Mode: Ultra-Clean, High-Contrast Google/Apple Business Webmail */
 html.light, body.light, .light-theme {
-  --background: #F8F9FC;
-  --foreground: #0F172A;
+  --background: #F6F8FC;
+  --foreground: #111827;
 }
 
 body.light {
-  background: #F8F9FC !important;
-  color: #0F172A !important;
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.07), transparent 70%),
-    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.03), transparent 50%),
-    #F8F9FC !important;
+  background: #F6F8FC !important;
+  color: #111827 !important;
+  background-image: none !important;
 }
 
 /* Scrollbar Minimalista Apple / macOS */
@@ -60,49 +53,49 @@ body.light {
 }
 
 body.light ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.18);
 }
 body.light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.32);
 }
 
 /* Transições com Física Natural Apple */
 button, a, input, select, textarea {
-  transition: all 0.22s var(--ease-apple);
+  transition: all 0.2s var(--ease-apple);
 }
 
 button:active, a:active {
-  transform: scale(0.975);
+  transform: scale(0.98);
 }
 
 /* Animações Fluidas de Entrada */
 .animate-fade-in {
-  animation: appleFadeIn 0.28s var(--ease-apple) forwards;
+  animation: appleFadeIn 0.24s var(--ease-apple) forwards;
 }
 
 .animate-slide-up {
-  animation: appleSlideUp 0.35s var(--ease-apple) forwards;
+  animation: appleSlideUp 0.28s var(--ease-apple) forwards;
 }
 
 .animate-spring {
-  animation: appleSpring 0.4s var(--ease-spring) forwards;
+  animation: appleSpring 0.35s var(--ease-spring) forwards;
 }
 
 @keyframes appleFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(6px) scale(0.992);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes appleSlideUp {
   0% {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   100% {
     opacity: 1;
@@ -113,7 +106,7 @@ button:active, a:active {
 @keyframes appleSpring {
   0% {
     opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.96);
   }
   100% {
     opacity: 1;
@@ -123,35 +116,21 @@ button:active, a:active {
 
 /* Glassmorphism Efeitos Premium */
 .glass-panel {
-  background: rgba(18, 20, 29, 0.65);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(18, 20, 29, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.glass-card-hover {
-  transition: all 0.25s var(--ease-apple);
-}
-.glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.045);
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+body.light .glass-panel {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
 }
 
-/* Pulsação Suave e Elegante */
-@keyframes softPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.95); }
-}
-
-.animate-soft-pulse {
-  animation: softPulse 2.5s ease-in-out infinite;
-}
-
-/* Rich HTML Email Rendering Support (LinkedIn, Apple, Stripe, Newsletters) */
+/* Rich HTML Email Rendering Support */
 .email-rich-html {
   font-family: inherit;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .email-rich-html img {
@@ -162,7 +141,7 @@ button:active, a:active {
 }
 
 .email-rich-html a {
-  color: #6366f1;
+  color: #2563EB;
   text-decoration: underline;
 }
 
