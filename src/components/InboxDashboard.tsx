@@ -67,22 +67,22 @@ function parseSender(fromStr: string): { name: string; email: string; initial: s
   return { name: fromStr, email: fromStr, initial: fromStr.substring(0, 2).toUpperCase() || 'RE' };
 }
 
-// Obter avatar limpo: Foto Real de Pessoas ou Logótipo Oficial de Empresa
-function getSenderVisual(emailOrFrom: string): { photoUrl?: string; logoUrl?: string; initial: string; bgClass: string; textClass: string } {
+// Obter avatar limpo: Monograma Autêntico para Pessoas ou Logótipo Oficial para Empresas
+function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: string; bgClass: string; textClass: string } {
   const clean = (emailOrFrom || "").toLowerCase();
   const match = clean.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
   const domain = match ? match[1] : '';
 
   const sender = parseSender(emailOrFrom);
 
-  // Paleta de cores corporativas Google para as iniciais
+  // Paleta oficial de cores suaves Google / Private Email
   const colors = [
-    { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" },
-    { bg: "bg-[#E6F4EA]", text: "text-[#137333]" },
-    { bg: "bg-[#FEF7E0]", text: "text-[#B06000]" },
-    { bg: "bg-[#FCE8E6]", text: "text-[#C5221F]" },
-    { bg: "bg-[#F3E8FD]", text: "text-[#9334E6]" },
-    { bg: "bg-[#E0F2FE]", text: "text-[#0284C7]" },
+    { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Private Email
+    { bg: "bg-[#E6F4EA]", text: "text-[#137333]" }, // Verde
+    { bg: "bg-[#FEF7E0]", text: "text-[#B06000]" }, // Âmbar
+    { bg: "bg-[#FCE8E6]", text: "text-[#C5221F]" }, // Vermelho
+    { bg: "bg-[#F3E8FD]", text: "text-[#9334E6]" }, // Roxo
+    { bg: "bg-[#E0F2FE]", text: "text-[#0284C7]" }, // Ciano
   ];
 
   let hash = 0;
@@ -92,85 +92,34 @@ function getSenderVisual(emailOrFrom: string): { photoUrl?: string; logoUrl?: st
   const colorIndex = Math.abs(hash) % colors.length;
   const chosenColor = colors[colorIndex];
 
-  // 1. Fotos Reais de Executivos e Pessoas
-  if (clean.includes("filipe") || clean.includes("abrantes")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80",
-      initial: "FA",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-  if (clean.includes("stephen") || clean.includes("emmanuel")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-      initial: "SE",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-  if (clean.includes("gina") || clean.includes("cohen")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
-      initial: "GC",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-  if (clean.includes("jemma") || clean.includes("wallace")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
-      initial: "JW",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-  if (clean.includes("aryan") || clean.includes("bhadoria")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80",
-      initial: "AS",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-  if (clean.includes("lucíola") || clean.includes("luciola") || clean.includes("coelho")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80",
-      initial: "LC",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-
-  // 2. Logótipos Corporativos Reais
-  if (domain && !domain.includes("gmail.com") && !domain.includes("outlook.com") && !domain.includes("hotmail.com") && !domain.includes("yahoo.com")) {
+  // Logótipos Corporativos para contas de sistema/serviço
+  if (clean.includes("linkedin.com") || clean.includes("dlocalgo") || clean.includes("moorwand.com") || clean.includes("crassula.io") || clean.includes("support@") || clean.includes("noreply")) {
     let lookupDomain = domain;
     if (domain.includes("pawapay")) lookupDomain = "pawapay.io";
     if (domain.includes("hubspot")) lookupDomain = "moorwand.com";
-    if (domain.includes("currencycloud")) lookupDomain = "currencycloud.com";
+    if (domain.includes("dlocal")) lookupDomain = "dlocal.com";
     if (domain.includes("termii")) lookupDomain = "termii.com";
     if (domain.includes("stripe")) lookupDomain = "stripe.com";
-    if (domain.includes("impact")) lookupDomain = "impact.com";
     if (domain.includes("linkedin")) lookupDomain = "linkedin.com";
-    if (domain.includes("bel.money")) lookupDomain = "bel.money";
-    if (domain.includes("apple")) lookupDomain = "apple.com";
-    if (domain.includes("digitalocean")) lookupDomain = "digitalocean.com";
-    if (domain.includes("cloudflare")) lookupDomain = "cloudflare.com";
+    if (domain.includes("crassula")) lookupDomain = "crassula.io";
 
     return {
       logoUrl: `https://www.google.com/s2/favicons?domain=${lookupDomain}&sz=128`,
-      initial: sender.initial,
+      initial: sender.name.charAt(0).toUpperCase() || "U",
       bgClass: chosenColor.bg,
       textClass: chosenColor.text
     };
   }
 
+  // Para pessoas reais (Filipe Abrantes, Stephen Emmanuel, Gina Cohen, Junaid Khan, etc.): Monograma limpo oficial (ex: "F")
   return {
-    initial: sender.initial,
+    initial: sender.name.charAt(0).toUpperCase() || sender.initial.charAt(0) || "U",
     bgClass: chosenColor.bg,
     textClass: chosenColor.text
   };
 }
+
+
 
 // Tocar Som de Notificação
 function playNotificationSound() {
@@ -864,12 +813,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
                       <div className="flex items-start gap-2.5 pl-1.5">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 overflow-hidden shadow-xs border border-[#E5E7EB] dark:border-white/10 ${
-                          visual.photoUrl ? 'bg-transparent' : visual.logoUrl ? 'bg-white' : `${visual.bgClass} ${visual.textClass}`
+                          visual.logoUrl ? 'bg-white' : `${visual.bgClass} ${visual.textClass}`
                         }`}>
                           {isSent && avatarUrl ? (
                             <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                          ) : visual.photoUrl ? (
-                            <img src={visual.photoUrl} alt={senderInfo.name} className="w-full h-full object-cover" />
                           ) : visual.logoUrl ? (
                             <img 
                               src={visual.logoUrl} 
@@ -996,11 +943,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center font-bold text-xs md:text-sm shrink-0 shadow-xs ${
-                        visualSender.photoUrl ? 'bg-transparent' : visualSender.logoUrl ? 'bg-white' : `${visualSender.bgClass} ${visualSender.textClass}`
+                        visualSender.logoUrl ? 'bg-white' : `${visualSender.bgClass} ${visualSender.textClass}`
                       }`}>
-                        {visualSender.photoUrl ? (
-                          <img src={visualSender.photoUrl} alt={parsedSender.name} className="w-full h-full object-cover" />
-                        ) : visualSender.logoUrl ? (
+                        {visualSender.logoUrl ? (
                           <img 
                             src={visualSender.logoUrl} 
                             alt="" 
