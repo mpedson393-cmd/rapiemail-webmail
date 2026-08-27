@@ -1063,79 +1063,187 @@ export function InboxDashboard({ user, initialEmails, currentFolder: initialFold
                           dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
                         />
                       ) : (
-                        <div className="max-w-3xl animate-fade-in space-y-4">
-                          {/* Verificação Inteligente de Convite LinkedIn */}
-                          {selectedEmail.body.includes("Aceitar:") || selectedEmail.body.includes("Ver perfil:") ? (
-                            <div className="space-y-4">
-                              {/* Card do Perfil LinkedIn */}
-                              <div className={`p-5 rounded-2xl border shadow-lg ${
-                                isLight ? 'bg-gradient-to-b from-blue-50/50 to-white border-blue-100 shadow-blue-50/50' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
-                              }`}>
-                                <div className="flex items-start gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
-                                    {parsedSender.name.charAt(0) || "L"}
-                                  </div>
-                                  <div className="flex-1 space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                        {parsedSender.name}
-                                      </h3>
-                                      <span className="text-[10px] bg-[#0A66C2]/15 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/30">
-                                        LinkedIn
-                                      </span>
-                                    </div>
-                                    <p className={`text-xs leading-relaxed ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
-                                      {selectedEmail.body.split("Aceitar:")[0].replace(/Olá[^\n]+\n+/i, '').replace(/Aryan[^\n]+aguarda[^\n]+\n+/i, '').trim()}
-                                    </p>
-                                  </div>
+                        <div className="max-w-3xl animate-fade-in space-y-6">
+                          {/* CASO 1: CONVITE DE CONEXÃO DIRETO LINKEDIN */}
+                          {(selectedEmail.body.includes("Aceitar:") || selectedEmail.body.includes("Ver perfil:")) && (
+                            <div className={`p-6 rounded-2xl border shadow-lg ${
+                              isLight ? 'bg-gradient-to-b from-blue-50/60 to-white border-blue-200 shadow-blue-50/50' : 'bg-[#0A0D14] border-white/[0.08] shadow-black/40'
+                            }`}>
+                              <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
+                                  {parsedSender.name.charAt(0) || "L"}
                                 </div>
-
-                                {/* Botões de Ação LinkedIn */}
-                                <div className="mt-5 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
-                                  {selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/) && (
-                                    <a
-                                      href={selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/)?.[1]}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/30 transition-all cursor-pointer"
-                                    >
-                                      <span>✓ Aceitar Conexão</span>
-                                    </a>
-                                  )}
-                                  {selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/) && (
-                                    <a
-                                      href={selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/)?.[1]}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
-                                        isLight 
-                                          ? 'border-slate-300 text-slate-700 hover:bg-slate-100' 
-                                          : 'border-white/10 text-zinc-300 hover:bg-white/5'
-                                      }`}
-                                    >
-                                      <span>👤 Ver Perfil no LinkedIn</span>
-                                    </a>
-                                  )}
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                      {parsedSender.name}
+                                    </h3>
+                                    <span className="text-[10px] bg-[#0A66C2]/15 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/30">
+                                      LinkedIn
+                                    </span>
+                                  </div>
+                                  <p className={`text-xs leading-relaxed ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                                    {selectedEmail.body.split("Aceitar:")[0].replace(/Olá[^\n]+\n+/i, '').replace(/Aryan[^\n]+aguarda[^\n]+\n+/i, '').trim()}
+                                  </p>
                                 </div>
                               </div>
+
+                              <div className="mt-5 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-wrap items-center gap-3">
+                                {selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/) && (
+                                  <a
+                                    href={selectedEmail.body.match(/Aceitar:\s*(https:\/\/[^\s]+)/)?.[1]}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-[#0A66C2]/30 transition-all cursor-pointer"
+                                  >
+                                    <span>✓ Aceitar Conexão</span>
+                                  </a>
+                                )}
+                                {selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/) && (
+                                  <a
+                                    href={selectedEmail.body.match(/Ver perfil:\s*(https:\/\/[^\s]+)/)?.[1]}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                                      isLight 
+                                        ? 'border-slate-300 text-slate-700 hover:bg-slate-100' 
+                                        : 'border-white/10 text-zinc-300 hover:bg-white/5'
+                                    }`}
+                                  >
+                                    <span>👤 Ver Perfil no LinkedIn</span>
+                                  </a>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            /* Renderização Limpa para outros emails com limpeza de tags [imagem: ...] */
-                            <div className={`text-sm leading-relaxed space-y-3 font-normal ${
+                          )}
+
+                          {/* CASO 2: NOTIFICAÇÃO DE BUSCA/REDE LINKEDIN (ex: Andrew Mreana, Edson MP) */}
+                          {!selectedEmail.body.includes("Aceitar:") && (selectedEmail.body.includes("linkedin.com/comm/in/") || selectedEmail.body.includes("Tendências de carreira")) && (
+                            <div className="space-y-4">
+                              {/* Header da Notificação */}
+                              <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+                                isLight ? 'bg-indigo-50/60 border-indigo-200' : 'bg-indigo-950/20 border-indigo-500/20'
+                              }`}>
+                                <div>
+                                  <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                    Tendências de Carreira & Oportunidades na sua Rede
+                                  </h4>
+                                  <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                                    Notificação inteligente do LinkedIn Network
+                                  </p>
+                                </div>
+                                {selectedEmail.body.match(/https:\/\/www\.linkedin\.com\/comm\/search\/results\/people\/[^\s]+/i) && (
+                                  <a
+                                    href={selectedEmail.body.match(/https:\/\/www\.linkedin\.com\/comm\/search\/results\/people\/[^\s]+/i)?.[0]}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-3.5 py-1.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                                  >
+                                    Ver Todos no LinkedIn
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Lista de Perfis / Pessoas Mencionadas */}
+                              <div className="grid grid-cols-1 gap-3.5">
+                                {selectedEmail.body.split(/(?=(?:Andrew Mreana|Edson MP|[A-Z][a-z]+ [A-Z][a-z]+)\n)/g).filter(chunk => chunk.includes("linkedin.com/comm/in/")).map((personChunk, pIdx) => {
+                                  const lines = personChunk.trim().split('\n').filter(l => l.trim().length > 0);
+                                  const name = lines[0] || "Contacto LinkedIn";
+                                  const role = lines.find(l => !l.includes("http") && !l.includes("Enviar mensagem") && l !== name) || "Membro LinkedIn";
+                                  const msgLinkMatch = personChunk.match(/https:\/\/www\.linkedin\.com\/comm\/in\/[^\s]+/i);
+                                  const msgLink = msgLinkMatch ? msgLinkMatch[0] : null;
+
+                                  return (
+                                    <div key={pIdx} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
+                                      isLight ? 'bg-white border-slate-200/80 shadow-slate-100' : 'bg-[#0B0E17] border-white/[0.08]'
+                                    }`}>
+                                      <div className="flex items-center gap-3.5">
+                                        <div className="w-10 h-10 rounded-full bg-[#0A66C2]/15 border border-[#0A66C2]/30 text-[#0A66C2] flex items-center justify-center font-bold text-sm shrink-0">
+                                          {name.charAt(0)}
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                              {name}
+                                            </span>
+                                            <span className="text-[9px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                                              Buscando Emprego
+                                            </span>
+                                          </div>
+                                          <p className={`text-[11px] line-clamp-2 mt-0.5 ${isLight ? 'text-slate-600' : 'text-zinc-400'}`}>
+                                            {role}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {msgLink && (
+                                        <a
+                                          href={msgLink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="self-end sm:self-auto px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-bold rounded-xl shadow-md shadow-[#0A66C2]/25 flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+                                        >
+                                          <span>💬 Enviar Mensagem</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* CASO 3: PARCERIAS, EMPRESAS (Impact.com, Belmoney, Stripe, etc.) COM LINKS FORMATADOS EM BOTÕES */}
+                          {!selectedEmail.body.includes("Aceitar:") && !selectedEmail.body.includes("Tendências de carreira") && !selectedEmail.body.includes("linkedin.com/comm/in/") && (
+                            <div className={`text-sm leading-relaxed space-y-4 font-normal ${
                               isLight ? 'text-slate-800' : 'text-zinc-200'
                             }`}>
                               {selectedEmail.body
-                                .replace(/\[imagem:\s*logótipo da empresa\]/gi, '🏢 [Logótipo da Empresa]')
+                                .replace(/\[imagem:\s*logótipo da empresa\]/gi, '🏢 [Logótipo Oficial da Empresa]')
                                 .replace(/\[imagem:\s*LinkedIn\]/gi, '🔗 LinkedIn')
                                 .replace(/\[imagem:\s*Instagram\]/gi, '📸 Instagram')
                                 .replace(/\[imagem:\s*Facebook\]/gi, '👥 Facebook')
                                 .replace(/\[imagem:\s*-\]/gi, '▶ YouTube')
+                                .replace(/\[imagem:\s*([^\]]+)\]/gi, '🏷️ $1')
                                 .split('\n\n')
-                                .map((paragraph, idx) => (
-                                  <p key={idx} className="whitespace-pre-line leading-relaxed">
-                                    {paragraph}
-                                  </p>
-                                ))
+                                .map((paragraph, idx) => {
+                                  // Se o parágrafo contém URLs longos, transforma em botões/links limpos
+                                  if (paragraph.includes("http://") || paragraph.includes("https://")) {
+                                    const parts = paragraph.split(/(https?:\/\/[^\s<>]+)/g);
+                                    return (
+                                      <p key={idx} className="whitespace-pre-line leading-relaxed">
+                                        {parts.map((part, pIdx) => {
+                                          if (part.startsWith("http://") || part.startsWith("https://")) {
+                                            let cleanLabel = part;
+                                            try {
+                                              const urlObj = new URL(part);
+                                              cleanLabel = urlObj.hostname.replace('www.', '') + (urlObj.pathname.length > 1 ? urlObj.pathname.slice(0, 15) + '...' : '');
+                                            } catch (e) {}
+
+                                            return (
+                                              <a
+                                                key={pIdx}
+                                                href={part}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 my-0.5 mx-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-xs"
+                                              >
+                                                <span>🔗 {cleanLabel}</span>
+                                              </a>
+                                            );
+                                          }
+                                          return part;
+                                        })}
+                                      </p>
+                                    );
+                                  }
+
+                                  return (
+                                    <p key={idx} className="whitespace-pre-line leading-relaxed">
+                                      {paragraph}
+                                    </p>
+                                  );
+                                })
                               }
                             </div>
                           )}
