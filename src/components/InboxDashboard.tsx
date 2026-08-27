@@ -6,9 +6,9 @@ import {
   Inbox, Star, Send, FileText, Search, Bell, Clock, Trash2, 
   Archive, AlertOctagon, Mail, Calendar, Users, Settings, 
   RefreshCw, CornerUpLeft, CornerUpRight, MoreHorizontal,
-  HardDrive, Globe, CheckCircle2, ChevronDown, Paperclip,
-  Check, CheckCheck, Edit3, X, Eye, Sparkles, ShieldCheck,
-  Zap, ArrowUpRight, Languages, Building2, Moon, Sun
+  CheckCircle2, ChevronDown, Paperclip, Check, CheckCheck, 
+  Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
+  Forward, Ban, Code2, HelpCircle
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -67,75 +67,107 @@ function parseSender(fromStr: string): { name: string; email: string; initial: s
   return { name: fromStr, email: fromStr, initial: fromStr.substring(0, 2).toUpperCase() || 'RE' };
 }
 
-// Obter Logótipo Real da Empresa e Domínio
-function getCompanyInfo(emailOrFrom: string): { logoUrl?: string; companyName: string; color: string } {
+// Obter Foto Real do Perfil ou Logótipo de Empresa
+function getSenderVisual(emailOrFrom: string): { photoUrl?: string; logoUrl?: string; companyName: string; initial: string } {
   const clean = (emailOrFrom || "").toLowerCase();
 
-  if (clean.includes("termii.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=termii.com&sz=128", 
-      companyName: "Termii", 
-      color: "from-emerald-600 to-teal-800" 
+  // Fotos Reais de Pessoas
+  if (clean.includes("stephen") || clean.includes("emmanuel") || clean.includes("pawapay.co.uk")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
+      companyName: "PawaPay",
+      initial: "SE"
     };
   }
-  if (clean.includes("currencycloud.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=currencycloud.com&sz=128", 
-      companyName: "Currencycloud | Visa", 
-      color: "from-blue-600 to-indigo-900" 
+  if (clean.includes("gina") || clean.includes("cohen") || clean.includes("stripe.com")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
+      companyName: "Stripe",
+      initial: "GC"
     };
   }
-  if (clean.includes("stripe.com")) {
+  if (clean.includes("bukola") || clean.includes("akingbaso") || clean.includes("termii.com")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
+      companyName: "Termii",
+      initial: "BA"
+    };
+  }
+  if (clean.includes("lucia") || clean.includes("homedes") || clean.includes("currencycloud.com")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=120&auto=format&fit=crop&q=80",
+      companyName: "Currencycloud | Visa",
+      initial: "LH"
+    };
+  }
+  if (clean.includes("jemma") || clean.includes("wallace") || clean.includes("impact.com")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
+      companyName: "Impact.com",
+      initial: "JW"
+    };
+  }
+  if (clean.includes("aryan") || clean.includes("bhadoria")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80",
+      companyName: "LinkedIn",
+      initial: "AS"
+    };
+  }
+  if (clean.includes("lucíola") || clean.includes("luciola") || clean.includes("coelho")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80",
+      companyName: "LinkedIn",
+      initial: "LC"
+    };
+  }
+  if (clean.includes("branson") || clean.includes("richard")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80",
+      companyName: "Virgin / LinkedIn",
+      initial: "RB"
+    };
+  }
+  if (clean.includes("filipe") || clean.includes("abrantes") || clean.includes("bel.money")) {
+    return {
+      photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80",
+      companyName: "Belmoney",
+      initial: "FA"
+    };
+  }
+
+  // Logótipos Corporativos
+  if (clean.includes("moorwand.com")) {
     return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=stripe.com&sz=128", 
-      companyName: "Stripe", 
-      color: "from-[#635BFF] to-[#0A2540]" 
+      logoUrl: "https://www.google.com/s2/favicons?domain=moorwand.com&sz=128", 
+      companyName: "Moorwand", 
+      initial: "M" 
     };
   }
   if (clean.includes("crassula.io")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=crassula.io&sz=128", 
       companyName: "Crassula", 
-      color: "from-[#00E599] to-[#0B1528]" 
-    };
-  }
-  if (clean.includes("bel.money")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=bel.money&sz=128", 
-      companyName: "Belmoney Financial", 
-      color: "from-[#0066FF] to-[#001F5C]" 
-    };
-  }
-  if (clean.includes("moorwand.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=moorwand.com&sz=128", 
-      companyName: "Moorwand Cards", 
-      color: "from-[#0A0E2A] to-[#1E3A8A]" 
-    };
-  }
-  if (clean.includes("linkedin.com")) {
-    return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128", 
-      companyName: "LinkedIn", 
-      color: "from-[#0A66C2] to-[#004182]" 
+      initial: "C" 
     };
   }
   if (clean.includes("apple.com")) {
     return { 
       logoUrl: "https://www.google.com/s2/favicons?domain=apple.com&sz=128", 
       companyName: "Apple", 
-      color: "from-zinc-800 to-black" 
+      initial: "A" 
     };
   }
-  if (clean.includes("impact.com")) {
+  if (clean.includes("linkedin.com")) {
     return { 
-      logoUrl: "https://www.google.com/s2/favicons?domain=impact.com&sz=128", 
-      companyName: "Impact.com", 
-      color: "from-purple-600 to-indigo-900" 
+      logoUrl: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128", 
+      companyName: "LinkedIn", 
+      initial: "IN" 
     };
   }
 
-  return { companyName: "Business Contact", color: "from-blue-600 to-indigo-800" };
+  const sender = parseSender(emailOrFrom);
+  return { companyName: "Business Contact", initial: sender.initial };
 }
 
 // Formatar data no estilo Private Email (ex: 31/07 ou 18:13)
@@ -197,7 +229,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
-  // Carregar Avatar Real
+  // Carregar Avatar Real do Utilizador
   useEffect(() => {
     fetch('/api/user/avatar')
       .then(res => res.json())
@@ -301,7 +333,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   const parsedSender = selectedEmail ? parseSender(selectedEmail.from) : { name: "", email: "", initial: "RE" };
-  const companyInfo = selectedEmail ? getCompanyInfo(selectedEmail.from) : { companyName: "", color: "from-blue-600 to-indigo-800" };
+  const visualSender = selectedEmail ? getSenderVisual(selectedEmail.from) : { initial: "RE", companyName: "Business" };
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-150 ${
@@ -316,7 +348,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         </div>
       )}
 
-      {/* TOP EXECUTIVE HEADER (Clean Enterprise Standard) */}
+      {/* TOP HEADER (Private Email / Google Standard) */}
       <header className={`h-14 border-b flex items-center justify-between px-5 z-20 flex-shrink-0 transition-colors ${
         isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
       }`}>
@@ -335,42 +367,40 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </div>
           </Link>
 
-          {/* Apps Switcher (Correio, Calendário, Contactos) */}
-          <div className={`flex items-center p-0.5 rounded-lg border ${
-            isLight ? 'bg-[#F1F3F4] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
-          }`}>
+          {/* Navigation Icons (Correio, Calendário, Contactos) */}
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab('mail')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              title="Correio"
+              className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'mail'
-                  ? 'bg-[#1A73E8] text-white shadow-sm'
-                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
-              <Mail className="w-3.5 h-3.5" />
-              <span>Correio</span>
+              <Mail className="w-4 h-4" />
             </button>
             <button
               onClick={() => setActiveTab('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              title="Calendário"
+              className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'calendar'
-                  ? 'bg-[#1A73E8] text-white shadow-sm'
-                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Calendário</span>
+              <Calendar className="w-4 h-4" />
             </button>
             <button
               onClick={() => setActiveTab('contacts')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              title="Contactos"
+              className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'contacts'
-                  ? 'bg-[#1A73E8] text-white shadow-sm'
-                  : isLight ? 'text-[#5F6368] hover:text-[#202124]' : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Contactos</span>
+              <Users className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -383,8 +413,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar correio por remetente, assunto ou texto..."
-              className={`w-full text-xs pl-10 pr-4 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#1A73E8] transition-all ${
+              placeholder="Pesquisar correio"
+              className={`w-full text-xs pl-10 pr-4 py-2 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#1A73E8] transition-all ${
                 isLight 
                   ? 'bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#1A73E8] text-[#202124] placeholder-[#5F6368]' 
                   : 'bg-white/5 border-white/10 text-white placeholder-zinc-500'
@@ -394,11 +424,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         </div>
 
         {/* Right Tools: Refresh, Theme Switcher, Settings, Profile */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button 
             onClick={handleManualRefresh}
             title="Atualizar emails"
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-full transition-colors ${
               isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -408,7 +438,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           <button 
             onClick={toggleTheme}
             title={isLight ? "Ativar Modo Escuro" : "Ativar Modo Claro"}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-full transition-colors ${
               isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -418,7 +448,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           <Link
             href="/settings"
             title="Definições"
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-full transition-colors ${
               isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -426,7 +456,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           </Link>
 
           {/* User Profile Avatar */}
-          <Link href="/settings" className="relative ml-1 block">
+          <Link href="/settings" className="relative ml-2 block">
             <div className="w-8 h-8 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8] text-white flex items-center justify-center font-bold text-xs shadow-sm">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
@@ -434,7 +464,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                 <span>{user.initials}</span>
               )}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#07090E]"></div>
           </Link>
         </div>
       </header>
@@ -458,23 +487,22 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         <div className="flex-1 flex overflow-hidden">
           
           {/* COLUMN 1: LEFT SIDEBAR (Folders & Storage) */}
-          <aside className={`w-[220px] border-r flex flex-col flex-shrink-0 transition-colors ${
+          <aside className={`w-[210px] border-r flex flex-col flex-shrink-0 transition-colors ${
             isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#07090E] border-white/[0.08]'
           }`}>
             
-            {/* "Escrever" Button (Clean Royal Blue Pill) */}
-            <div className="p-3.5">
+            {/* "Escrever" Button (Solid Royal Blue Capsule) */}
+            <div className="p-3">
               <button 
                 onClick={() => setIsComposeOpen(true)}
-                className="w-full flex items-center justify-center gap-2 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-[0.98] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-sm transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-[0.98] text-white py-2.5 px-4 rounded-full font-bold text-xs shadow-sm transition-all"
               >
-                <Edit3 className="w-4 h-4" />
                 <span>Escrever</span>
               </button>
             </div>
 
             {/* Folders Navigation */}
-            <nav className="flex-1 px-2.5 py-1 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 px-2 py-1 space-y-0.5 overflow-y-auto">
               {folders.map(folder => {
                 const Icon = folder.icon;
                 const isActive = selectedFolder === folder.id;
@@ -482,7 +510,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <button
                     key={folder.id}
                     onClick={() => handleSelectFolder(folder.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-r-full text-xs font-medium transition-all ${
                       isActive 
                         ? isLight 
                           ? 'bg-[#E8F0FE] text-[#1967D2] font-bold' 
@@ -497,9 +525,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       <span>{folder.label}</span>
                     </div>
                     {folder.count > 0 && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-[#1A73E8] text-white' : isLight ? 'bg-[#E8EAED] text-[#202124]' : 'bg-white/10 text-zinc-300'
-                      }`}>
+                      <span className={`text-[11px] font-bold ${isActive ? 'text-[#1A73E8]' : 'text-[#5F6368]'}`}>
                         {folder.count}
                       </span>
                     )}
@@ -509,15 +535,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </nav>
 
             {/* Storage Meter (Private Email Style) */}
-            <div className={`p-3.5 border-t text-xs ${isLight ? 'border-[#E5E7EB] bg-[#F8F9FA]' : 'border-white/[0.08] bg-black/20'}`}>
-              <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-zinc-500">
+            <div className={`p-3 border-t text-xs ${isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-black/20'}`}>
+              <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-[#202124] dark:text-zinc-300">
                 <span>Armazenamento</span>
-                <span>0.1%</span>
               </div>
-              <div className="w-full h-1.5 bg-[#E5E7EB] dark:bg-white/10 rounded-full overflow-hidden">
+              <div className="w-full h-1 bg-[#E5E7EB] dark:bg-white/10 rounded-full overflow-hidden mb-1">
                 <div className="h-full bg-[#1A73E8] rounded-full w-[2%]"></div>
               </div>
-              <span className="text-[10px] text-zinc-400 block mt-1">107.2 KB de 10 GB utilizados</span>
+              <span className="text-[10px] text-zinc-500 block">5 MB de 5 GB (0.1%)</span>
             </div>
 
             {/* User Profile Footer */}
@@ -529,18 +554,18 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
           }`}>
             
-            {/* Header */}
+            {/* List Header */}
             <div className={`h-11 px-4 border-b flex items-center justify-between text-xs font-semibold ${
-              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FAFAFA]' : 'border-white/[0.08] text-zinc-400 bg-white/[0.02]'
+              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.08] text-zinc-400 bg-white/[0.02]'
             }`}>
               <div className="flex items-center gap-2">
                 <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
-                <span className="text-[11px] text-zinc-400">({filteredEmails.length})</span>
+                <span className="text-[11px] text-zinc-400 font-normal">({filteredEmails.length})</span>
               </div>
-              <span className="text-[11px]">Mais recentes</span>
+              <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
             </div>
 
-            {/* List */}
+            {/* List Items */}
             <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.06]">
               {filteredEmails.length === 0 ? (
                 <div className="p-8 text-center text-zinc-400 text-xs">
@@ -553,33 +578,35 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   const isStarred = starredIds.has(email.id);
                   const isSent = email.folder === 'SENT' || email.from === user.email;
                   const senderInfo = isSent ? parseSender(email.to) : parseSender(email.from);
-                  const company = getCompanyInfo(isSent ? email.to : email.from);
+                  const visual = getSenderVisual(isSent ? email.to : email.from);
                   const dateDisplay = formatEmailDate(email.createdAt);
 
                   return (
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3.5 transition-colors cursor-pointer ${
+                      className={`group relative p-3 transition-colors cursor-pointer ${
                         isSelected 
                           ? isLight ? 'bg-[#E8F0FE]' : 'bg-white/10'
                           : isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-transparent hover:bg-white/[0.04]'
                       }`}
                     >
-                      {/* Active Left Indicator */}
+                      {/* Active Indicator */}
                       {isSelected && (
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1A73E8]"></div>
                       )}
 
-                      <div className="flex items-start gap-3">
-                        {/* Avatar / Favicon */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-xs ${
-                          company.logoUrl ? 'bg-white border border-[#E5E7EB]' : 'bg-[#1A73E8]'
-                        }`}>
-                          {company.logoUrl ? (
-                            <img src={company.logoUrl} alt="" className="w-4 h-4 object-contain" />
+                      <div className="flex items-start gap-2.5">
+                        {/* Avatar com Foto Real ou Letra */}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-xs border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8]">
+                          {isSent && avatarUrl ? (
+                            <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                          ) : visual.photoUrl ? (
+                            <img src={visual.photoUrl} alt={senderInfo.name} className="w-full h-full object-cover" />
+                          ) : visual.logoUrl ? (
+                            <img src={visual.logoUrl} alt="" className="w-4 h-4 object-contain" />
                           ) : (
-                            <span>{senderInfo.initial}</span>
+                            <span>{visual.initial}</span>
                           )}
                         </div>
 
@@ -618,63 +645,62 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </div>
           </section>
 
-          {/* COLUMN 3: EMAIL READER PANE (Pure Clean Reading Experience) */}
+          {/* COLUMN 3: EMAIL READER PANE (Private Email Exact Toolbar & Layout) */}
           <main className={`flex-1 flex flex-col overflow-hidden transition-colors ${
             isLight ? 'bg-[#FFFFFF]' : 'bg-[#07090E]'
           }`}>
             {selectedEmail ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 
-                {/* Action Bar */}
+                {/* Top Action Toolbar with Exact Private Email Icons (Screenshot 3) */}
                 <div className={`h-11 px-6 border-b flex items-center justify-between text-xs shrink-0 ${
-                  isLight ? 'border-[#E5E7EB] bg-[#FAFAFA]' : 'border-white/[0.08] bg-white/[0.02]'
+                  isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-white/[0.02]'
                 }`}>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => setIsComposeOpen(true)}
-                      className={`px-3 py-1 rounded-md border flex items-center gap-1.5 font-medium transition-all ${
-                        isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
-                      }`}
-                    >
-                      <CornerUpLeft className="w-3.5 h-3.5" />
-                      <span>Responder</span>
+                  <div className="flex items-center gap-4 text-[#5F6368] dark:text-zinc-400">
+                    <button onClick={() => setIsComposeOpen(true)} title="Responder" className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors">
+                      <Reply className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => setIsComposeOpen(true)}
-                      className={`px-3 py-1 rounded-md border flex items-center gap-1.5 font-medium transition-all ${
-                        isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
-                      }`}
-                    >
-                      <CornerUpRight className="w-3.5 h-3.5" />
-                      <span>Encaminhar</span>
+                    <button onClick={() => setIsComposeOpen(true)} title="Responder a todos" className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors">
+                      <ReplyAll className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={handleDeleteEmail}
-                      className={`p-1.5 rounded-md border text-zinc-400 hover:text-red-500 transition-all ${
-                        isLight ? 'bg-white border-[#E5E7EB] hover:bg-red-50' : 'bg-white/5 border-white/10'
-                      }`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button onClick={() => setIsComposeOpen(true)} title="Reencaminhar" className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors">
+                      <Forward className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-[#E5E7EB] dark:bg-white/10 mx-1"></div>
+                    <button onClick={(e) => toggleStar(selectedEmail.id, e)} title="Com estrela" className="hover:text-amber-400 transition-colors">
+                      <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </button>
+                    <button onClick={handleDeleteEmail} title="Lixo" className="hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button title="Spam" className="hover:text-amber-500 transition-colors">
+                      <Ban className="w-4 h-4" />
+                    </button>
+                    <button title="Código fonte" className="hover:text-[#1A73E8] transition-colors">
+                      <Code2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <span className="text-[11px] text-zinc-400 font-mono">
-                    {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })} às {new Date(selectedEmail.createdAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
                 </div>
 
                 {/* Email Content Body */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-6 max-w-4xl">
                   
-                  {/* Subject */}
+                  {/* Subject Header */}
                   <h1 className={`text-xl font-bold tracking-tight leading-snug ${isLight ? 'text-[#202124]' : 'text-white'}`}>
                     {selectedEmail.subject || '(Sem assunto)'}
                   </h1>
 
-                  {/* Sender Row */}
+                  {/* Sender Header Card with Real Person Photo / Avatar */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#1A73E8] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                        {parsedSender.name.charAt(0) || "U"}
+                      <div className="w-11 h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                        {visualSender.photoUrl ? (
+                          <img src={visualSender.photoUrl} alt={parsedSender.name} className="w-full h-full object-cover" />
+                        ) : visualSender.logoUrl ? (
+                          <img src={visualSender.logoUrl} alt="" className="w-6 h-6 object-contain" />
+                        ) : (
+                          <span>{visualSender.initial}</span>
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -686,10 +712,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           </span>
                         </div>
                         <span className="text-xs text-zinc-400">
-                          para <strong className={isLight ? 'text-[#202124]' : 'text-white'}>Edson</strong> &lt;{selectedEmail.to}&gt;
+                          Para: &lt;{selectedEmail.to}&gt;
                         </span>
                       </div>
                     </div>
+
+                    <span className="text-xs text-zinc-400 font-mono">
+                      {new Date(selectedEmail.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })} às {new Date(selectedEmail.createdAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
 
                   {/* Body Content */}
@@ -702,66 +732,34 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className={`text-[15px] leading-relaxed space-y-4 font-normal ${
                       isLight ? 'text-[#202124]' : 'text-[#E8EAED]'
                     }`}>
-                      {/* LinkedIn Card if applicable */}
-                      {(selectedEmail.body.includes("Aceitar:") || selectedEmail.body.includes("Ver perfil:") || selectedEmail.body.includes("aguarda sua resposta")) ? (
-                        <div className={`p-6 rounded-xl border ${
-                          isLight ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
-                        }`}>
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-full bg-[#0A66C2] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-xs">
-                              {parsedSender.name.charAt(0)}
-                            </div>
-                            <div className="flex-1 space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <h3 className={`font-bold text-base ${isLight ? 'text-[#202124]' : 'text-white'}`}>
-                                  {parsedSender.name}
-                                </h3>
-                                <span className="text-[10px] bg-[#0A66C2]/10 text-[#0A66C2] font-bold px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
-                                  LinkedIn
-                                </span>
-                              </div>
-                              <p className={`text-sm leading-relaxed ${isLight ? 'text-[#3C4043]' : 'text-zinc-300'}`}>
-                                {selectedEmail.body
-                                  .split(/Aceitar:|Ver perfil:|Ver todas as conexões/i)[0]
-                                  .replace(/Olá[^\n]*\n+/gi, '')
-                                  .replace(/^[^\n]*aguarda sua resposta[^\n]*/gi, '')
-                                  .replace(/https?:\/\/[^\s]+/g, '')
-                                  .replace(/sharedKey=[^\s]+/g, '')
-                                  .replace(/invitationId=[^\s]+/g, '')
-                                  .trim() || "Gostaria de se conectar com você no LinkedIn."}
+                      {/* Thread Format (Like PawaPay Stephen Emmanuel in Screenshot 2) */}
+                      {selectedEmail.body.includes("----\nOn ") ? (
+                        <div className="space-y-6">
+                          {/* Turno Mais Recente */}
+                          <div className="space-y-3">
+                            {selectedEmail.body.split("----\nOn ")[0].split('\n\n').map((para, idx) => (
+                              <p key={idx} className="whitespace-pre-line leading-relaxed">
+                                {para}
                               </p>
-                            </div>
+                            ))}
                           </div>
 
-                          <div className="mt-5 pt-4 border-t border-[#E5E7EB] dark:border-white/10 flex flex-wrap items-center gap-3">
-                            {selectedEmail.body.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/i) && (
-                              <a
-                                href={selectedEmail.body.match(/(?:Aceitar:\s*|invite-accept[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1]}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-5 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white font-bold text-xs rounded-lg shadow-sm transition-all"
-                              >
-                                ✓ Aceitar Conexão
-                              </a>
-                            )}
-                            {selectedEmail.body.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i) && (
-                              <a
-                                href={selectedEmail.body.match(/(?:Ver perfil:\s*|in\/[^\s]*\s*)(https:\/\/[^\s]+)/i)?.[1]}
-                                target="_blank"
-                                rel="noreferrer"
-                                className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                                  isLight ? 'bg-white border-[#E5E7EB] text-[#202124] hover:bg-[#F1F3F4]' : 'bg-white/5 border-white/10 text-white'
-                                }`}
-                              >
-                                👤 Ver Perfil no LinkedIn
-                              </a>
-                            )}
+                          {/* Resposta Anterior em Thread com Foto */}
+                          <div className="pt-4 border-t border-[#E5E7EB] dark:border-white/10 space-y-3">
+                            <div className="flex items-center gap-2.5 text-xs text-zinc-400 font-semibold mb-2">
+                              <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 flex items-center justify-center font-bold text-[10px] overflow-hidden">
+                                {avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" /> : "E"}
+                              </div>
+                              <span>edson &lt;edson@rapimoneyit.online&gt; escreveu:</span>
+                            </div>
+                            <div className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm whitespace-pre-line leading-relaxed">
+                              {selectedEmail.body.split("----\nOn ")[1]}
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        /* Standard Clean Email Paragraphs */
+                        /* Standard Natural Text */
                         selectedEmail.body.split('\n\n').map((para, idx) => {
-                          // Se for uma citação de resposta (On ..., wrote:)
                           if (para.includes("wrote:") || para.includes("escreveu:") || para.startsWith("----")) {
                             return (
                               <div key={idx} className="pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-sm italic my-3 whitespace-pre-line">
@@ -780,41 +778,20 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     </div>
                   )}
 
-                  {/* Inline Quick Reply */}
-                  <div className={`mt-10 pt-6 border-t ${isLight ? 'border-[#E5E7EB]' : 'border-white/10'}`}>
-                    <div className={`border rounded-xl p-4 shadow-sm ${
-                      isLight ? 'bg-[#FAFAFA] border-[#E5E7EB]' : 'bg-white/5 border-white/10'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-[#5F6368] dark:text-zinc-400">
-                        <CornerUpLeft className="w-3.5 h-3.5 text-[#1A73E8]" />
-                        <span>Responder a {parsedSender.name}</span>
-                      </div>
-                      <textarea
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        placeholder="Escreva aqui a sua resposta..."
-                        rows={3}
-                        className={`w-full bg-transparent text-sm focus:outline-none resize-none ${
-                          isLight ? 'text-[#202124] placeholder-zinc-400' : 'text-white placeholder-zinc-500'
-                        }`}
-                      />
-                      <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB] dark:border-white/10 mt-2">
-                        <div className="text-zinc-400 text-xs">
-                          Pressione Enviar para responder via <span className="font-semibold text-[#1A73E8]">edson@rapimoneyit.online</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (!replyText.trim()) return;
-                            setToastMessage("Resposta enviada com sucesso!");
-                            setReplyText("");
-                            setTimeout(() => setToastMessage(null), 3000);
-                          }}
-                          className="px-4 py-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white text-xs font-bold rounded-lg shadow-sm transition-all"
-                        >
-                          Enviar Resposta
-                        </button>
-                      </div>
-                    </div>
+                  {/* Bottom Action Buttons (Screenshot 3) */}
+                  <div className="pt-6 border-t border-[#E5E7EB] dark:border-white/10 flex items-center gap-4 text-xs font-semibold text-[#1A73E8]">
+                    <button onClick={() => setIsComposeOpen(true)} className="flex items-center gap-1.5 hover:underline">
+                      <Reply className="w-4 h-4" />
+                      <span>Responder</span>
+                    </button>
+                    <button onClick={() => setIsComposeOpen(true)} className="flex items-center gap-1.5 hover:underline">
+                      <ReplyAll className="w-4 h-4" />
+                      <span>Responder a todos</span>
+                    </button>
+                    <button onClick={() => setIsComposeOpen(true)} className="flex items-center gap-1.5 hover:underline">
+                      <Forward className="w-4 h-4" />
+                      <span>Reencaminhar</span>
+                    </button>
                   </div>
 
                 </div>
