@@ -11,7 +11,15 @@ webpush.setVapidDetails(
   VAPID_PRIVATE_KEY
 );
 
-export async function sendPushNotificationToUser(userId: string, payload: { title: string; body: string; url?: string }) {
+export interface PushNotificationPayload {
+  title: string;
+  body: string;
+  url?: string;
+  emailId?: string;
+  icon?: string;
+}
+
+export async function sendPushNotificationToUser(userId: string, payload: PushNotificationPayload) {
   try {
     const subscriptions = await prisma.pushSubscription.findMany({
       where: { userId }
@@ -24,8 +32,9 @@ export async function sendPushNotificationToUser(userId: string, payload: { titl
     const payloadString = JSON.stringify({
       title: payload.title,
       body: payload.body,
-      url: payload.url || '/inbox',
-      icon: '/favicon.ico',
+      url: payload.url || (payload.emailId ? `/inbox?id=${payload.emailId}` : '/inbox'),
+      emailId: payload.emailId,
+      icon: payload.icon || '/favicon.ico',
       badge: '/favicon.ico'
     });
 

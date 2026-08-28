@@ -16,6 +16,8 @@ import { ComposeModal } from './ComposeModal';
 import { RapiSiteBuilderModal } from './RapiSiteBuilderModal';
 import { CalendarView } from './CalendarView';
 import { ContactsView } from './ContactsView';
+import { SmartAvatar } from './SmartAvatar';
+import { parseSenderDetails } from '@/lib/avatar';
 
 export interface EmailItem {
   id: string;
@@ -44,83 +46,7 @@ interface Props {
   currentFolder: string;
 }
 
-// Utilitário para formatar Remetente e Email Limpos (Sem quaisquer caracteres < >)
-function parseSender(fromStr: string): { name: string; email: string; initial: string } {
-  if (!fromStr) return { name: "Desconhecido", email: "", initial: "RE" };
-  
-  const cleanStr = fromStr.replace(/[<>]/g, ' ').trim();
-  const match = fromStr.match(/^(.*?)\s*<([^>]+)>$/);
-  if (match) {
-    const rawName = match[1].replace(/["']/g, '').trim();
-    const rawEmail = match[2].trim();
-    const displayName = rawName || rawEmail.split('@')[0];
-    const initial = displayName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
-    return { name: displayName, email: rawEmail, initial };
-  }
-
-  if (fromStr.includes('@')) {
-    const rawEmail = cleanStr;
-    const [userPart] = rawEmail.split('@');
-    const cleanName = userPart.replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const initial = cleanName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase() || 'RE';
-    return { name: cleanName, email: rawEmail, initial };
-  }
-
-  return { name: cleanStr, email: cleanStr, initial: cleanStr.substring(0, 2).toUpperCase() || 'RE' };
-}
-
-// Obter avatar limpo: Monograma Autêntico para Pessoas ou Logótipo Oficial para Empresas
-function getSenderVisual(emailOrFrom: string): { logoUrl?: string; initial: string; bgClass: string; textClass: string } {
-  const clean = (emailOrFrom || "").toLowerCase();
-  const match = clean.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-  const domain = match ? match[1] : '';
-
-  const sender = parseSender(emailOrFrom);
-
-  const colors = [
-    { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Private Email
-    { bg: "bg-[#E6F4EA]", text: "text-[#137333]" }, // Verde
-    { bg: "bg-[#FEF7E0]", text: "text-[#B06000]" }, // Âmbar
-    { bg: "bg-[#FCE8E6]", text: "text-[#C5221F]" }, // Vermelho
-    { bg: "bg-[#F3E8FD]", text: "text-[#9334E6]" }, // Roxo
-    { bg: "bg-[#E0F2FE]", text: "text-[#0284C7]" }, // Ciano
-  ];
-
-  let hash = 0;
-  for (let i = 0; i < sender.name.length; i++) {
-    hash = sender.name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const colorIndex = Math.abs(hash) % colors.length;
-  const chosenColor = colors[colorIndex];
-
-  // Logótipos Corporativos para contas de sistema/serviço
-  if (clean.includes("linkedin.com") || clean.includes("dlocalgo") || clean.includes("moorwand.com") || clean.includes("crassula.io") || clean.includes("support@") || clean.includes("noreply") || clean.includes("fca.org.uk")) {
-    let lookupDomain = domain;
-    if (domain.includes("pawapay")) lookupDomain = "pawapay.io";
-    if (domain.includes("hubspot")) lookupDomain = "moorwand.com";
-    if (domain.includes("dlocal")) lookupDomain = "dlocal.com";
-    if (domain.includes("termii")) lookupDomain = "termii.com";
-    if (domain.includes("stripe")) lookupDomain = "stripe.com";
-    if (domain.includes("linkedin")) lookupDomain = "linkedin.com";
-    if (domain.includes("crassula")) lookupDomain = "crassula.io";
-    if (domain.includes("fca.org.uk")) lookupDomain = "fca.org.uk";
-
-    return {
-      logoUrl: `https://www.google.com/s2/favicons?domain=${lookupDomain}&sz=128`,
-      initial: sender.name.charAt(0).toUpperCase() || "U",
-      bgClass: chosenColor.bg,
-      textClass: chosenColor.text
-    };
-  }
-
-  return {
-    initial: sender.name.charAt(0).toUpperCase() || sender.initial.charAt(0) || "U",
-    bgClass: chosenColor.bg,
-    textClass: chosenColor.text
-  };
-}
-
-// Tocar Som de Notificação
+// Tocar Som Cristalino de Notificação
 function playNotificationSound() {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -155,11 +81,12 @@ function formatEmailDate(dateStr: string): string {
   }
 }
 
-// Limpar snippet da lista de e-mails (remove links feios, parâmetros colados, etc.)
+// Limpar snippet da lista de e-mails
 function cleanSnippetText(body: string): string {
   if (!body) return "";
   return body
     .replace(/https?:\/\/[^\s]+/g, '')
+    .replace(/\[image:[^\]]+\]/gi, '')
     .replace(/Sim,\s*conectar/gi, '')
     .replace(/Ver convite/gi, '')
     .replace(/Aceitar conexão/gi, '')
@@ -240,7 +167,7 @@ function renderParagraphs(text: string) {
 }
 
 function renderInlineLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s<>"]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app|ly)[^\s<>"]*)/gi;
+  const urlRegex = /(https?:\/\/[^\s<>"]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app|ly|tech)[^\s<>"]*)/gi;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
@@ -270,6 +197,17 @@ function renderInlineLinks(text: string) {
   });
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [emails, setEmails] = useState<EmailItem[]>(initialEmails);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(initialEmails[0]?.id || null);
@@ -295,7 +233,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const prevEmailCountRef = useRef<number>(initialEmails.length);
   const [isLight, setIsLight] = useState<boolean>(true);
 
-  // Inicializar Service Worker e Tema
+  // 1. Atualizar Badges no Título da Aba dinamicamente (ex: (3) RapiEmail — Webmail Corporativo)
+  useEffect(() => {
+    const unreadInboxCount = emails.filter(e => e.folder === 'INBOX' && !e.read).length;
+    if (unreadInboxCount > 0) {
+      document.title = `(${unreadInboxCount}) RapiEmail — Webmail Corporativo`;
+    } else {
+      document.title = `RapiEmail — Webmail Corporativo & Sovereign Suite`;
+    }
+  }, [emails]);
+
+  // 2. Inicializar Service Worker, Tema e Listener de Notificações
   useEffect(() => {
     const saved = localStorage.getItem('rapi_theme');
     if (saved === 'dark') {
@@ -308,14 +256,39 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       document.body.classList.add('light');
     }
 
-    // Registar Service Worker no telemóvel e desktop
+    // Registar Service Worker PWA no telemóvel e desktop
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+      // Escutar mensagens do Service Worker (ex: clique em notificação ou novo e-mail recebido em background)
+      const handleSwMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'SELECT_EMAIL' && event.data.emailId) {
+          setSelectedEmailId(event.data.emailId);
+          setMobileView('detail');
+        } else if (event.data?.type === 'NEW_EMAIL_RECEIVED') {
+          handleManualRefresh();
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+      return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage);
     }
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         setNotificationsEnabled(true);
+      }
+    }
+  }, []);
+
+  // 3. Abrir e-mail específico se passado por parâmetro na URL (?id=...)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetEmailId = urlParams.get('id');
+      if (targetEmailId) {
+        setSelectedEmailId(targetEmailId);
+        setMobileView('detail');
       }
     }
   }, []);
@@ -333,17 +306,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       document.body.classList.remove('light');
     }
   };
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
 
   const handleRequestNotifications = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -399,7 +361,7 @@ function urlBase64ToUint8Array(base64String: string) {
       .catch(() => {});
   }, []);
 
-  // Polling automático com Disparo de Notificação no Telemóvel (via Service Worker)
+  // Polling automático com Disparo de Notificação no Telemóvel e Desktop
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -412,19 +374,23 @@ function urlBase64ToUint8Array(base64String: string) {
               const latest = newEmails[0];
               if (latest && !latest.read) {
                 playNotificationSound();
-                const sInfo = parseSender(latest.from);
+                const senderDetails = parseSenderDetails(latest.from);
                 
                 if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                   if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(reg => {
-                      reg.showNotification(`Novo E-mail de ${sInfo.name}`, {
-                        body: latest.subject || "(Sem assunto)",
+                      reg.showNotification(`Novo E-mail de ${senderDetails.name}`, {
+                        body: latest.subject ? `${latest.subject} — ${cleanSnippetText(latest.body)}` : "(Sem assunto)",
                         icon: "/favicon.ico",
-                        badge: "/favicon.ico"
+                        badge: "/favicon.ico",
+                        data: {
+                          url: `/inbox?id=${latest.id}`,
+                          emailId: latest.id
+                        }
                       });
                     });
                   } else {
-                    new Notification(`Novo E-mail de ${sInfo.name}`, {
+                    new Notification(`Novo E-mail de ${senderDetails.name}`, {
                       body: latest.subject || "(Sem assunto)",
                       icon: "/favicon.ico"
                     });
@@ -563,8 +529,7 @@ function urlBase64ToUint8Array(base64String: string) {
     }
   };
 
-  const parsedSender = selectedEmail ? parseSender(selectedEmail.from) : { name: "", email: "", initial: "RE" };
-  const visualSender = selectedEmail ? getSenderVisual(selectedEmail.from) : { initial: "RE", bgClass: "bg-[#E8F0FE]", textClass: "text-[#1A73E8]" };
+  const parsedSender = selectedEmail ? parseSenderDetails(selectedEmail.from) : { name: "", email: "", domain: "", initial: "RE", isCompanyService: false, color: { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" } };
   
   // Limpeza de emails para cabeçalho sem caracteres < ou >
   const cleanSenderEmail = selectedEmail ? (parsedSender.email || selectedEmail.from).replace(/[<>]/g, '').trim() : "";
@@ -710,13 +675,7 @@ function urlBase64ToUint8Array(base64String: string) {
 
           {/* User Profile Avatar */}
           <Link href="/settings" className="relative ml-1 block shrink-0">
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 bg-[#1A73E8] text-white flex items-center justify-center font-bold text-[11px] md:text-xs shadow-sm">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <span>{user.initials}</span>
-              )}
-            </div>
+            <SmartAvatar from={user.email} customAvatarUrl={avatarUrl} size="sm" />
           </Link>
         </div>
       </header>
@@ -853,7 +812,7 @@ function urlBase64ToUint8Array(base64String: string) {
             <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
           </aside>
 
-          {/* COLUMN 2: EMAIL LIST (Sem URLs colados no preview snippet) */}
+          {/* COLUMN 2: EMAIL LIST (Com Avatares Inteligentes & Logos Reais) */}
           <section className={`${
             mobileView === 'detail' ? 'hidden md:flex' : 'flex'
           } w-full md:w-[340px] lg:w-[380px] border-r flex-col shrink-0 h-full overflow-hidden transition-colors ${
@@ -881,8 +840,7 @@ function urlBase64ToUint8Array(base64String: string) {
                   const isSelected = selectedEmail?.id === email.id;
                   const isStarred = starredIds.has(email.id);
                   const isSent = email.folder === 'SENT' || email.from === user.email;
-                  const senderInfo = isSent ? parseSender(email.to) : parseSender(email.from);
-                  const visual = getSenderVisual(isSent ? email.to : email.from);
+                  const senderDetails = parseSenderDetails(isSent ? email.to : email.from);
                   const dateDisplay = formatEmailDate(email.createdAt);
                   const isUnread = !email.read && !isSent;
                   const cleanPreview = cleanSnippetText(email.body);
@@ -908,23 +866,13 @@ function urlBase64ToUint8Array(base64String: string) {
                       )}
 
                       <div className="flex items-start gap-2.5 pl-1.5">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 overflow-hidden shadow-xs border border-[#E5E7EB] dark:border-white/10 ${
-                          visual.logoUrl ? 'bg-white' : `${visual.bgClass} ${visual.textClass}`
-                        }`}>
-                          {isSent && avatarUrl ? (
-                            <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                          ) : visual.logoUrl ? (
-                            <img 
-                              src={visual.logoUrl} 
-                              alt="" 
-                              className="w-4 h-4 object-contain"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <span>{visual.initial}</span>
-                          )}
+                        {/* Avatar Inteligente: Unavatar -> Clearbit -> Google Favicon HD -> Gravatar -> Iniciais */}
+                        <div className="mt-0.5 shrink-0">
+                          <SmartAvatar 
+                            from={isSent ? email.to : email.from} 
+                            customAvatarUrl={isSent ? avatarUrl : null}
+                            size="sm" 
+                          />
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -934,7 +882,7 @@ function urlBase64ToUint8Array(base64String: string) {
                                 ? 'font-bold text-[#202124] dark:text-white' 
                                 : 'font-normal text-[#3C4043] dark:text-zinc-300'
                             }`}>
-                              {isSent ? `Para: ${senderInfo.name}` : senderInfo.name}
+                              {isSent ? `Para: ${senderDetails.name}` : senderDetails.name}
                             </span>
                             <span className={`text-[10px] shrink-0 ml-2 font-mono ${
                               isUnread ? 'font-bold text-[#1A73E8]' : 'text-zinc-400'
@@ -1035,25 +983,13 @@ function urlBase64ToUint8Array(base64String: string) {
                     {selectedEmail.subject || '(Sem assunto)'}
                   </h1>
 
-                  {/* Sender Header Card (Sem quaisquer caracteres < ou >) */}
+                  {/* Sender Header Card com SmartAvatar HD */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10">
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center font-bold text-xs md:text-sm shrink-0 shadow-xs ${
-                        visualSender.logoUrl ? 'bg-white' : `${visualSender.bgClass} ${visualSender.textClass}`
-                      }`}>
-                        {visualSender.logoUrl ? (
-                          <img 
-                            src={visualSender.logoUrl} 
-                            alt="" 
-                            className="w-5 h-5 md:w-6 md:h-6 object-contain" 
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <span>{visualSender.initial}</span>
-                        )}
-                      </div>
+                      <SmartAvatar 
+                        from={selectedEmail.from} 
+                        size="md" 
+                      />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`font-bold text-xs md:text-sm ${isLight ? 'text-[#202124]' : 'text-white'}`}>

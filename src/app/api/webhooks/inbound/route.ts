@@ -141,10 +141,12 @@ export async function POST(req: NextRequest) {
     try {
       const { sendPushNotificationToUser } = await import("@/lib/push");
       const senderName = from.split('<')[0].replace(/["']/g, '').trim() || from;
+      const snippet = finalBody.replace(/\s+/g, ' ').slice(0, 60);
       await sendPushNotificationToUser(user.id, {
-        title: `Novo E-mail de ${senderName}`,
-        body: subject || "(Sem assunto)",
-        url: "/inbox"
+        title: senderName,
+        body: subject ? `${subject}${snippet ? ` — ${snippet}` : ''}` : "(Sem assunto)",
+        emailId: created.id,
+        url: `/inbox?id=${created.id}`
       });
     } catch(pushErr) {
       console.warn("[Inbound Push Notification Error]:", pushErr);
