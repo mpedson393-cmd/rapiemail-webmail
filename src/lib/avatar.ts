@@ -43,7 +43,7 @@ function md5cycle(x: number[], k: number[]) {
   a = hh(a, b, c, d, k[1], 4, -1530992060);
   d = hh(d, a, b, c, k[4], 11, 1272893353);
   c = hh(c, d, a, b, k[7], 16, -155497632);
-  b = hh(b, c, d, a, k[10], 23, -1094730640);
+  b = hh(d, a, b, c, k[10], 23, -1094730640);
   a = hh(a, b, c, d, k[13], 4, 681279174);
   d = hh(d, a, b, c, k[0], 11, -358537222);
   c = hh(c, d, a, b, k[3], 16, -722521979);
@@ -162,6 +162,7 @@ export interface ParsedSenderInfo {
   domain: string;
   initial: string;
   isCompanyService: boolean;
+  isFreePersonalEmail: boolean;
   color: { bg: string; text: string };
 }
 
@@ -184,6 +185,7 @@ export function parseSenderDetails(fromStr: string): ParsedSenderInfo {
       domain: "",
       initial: "RE",
       isCompanyService: false,
+      isFreePersonalEmail: false,
       color: PASTEL_COLORS[0]
     };
   }
@@ -209,7 +211,7 @@ export function parseSenderDetails(fromStr: string): ParsedSenderInfo {
   const domainMatch = email.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
   const domain = domainMatch ? domainMatch[1].toLowerCase() : "";
 
-  // Determinar se é serviço da empresa / no-reply
+  // Determinar se é serviço genérico de empresa (no-reply, support, etc.)
   const isCompanyService = 
     email.includes("noreply") || 
     email.includes("no-reply") || 
@@ -217,7 +219,13 @@ export function parseSenderDetails(fromStr: string): ParsedSenderInfo {
     email.includes("security@") || 
     email.includes("notifications@") || 
     email.includes("invitations@") ||
-    email.includes("newsletters@");
+    email.includes("newsletters@") ||
+    email.includes("messages-noreply@") ||
+    name.toLowerCase() === "linkedin" ||
+    name.toLowerCase() === "apple developer" ||
+    name.toLowerCase() === "developer";
+
+  const isFreePersonalEmail = isFreeEmailDomain(domain);
 
   // Iniciais
   let initial = "U";
@@ -247,11 +255,12 @@ export function parseSenderDetails(fromStr: string): ParsedSenderInfo {
     domain,
     initial: initial || "RE",
     isCompanyService,
+    isFreePersonalEmail,
     color
   };
 }
 
-// Obter Lista de URLs Candidatas para o Avatar em Ordem de Prioridade
+// Obter Lista de URLs Candidatas para o Avatar em Ordem Inteligente de Prioridade
 export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl?: string | null): string[] {
   const candidates: string[] = [];
 
@@ -259,38 +268,51 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     candidates.push(customAvatarUrl);
   }
 
-  const { email, domain } = sender;
+  const { email, domain, isCompanyService, isFreePersonalEmail } = sender;
 
-  // 1. Provedor Unavatar (Pessoa ou Empresa)
-  if (email) {
-    candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
-  }
-
-  // 2. Clearbit Logo API para Domínio Corporativo
-  if (domain && !isFreeEmailDomain(domain)) {
+  // CASO 1: Contas de Serviço / Empresa (ex: LinkedIn, Stripe, PawaPay Support)
+  if (isCompanyService && domain && !isFreePersonalEmail) {
     candidates.push(`https://logo.clearbit.com/${domain}`);
-  }
-
-  // 3. Google Favicon HD (128px)
-  if (domain && !isFreeEmailDomain(domain)) {
     candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-  }
-
-  // 4. Unavatar por Domínio
-  if (domain && !isFreeEmailDomain(domain)) {
     candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    return candidates;
   }
 
-  // 5. Gravatar por Hash MD5 do email
+  // CASO 2: Pessoas Individuais com Email Pessoal (ex: Gmail, Outlook, Hotmail, Yahoo)
+  if (isFreePersonalEmail) {
+    if (email) {
+      const emailHash = md5(email.trim().toLowerCase());
+      candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+      candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
+    }
+    // NUNCA colocar o logo do Gmail para uma pessoa! Fallback será o monograma da pessoa.
+    return candidates;
+  }
+
+  // CASO 3: Pessoas Individuais com Email Corporativo (ex: tymur.v@sensus.tech, filipe.abrantes@bel.money)
+  // Prioridade 1: Foto Pessoal do Indivíduo (Gravatar / Redes Sociais)
   if (email) {
     const emailHash = md5(email.trim().toLowerCase());
     candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+    candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
+  }
+
+  // Prioridade 2: Logótipo da Empresa onde a pessoa trabalha (se não tiver foto pessoal cadastrada)
+  if (domain) {
+    candidates.push(`https://logo.clearbit.com/${domain}`);
+    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
   }
 
   return candidates;
 }
 
 function isFreeEmailDomain(domain: string): boolean {
-  const free = ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com', 'aol.com', 'proton.me', 'protonmail.com', 'zoho.com', 'mail.com'];
+  if (!domain) return false;
+  const free = [
+    'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 
+    'live.com', 'msn.com', 'yahoo.com', 'yahoo.co.uk', 
+    'icloud.com', 'me.com', 'mac.com', 'aol.com', 
+    'proton.me', 'protonmail.com', 'zoho.com', 'mail.com', 'gmx.com'
+  ];
   return free.includes(domain.toLowerCase());
 }

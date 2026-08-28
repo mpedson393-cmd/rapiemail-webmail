@@ -81,10 +81,14 @@ function formatEmailDate(dateStr: string): string {
   }
 }
 
-// Limpar snippet da lista de e-mails
+// Limpar snippet da lista de e-mails (remove CSS embutido, tags, links)
 function cleanSnippetText(body: string): string {
   if (!body) return "";
   return body
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remover blocos de estilo CSS
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remover scripts
+    .replace(/body\s*\{[^}]*\}/gi, '') // Remover regras CSS soltas
+    .replace(/<[^>]*>/g, '') // Remover tags HTML
     .replace(/https?:\/\/[^\s]+/g, '')
     .replace(/\[image:[^\]]+\]/gi, '')
     .replace(/Sim,\s*conectar/gi, '')
