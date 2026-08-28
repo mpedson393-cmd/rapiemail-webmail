@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: sendResult.error.message }, { status: 500 });
     }
 
-    // Gravar na Base de Dados Supabase PostgreSQL do utilizador com o trackingId
+    // Gravar na Base de Dados Supabase PostgreSQL do utilizador remetente (SENT)
     const user = await prisma.user.findFirst({
       where: { email: { equals: fromEmail, mode: 'insensitive' } }
     });
@@ -84,6 +84,40 @@ export async function POST(req: Request) {
           openCount: 0
         }
       });
+    }
+
+    // Se o destinatário for também um utilizador na nossa plataforma, guardar na Caixa de Entrada dele e disparar Notificação Push!
+    const recipientUser = await prisma.user.findFirst({
+      where: { email: { equals: to.toLowerCase().trim(), mode: 'insensitive' } }
+    });
+
+    if (recipientUser) {
+      const inboxEmail = await prisma.email.create({
+        data: {
+          from: sender,
+          to: to,
+          subject: subject,
+          body: body,
+          folder: "INBOX",
+          read: false,
+          userId: recipientUser.id,
+          trackingId: trackingId,
+          isOpened: false,
+          openCount: 0
+        }
+      });
+
+      try {
+        const { sendPushNotificationToUser } = await import("@/lib/push");
+        await sendPushNotificationToUser(recipientUser.id, {
+          title: `Novo E-mail de ${fromName}`,
+          body: subject ? `${subject} — ${body.slice(0, 60)}` : "(Sem assunto)",
+          emailId: inboxEmail.id,
+          url: `/inbox?id=${inboxEmail.id}`
+        });
+      } catch(pushErr) {
+        console.warn("[Send Push Notification Error]:", pushErr);
+      }
     }
 
     return NextResponse.json({ 

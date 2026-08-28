@@ -281,6 +281,28 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         setNotificationsEnabled(true);
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          (navigator as any).serviceWorker.ready.then(async (reg: any) => {
+            try {
+              const vapidPublicKey = "BCC2cdUC5qyeJwwL_OwCQYISuI2-tMl9wuhRx_x7jgQ2k77sL1yA0UrurhtF6l33oN7BU2QOEJtF14f4kk6GEIs";
+              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+              let sub = await reg.pushManager.getSubscription();
+              if (!sub) {
+                sub = await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: convertedVapidKey
+                });
+              }
+              if (sub) {
+                await fetch('/api/push/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ subscription: sub })
+                });
+              }
+            } catch(e) {}
+          });
+        }
       }
     }
   }, []);

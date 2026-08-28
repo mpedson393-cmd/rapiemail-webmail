@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendPushNotificationToUser } from "@/lib/push";
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (user) {
-          await prisma.email.create({
+          const createdEmail = await prisma.email.create({
             data: {
               from: fromAddress,
               to: cleanTo,
@@ -55,6 +56,20 @@ export async function POST(req: NextRequest) {
             }
           });
           console.log(`[RapiEmail Inbound] Nova mensagem guardada com sucesso para ${cleanTo}`);
+
+          // Disparar Web Push Notification mesmo com o app/navegador fechado!
+          try {
+            const senderName = fromAddress.split('<')[0].replace(/["']/g, '').trim() || fromAddress;
+            const snippet = bodyText.replace(/\s+/g, ' ').slice(0, 70);
+            await sendPushNotificationToUser(user.id, {
+              title: `Novo E-mail de ${senderName}`,
+              body: subject ? `${subject} — ${snippet}` : "(Sem assunto)",
+              emailId: createdEmail.id,
+              url: `/inbox?id=${createdEmail.id}`
+            });
+          } catch(pushErr) {
+            console.warn("[Resend Push Error]:", pushErr);
+          }
         }
       }
     }
