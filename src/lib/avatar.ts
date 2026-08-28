@@ -278,19 +278,31 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     return candidates;
   }
 
-  // CASO 2: Pessoas Individuais com Email Pessoal (ex: Gmail, Outlook, Hotmail, Yahoo)
+  // CASO 2: Pessoas Individuais com Email Pessoal (ex: Gmail, Outlook, Hotmail, Yahoo, etc.)
   if (isFreePersonalEmail) {
     if (email) {
       const emailHash = md5(email.trim().toLowerCase());
+      const userPart = email.split('@')[0];
+
+      // 1. Gravatar Oficial
       candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+      // 2. Unavatar Universal (Google, Twitter/X, GitHub, Gravatar)
       candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
+      // 3. Unavatar Google / YouTube Profile
+      if (domain.includes('gmail') || domain.includes('google')) {
+        candidates.push(`https://unavatar.io/google/${encodeURIComponent(email)}?fallback=false`);
+      }
+      // 4. Unavatar por Username (para utilizadores com perfil GitHub/Twitter)
+      if (userPart && userPart.length > 2 && !userPart.includes('.')) {
+        candidates.push(`https://unavatar.io/github/${encodeURIComponent(userPart)}?fallback=false`);
+      }
     }
-    // NUNCA colocar o logo do Gmail para uma pessoa! Fallback será o monograma da pessoa.
+    // NUNCA colocar o logo do Gmail para uma pessoa! Se não tiver foto, o fallback será o monograma da pessoa.
     return candidates;
   }
 
   // CASO 3: Pessoas Individuais com Email Corporativo (ex: tymur.v@sensus.tech, filipe.abrantes@bel.money)
-  // Prioridade 1: Foto Pessoal do Indivíduo (Gravatar / Redes Sociais)
+  // Prioridade 1: Foto Pessoal do Indivíduo (Gravatar / Redes Sociais / Google)
   if (email) {
     const emailHash = md5(email.trim().toLowerCase());
     candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
