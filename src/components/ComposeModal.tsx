@@ -11,6 +11,9 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   userEmail?: string;
+  initialTo?: string;
+  initialSubject?: string;
+  initialBody?: string;
 }
 
 interface AttachmentFile {
@@ -20,15 +23,25 @@ interface AttachmentFile {
   url?: string;
 }
 
-export function ComposeModal({ isOpen, onClose, userEmail }: Props) {
-  const fromEmail = userEmail || "mario@mariomendes.online";
+export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initialSubject = "", initialBody = "" }: Props) {
+  const fromEmail = userEmail || "edson@rapimoneyit.online";
 
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [to, setTo] = useState(initialTo);
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
   const [showCc, setShowCc] = useState(false);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
+
+  // Sincronizar campos quando o modal abre para responder ou reencaminhar
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialTo !== undefined) setTo(initialTo);
+      if (initialSubject !== undefined) setSubject(initialSubject);
+      if (initialBody !== undefined) setBody(initialBody);
+      setError("");
+    }
+  }, [isOpen, initialTo, initialSubject, initialBody]);
   
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");

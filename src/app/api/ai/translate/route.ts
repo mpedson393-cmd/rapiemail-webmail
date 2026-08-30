@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  "PT-PT": "Português (Portugal)",
+  "PT-BR": "Português (Brasil)",
+  "EN-US": "Inglês (Estados Unidos)",
+  "EN-GB": "Inglês (Reino Unido)",
+  "ES": "Espanhol",
+  "FR": "Francês",
+  "DE": "Alemão",
+  "IT": "Italiano",
+  "ZH": "Chinês (Simplificado)",
+  "RU": "Russo",
+  "JA": "Japonês",
+  "AR": "Árabe"
+};
+
 export async function POST(req: Request) {
   try {
     const { text, targetLang } = await req.json();
@@ -11,13 +26,17 @@ export async function POST(req: Request) {
     }
 
     const deepLKey = process.env.DEEPL_API_KEY || "eca26ca1-db36-43ac-adac-3cdde4f706be:fx";
-    const target = (targetLang || "PT-PT").toUpperCase();
+    let target = (targetLang || "PT-PT").toUpperCase();
+    if (target === "PT") target = "PT-PT";
+    if (target === "EN") target = "EN-US";
+
+    const langName = LANGUAGE_NAMES[target] || target;
 
     // 1. Tentar Tradução Oficial com DeepL Neural Engine
     try {
       const bodyParams = new URLSearchParams({
         text,
-        target_lang: target === "PT" ? "PT-PT" : target
+        target_lang: target
       }).toString();
 
       const res = await fetch("https://api-free.deepl.com/v2/translate", {
@@ -36,7 +55,8 @@ export async function POST(req: Request) {
           return NextResponse.json({ 
             translatedText: translation.text,
             detectedSourceLang: translation.detected_source_language || "EN",
-            targetLang: target
+            targetLang: target,
+            targetLangName: langName
           });
         }
       }
@@ -51,7 +71,7 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: `Translate the following text to Portuguese (Portugal). Maintain formatting:\n\n${text}` }]
+          parts: [{ text: `Translate the following text to ${langName} (${target}). Preserve formatting and clean text:\n\n${text}` }]
         }]
       })
     });
@@ -62,11 +82,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         translatedText: geminiText,
         detectedSourceLang: "AUTO",
-        targetLang: target
+        targetLang: target,
+        targetLangName: langName
       });
     }
 
-    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN" });
+    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN", targetLang: target });
 
   } catch (error: any) {
     console.error("Translation Server Error:", error);
