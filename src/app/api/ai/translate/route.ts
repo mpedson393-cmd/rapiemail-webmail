@@ -19,7 +19,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
-    const { text, targetLang } = await req.json();
+    const { text, targetLang, isHtml } = await req.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Texto inválido." }, { status: 400 });
@@ -32,12 +32,18 @@ export async function POST(req: Request) {
 
     const langName = LANGUAGE_NAMES[target] || target;
 
-    // 1. Tentar Tradução Oficial com DeepL Neural Engine
+    // 1. Tradução Oficial com DeepL Neural Engine (com suporte nativo a tags HTML para manter o layout!)
     try {
-      const bodyParams = new URLSearchParams({
+      const paramsObj: Record<string, string> = {
         text,
         target_lang: target
-      }).toString();
+      };
+
+      if (isHtml) {
+        paramsObj.tag_handling = "html";
+      }
+
+      const bodyParams = new URLSearchParams(paramsObj).toString();
 
       const res = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
@@ -56,7 +62,8 @@ export async function POST(req: Request) {
             translatedText: translation.text,
             detectedSourceLang: translation.detected_source_language || "EN",
             targetLang: target,
-            targetLangName: langName
+            targetLangName: langName,
+            isHtml: !!isHtml
           });
         }
       }
@@ -64,30 +71,46 @@ export async function POST(req: Request) {
       console.warn("DeepL Translation Warning, fallback to Gemini AI:", deepLErr);
     }
 
-    // 2. Fallback Inteligente com Google Gemini AI
+    // 2. Fallback Inteligente com Google Gemini AI (Preservando 100% da estrutura HTML e CSS)
     const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
+    
+    const prompt = isHtml 
+      ? `You are an expert HTML-preserving translator. Translate all human-readable text into ${langName} (${target}).
+CRITICAL RULES:
+1. Preserve 100% of all HTML tags, attributes, inline styles (CSS), image URLs, table structures, buttons, and layouts intact without altering any code.
+2. Only translate the text content inside tags.
+3. Return strictly the raw valid translated HTML with no markdown code fences (\`\`\`html).
+
+HTML Content to Translate:
+${text}`
+      : `Translate the following text to ${langName} (${target}). Preserve formatting and clean text:\n\n${text}`;
+
     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: `Translate the following text to ${langName} (${target}). Preserve formatting and clean text:\n\n${text}` }]
+          parts: [{ text: prompt }]
         }]
       })
     });
 
     if (geminiRes.ok) {
       const geminiData = await geminiRes.json();
-      const geminiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+      let geminiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+      // Limpar blocos de código se Gemini envolver em ```html
+      geminiText = geminiText.replace(/^```html\s*/i, '').replace(/\s*```$/i, '');
+
       return NextResponse.json({ 
         translatedText: geminiText,
         detectedSourceLang: "AUTO",
         targetLang: target,
-        targetLangName: langName
+        targetLangName: langName,
+        isHtml: !!isHtml
       });
     }
 
-    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN", targetLang: target });
+    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN", targetLang: target, isHtml: !!isHtml });
 
   } catch (error: any) {
     console.error("Translation Server Error:", error);

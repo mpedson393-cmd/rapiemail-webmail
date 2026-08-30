@@ -331,8 +331,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
-  // Estado de Tradução com Seleção Livre de Línguas
-  const [translations, setTranslations] = useState<Record<string, { text: string; lang: string }>>({});
+  // Estado de Tradução com Seleção Livre de Línguas e Preservação de HTML
+  const [translations, setTranslations] = useState<Record<string, { text: string; lang: string; isHtml?: boolean }>>({});
   const [selectedTargetLang, setSelectedTargetLang] = useState<string>('PT-PT');
   const [isTranslating, setIsTranslating] = useState(false);
 
@@ -701,11 +701,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
     setIsTranslating(true);
     try {
-      const textToTranslate = selectedEmail.body;
+      const isHtml = !!selectedEmail.html;
+      const textToTranslate = selectedEmail.html || selectedEmail.body;
       const res = await fetch('/api/ai/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToTranslate, targetLang: langToUse })
+        body: JSON.stringify({ text: textToTranslate, targetLang: langToUse, isHtml })
       });
       const data = await res.json();
       if (data.translatedText) {
@@ -713,6 +714,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           ...prev,
           [selectedEmail.id]: {
             text: data.translatedText,
+            isHtml: data.isHtml ?? isHtml,
             lang: langToUse
           }
         }));
@@ -1295,8 +1297,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     </div>
                   </div>
 
-                  {/* Body Content com Seleção Total de Texto */}
-                  {selectedEmail.html && !translations[selectedEmail.id] ? (
+                  {/* Body Content com Seleção Total de Texto e Preservação de HTML */}
+                  {translations[selectedEmail.id]?.isHtml ? (
+                    <div 
+                      className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
+                      dangerouslySetInnerHTML={{ __html: translations[selectedEmail.id].text }}
+                    />
+                  ) : selectedEmail.html && !translations[selectedEmail.id] ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
                       dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
