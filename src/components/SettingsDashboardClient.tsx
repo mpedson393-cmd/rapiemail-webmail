@@ -8,6 +8,7 @@ import {
   Key, Moon, Sun, Check, ExternalLink, Keyboard, Edit2, 
   Plus, Trash2, X, CheckCircle2, RefreshCw, Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
+import { SmartAvatar } from './SmartAvatar';
 
 interface Props {
   user: {
@@ -161,7 +162,7 @@ export function SettingsDashboardClient({ user }: Props) {
   const isLight = theme === 'light';
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 font-sans selection:bg-indigo-500/30 ${
+    <div className={`min-h-screen w-full overflow-y-auto transition-colors duration-300 font-sans selection:bg-indigo-500/30 ${
       isLight ? 'bg-[#F4F5F8] text-slate-800' : 'bg-[#09090b] text-zinc-300'
     }`}>
       
@@ -176,63 +177,59 @@ export function SettingsDashboardClient({ user }: Props) {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-in fade-in slide-in-from-top-4">
+        <div className="fixed top-6 right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-indigo-400/30 animate-in fade-in slide-in-from-top-4 select-none">
           <CheckCircle2 className="w-5 h-5 text-indigo-200" />
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
 
       {/* Top Header */}
-      <header className={`h-16 border-b flex items-center justify-between px-8 sticky top-0 z-30 backdrop-blur-2xl transition-colors ${
+      <header className={`h-16 border-b flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 backdrop-blur-2xl transition-colors select-none ${
         isLight ? 'bg-white/85 border-slate-200 shadow-sm' : 'bg-[#0e0e11]/85 border-white/5'
       }`}>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           <Link 
             href="/inbox" 
-            className={`flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl transition-all shrink-0 ${
               isLight ? 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200' : 'text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10'
             }`}
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Voltar à Caixa de Entrada</span>
+            <span className="hidden xs:inline">Voltar</span>
           </Link>
           <div className={`h-4 w-px ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-zinc-500 truncate">
             <span>Email</span>
             <span>&gt;</span>
-            <span className={`font-semibold ${isLight ? 'text-slate-900' : 'text-zinc-300'}`}>Definições</span>
+            <span className={`font-semibold truncate ${isLight ? 'text-slate-900' : 'text-zinc-300'}`}>Definições</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-500/20 overflow-hidden">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-            ) : (
-              <span>RE</span>
-            )}
-          </div>
-          <span className={`text-sm font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <SmartAvatar from={user.email} customAvatarUrl={avatarUrl} size="sm" />
+          <span className={`text-xs sm:text-sm font-bold tracking-tight hidden sm:inline ${isLight ? 'text-slate-900' : 'text-white'}`}>
             RapiEmail Settings
           </span>
         </div>
       </header>
 
-      {/* Main Settings Body */}
-      <main className="max-w-6xl mx-auto p-8 space-y-8 animate-fade-in">
+      {/* Main Settings Body (Scroll Livre com Padding Bottom Confortável) */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 pb-28 sm:pb-36 animate-fade-in">
         
         <div>
-          <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+          <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
             Definições da Conta
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">Gerencie a sua identidade, foto de perfil, segurança, inteligência artificial e domínios da empresa.</p>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+            Gerencie a sua identidade, foto de perfil, segurança, inteligência artificial e domínios da empresa.
+          </p>
         </div>
 
-        {/* SETTINGS GRID (Clone do Private Email com Foto de Perfil Real & Modo Claro/Escuro) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* SETTINGS GRID: Mobile (1 col), Tablet (2 cols), Desktop (3 cols) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
 
           {/* 1. PERFIL CARD (COM UPLOAD DE FOTO OFICIAL) */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-4">
@@ -242,7 +239,7 @@ export function SettingsDashboardClient({ user }: Props) {
                   <button 
                     onClick={handleRemoveAvatar}
                     title="Remover Foto de Perfil"
-                    className="text-[10px] text-red-500 hover:text-red-600 font-semibold"
+                    className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer"
                   >
                     Remover Foto
                   </button>
@@ -282,7 +279,7 @@ export function SettingsDashboardClient({ user }: Props) {
                       />
                       <button 
                         onClick={() => { setIsEditingName(false); showToast("Nome atualizado!"); }}
-                        className="p-1 text-green-500 hover:text-green-400"
+                        className="p-1 text-green-500 hover:text-green-400 cursor-pointer"
                       >
                         <Check className="w-4 h-4" />
                       </button>
@@ -290,7 +287,7 @@ export function SettingsDashboardClient({ user }: Props) {
                   ) : (
                     <div className="flex items-center gap-2">
                       <h3 className={`text-base font-bold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{displayName}</h3>
-                      <button onClick={() => setIsEditingName(true)} className="text-zinc-400 hover:text-indigo-500">
+                      <button onClick={() => setIsEditingName(true)} className="text-zinc-400 hover:text-indigo-500 cursor-pointer">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -299,7 +296,7 @@ export function SettingsDashboardClient({ user }: Props) {
                   
                   <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-[11px] text-indigo-500 hover:text-indigo-600 font-semibold flex items-center gap-1 mt-1.5"
+                    className="text-[11px] text-indigo-500 hover:text-indigo-600 font-semibold flex items-center gap-1 mt-1.5 cursor-pointer"
                   >
                     <Upload className="w-3 h-3" />
                     <span>{uploadingAvatar ? "A carregar..." : "Carregar Foto de Perfil"}</span>
@@ -310,7 +307,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('shortcuts')}
-              className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/5 hover:bg-white/10 text-zinc-300'
               }`}
             >
@@ -320,7 +317,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 2. CENTRO DE SEGURANÇA */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -335,7 +332,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('security')}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -344,7 +341,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 3. PREFERÊNCIAS DO SISTEMA (MODO CLARO & ESCURO ATIVO) */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-4">
@@ -359,7 +356,7 @@ export function SettingsDashboardClient({ user }: Props) {
                   <select 
                     value={language}
                     onChange={e => { setLanguage(e.target.value); showToast(`Idioma alterado para ${e.target.value}`); }}
-                    className={`w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500 ${
+                    className={`w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500 cursor-pointer ${
                       isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-black/50 border-white/10 text-white'
                     }`}
                   >
@@ -376,7 +373,7 @@ export function SettingsDashboardClient({ user }: Props) {
                   }`}>
                     <button 
                       onClick={() => handleThemeChange('dark')}
-                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                         theme === 'dark' 
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
                           : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'
@@ -387,7 +384,7 @@ export function SettingsDashboardClient({ user }: Props) {
                     </button>
                     <button 
                       onClick={() => handleThemeChange('light')}
-                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                      className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                         theme === 'light' 
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
                           : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200' : 'text-zinc-400 hover:text-white hover:bg-white/5'
@@ -405,7 +402,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 4. IA (INTELIGÊNCIA ARTIFICIAL) */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -414,14 +411,14 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
               <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>RapiAI (Assistente Inteligente)</h3>
               <p className="text-xs text-zinc-500 leading-relaxed">
-                Resumos automáticos de emails longos, correção ortográfica e sugestão de respostas em 1 clique.
+                Resumos automáticos de emails longos, correção ortográfica e tradução de mensagens em 1 clique.
               </p>
               
               <div className="flex items-center justify-between pt-2">
                 <span className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-zinc-300'}`}>Ativar Motor IA</span>
                 <button 
                   onClick={() => { setAiEnabled(!aiEnabled); showToast(`RapiAI ${!aiEnabled ? 'Ativado' : 'Desativado'}`); }}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${aiEnabled ? 'bg-indigo-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${aiEnabled ? 'bg-indigo-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
                 >
                   <div className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${aiEnabled ? 'left-6' : 'left-1'}`} />
                 </button>
@@ -430,7 +427,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => showToast("Preferências de IA configuradas para o modelo máximo!")}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -439,7 +436,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 5. REENCAMINHAMENTO */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -458,7 +455,7 @@ export function SettingsDashboardClient({ user }: Props) {
                       isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-black/40 border-white/5 text-zinc-300'
                     }`}>
                       <span className="truncate font-mono text-[11px]">{f}</span>
-                      <button onClick={() => setForwardList(forwardList.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-400">
+                      <button onClick={() => setForwardList(forwardList.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-400 cursor-pointer">
                         <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
@@ -469,7 +466,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('forwarding')}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -478,7 +475,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 6. RESPOSTA AUTOMÁTICA */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -500,7 +497,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('autoreply')}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -509,7 +506,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 7. ASSINATURA */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -529,7 +526,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('signature')}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -538,7 +535,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 8. APLICAÇÕES DE TERCEIROS (IMAP / SMTP / APPLE MAIL) */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-white border-slate-200/80 hover:border-slate-300 shadow-slate-200/60' : 'bg-[#121216] border-white/5 hover:border-white/10'
           }`}>
             <div className="space-y-3">
@@ -554,7 +551,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <span className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-zinc-300'}`}>Protocolos IMAP/SMTP</span>
                 <button 
                   onClick={() => { setProtocolsEnabled(!protocolsEnabled); showToast(`Protocolos ${!protocolsEnabled ? 'Ativados' : 'Desativados'}`); }}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${protocolsEnabled ? 'bg-indigo-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${protocolsEnabled ? 'bg-indigo-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
                 >
                   <div className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${protocolsEnabled ? 'left-6' : 'left-1'}`} />
                 </button>
@@ -563,7 +560,7 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('protocols')}
-              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors ${
+              className={`w-full text-center py-2.5 text-xs font-semibold rounded-xl transition-colors cursor-pointer ${
                 isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
@@ -572,7 +569,7 @@ export function SettingsDashboardClient({ user }: Props) {
           </div>
 
           {/* 9. GESTÃO DE EQUIPA (10€/mês por membro) */}
-          <div className={`border rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-gradient-to-br from-white to-indigo-50 border-indigo-200 hover:border-indigo-300 shadow-indigo-100/50' : 'bg-gradient-to-br from-[#121216] to-indigo-950/20 border-indigo-500/20 hover:border-indigo-500/40'
           }`}>
             <div className="space-y-3">
@@ -595,9 +592,9 @@ export function SettingsDashboardClient({ user }: Props) {
 
             <button 
               onClick={() => setActiveModal('team')}
-              className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-indigo-600/20 active:scale-95"
+              className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-indigo-600/20 active:scale-95 cursor-pointer"
             >
-              Gerir Membros & Contas
+              Gerir Membros &amp; Contas
             </button>
           </div>
 
@@ -618,7 +615,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <Users className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Membros da Equipa (rapimoneyit.online)</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -636,7 +633,7 @@ export function SettingsDashboardClient({ user }: Props) {
                     isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-black/60 border-white/10 text-white'
                   }`}
                 />
-                <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95">
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer">
                   <Plus className="w-3.5 h-3.5" />
                   <span>Criar (+10€)</span>
                 </button>
@@ -662,7 +659,7 @@ export function SettingsDashboardClient({ user }: Props) {
               ))}
             </div>
 
-            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
+            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
               Fechar
@@ -682,7 +679,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <FileSignature className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Editar Assinatura Predefinida</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -697,8 +694,8 @@ export function SettingsDashboardClient({ user }: Props) {
             />
 
             <div className="flex justify-end gap-3">
-              <button onClick={() => setActiveModal(null)} className="px-4 py-2 text-xs text-zinc-500 hover:text-zinc-700">Cancelar</button>
-              <button onClick={() => { setActiveModal(null); showToast("Assinatura guardada com sucesso!"); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 active:scale-95">
+              <button onClick={() => setActiveModal(null)} className="px-4 py-2 text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancelar</button>
+              <button onClick={() => { setActiveModal(null); showToast("Assinatura guardada com sucesso!"); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer">
                 Guardar Assinatura
               </button>
             </div>
@@ -717,7 +714,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <Smartphone className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Parâmetros IMAP &amp; SMTP (iPhone / Outlook)</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -742,7 +739,7 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
             </div>
 
-            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
+            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
               Concluído
@@ -762,7 +759,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <Repeat className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Adicionar Reencaminhamento</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -783,8 +780,8 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
 
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 text-xs text-zinc-500 hover:text-zinc-700">Cancelar</button>
-                <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 active:scale-95">
+                <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancelar</button>
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer">
                   Adicionar
                 </button>
               </div>
@@ -804,7 +801,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <Shield className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Centro de Segurança &amp; Acesso</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -819,7 +816,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 </div>
                 <button 
                   onClick={() => { setTwoFactorEnabled(!twoFactorEnabled); showToast(`2FA ${!twoFactorEnabled ? 'Ativado' : 'Desativado'}`); }}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${twoFactorEnabled ? 'bg-green-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${twoFactorEnabled ? 'bg-green-600' : isLight ? 'bg-slate-200' : 'bg-white/10'}`}
                 >
                   <div className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${twoFactorEnabled ? 'left-6' : 'left-1'}`} />
                 </button>
@@ -836,7 +833,7 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
             </div>
 
-            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
+            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
               Fechar
@@ -856,7 +853,7 @@ export function SettingsDashboardClient({ user }: Props) {
                 <Keyboard className="w-5 h-5 text-indigo-500" />
                 <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Atalhos de Teclado Rápidos</h3>
               </div>
-              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -880,7 +877,7 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
             </div>
 
-            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
+            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
               Entendido
