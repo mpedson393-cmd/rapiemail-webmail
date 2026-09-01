@@ -379,7 +379,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   // Estados Mobile & Notificações
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      if (localStorage.getItem('rapi_alerts_enabled') === 'true') return true;
+      if ('Notification' in window && Notification.permission === 'granted') return true;
+    }
+    return false;
+  });
 
   // Estado de Tradução Persistente com Seleção Livre de Línguas e Preservação de HTML
   const [translations, setTranslations] = useState<Record<string, EmailTranslation>>(() => {
@@ -520,48 +526,59 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   const handleRequestNotifications = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (typeof window === 'undefined') return;
     
     try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setNotificationsEnabled(true);
-        playNotificationSound();
+      localStorage.setItem('rapi_alerts_enabled', 'true');
+      setNotificationsEnabled(true);
 
-        // Registar Web Push com VAPID no Service Worker para alertas com a app fechada!
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-          try {
-            const reg = await navigator.serviceWorker.ready;
-            const vapidPublicKey = "BCC2cdUC5qyeJwwL_OwCQYISuI2-tMl9wuhRx_x7jgQ2k77sL1yA0UrurhtF6l33oN7BU2QOEJtF14f4kk6GEIs";
-            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          playNotificationSound();
 
-            let sub = await reg.pushManager.getSubscription();
-            if (!sub) {
-              sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedVapidKey
+          // Registar Web Push com VAPID no Service Worker para alertas com a app fechada!
+          if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+              const reg = await navigator.serviceWorker.ready;
+              const vapidPublicKey = "BCC2cdUC5qyeJwwL_OwCQYISuI2-tMl9wuhRx_x7jgQ2k77sL1yA0UrurhtF6l33oN7BU2QOEJtF14f4kk6GEIs";
+              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+              let sub = await reg.pushManager.getSubscription();
+              if (!sub) {
+                sub = await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: convertedVapidKey
+                });
+              }
+
+              // Enviar subscrição push para o Supabase
+              await fetch('/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription: sub })
               });
+
+              setToastMessage("🔔 Alertas ativados para sempre! Receberás notificações em tempo real.");
+              setTimeout(() => setToastMessage(null), 4000);
+              return;
+            } catch (pushErr) {
+              console.warn("Push subscription warning:", pushErr);
             }
-
-            // Enviar subscrição push para o Supabase
-            await fetch('/api/push/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ subscription: sub })
-            });
-
-            setToastMessage("🔔 Alertas ativados! Receberás notificações mesmo com a app fechada.");
-            setTimeout(() => setToastMessage(null), 4000);
-            return;
-          } catch (pushErr) {
-            console.warn("Push subscription warning:", pushErr);
           }
-        }
 
-        setToastMessage("🔔 Alertas ativados!");
-        setTimeout(() => setToastMessage(null), 3000);
+          setToastMessage("🔔 Alertas ativados!");
+          setTimeout(() => setToastMessage(null), 3000);
+          return;
+        }
       }
-    } catch(e) {}
+
+      setToastMessage("🔔 Alertas ativados!");
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch(e) {
+      localStorage.setItem('rapi_alerts_enabled', 'true');
+      setNotificationsEnabled(true);
+    }
   };
 
   useEffect(() => {
