@@ -19,7 +19,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
-    const { text, targetLang, isHtml } = await req.json();
+    const { text, subject, targetLang, isHtml } = await req.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Texto inválido." }, { status: 400 });
@@ -32,18 +32,17 @@ export async function POST(req: Request) {
 
     const langName = LANGUAGE_NAMES[target] || target;
 
-    // 1. Tradução Oficial com DeepL Neural Engine (com suporte nativo a tags HTML para manter o layout!)
+    // 1. Tradução Oficial com DeepL Neural Engine (Suporte a múltiplos textos: Assunto + Corpo)
     try {
-      const paramsObj: Record<string, string> = {
-        text,
-        target_lang: target
-      };
-
-      if (isHtml) {
-        paramsObj.tag_handling = "html";
+      const params = new URLSearchParams();
+      if (subject && typeof subject === "string") {
+        params.append("text", subject);
       }
-
-      const bodyParams = new URLSearchParams(paramsObj).toString();
+      params.append("text", text);
+      params.append("target_lang", target);
+      if (isHtml) {
+        params.append("tag_handling", "html");
+      }
 
       const res = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
@@ -51,16 +50,31 @@ export async function POST(req: Request) {
           "Authorization": `DeepL-Auth-Key ${deepLKey}`,
           "Content-Type": "application/x-www-form-urlencoded"
         },
-        body: bodyParams
+        body: params.toString()
       });
 
       if (res.ok) {
         const data = await res.json();
-        const translation = data?.translations?.[0];
-        if (translation?.text) {
+        const translations = data?.translations || [];
+        
+        let translatedSubject = "";
+        let translatedBody = "";
+        let detectedSourceLang = "EN";
+
+        if (subject && translations.length >= 2) {
+          translatedSubject = translations[0].text;
+          translatedBody = translations[1].text;
+          detectedSourceLang = translations[1].detected_source_language || translations[0].detected_source_language || "EN";
+        } else if (translations.length >= 1) {
+          translatedBody = translations[0].text;
+          detectedSourceLang = translations[0].detected_source_language || "EN";
+        }
+
+        if (translatedBody) {
           return NextResponse.json({ 
-            translatedText: translation.text,
-            detectedSourceLang: translation.detected_source_language || "EN",
+            translatedText: translatedBody,
+            translatedSubject: translatedSubject || subject,
+            detectedSourceLang,
             targetLang: target,
             targetLangName: langName,
             isHtml: !!isHtml
@@ -74,16 +88,15 @@ export async function POST(req: Request) {
     // 2. Fallback Inteligente com Google Gemini AI (Preservando 100% da estrutura HTML e CSS)
     const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
     
-    const prompt = isHtml 
-      ? `You are an expert HTML-preserving translator. Translate all human-readable text into ${langName} (${target}).
+    const prompt = `You are an expert translator. Translate the following email content into ${langName} (${target}).
 CRITICAL RULES:
-1. Preserve 100% of all HTML tags, attributes, inline styles (CSS), image URLs, table structures, buttons, and layouts intact without altering any code.
-2. Only translate the text content inside tags.
-3. Return strictly the raw valid translated HTML with no markdown code fences (\`\`\`html).
+1. Preserve 100% of all HTML tags, attributes, inline styles (CSS), image URLs, table structures, buttons, and layouts intact.
+2. Only translate the human-readable text.
+3. Return STRICTLY a valid JSON object with keys "translatedSubject" and "translatedBody". Do NOT wrap in markdown fences.
 
-HTML Content to Translate:
-${text}`
-      : `Translate the following text to ${langName} (${target}). Preserve formatting and clean text:\n\n${text}`;
+Email Subject: ${subject || ""}
+Email Body (HTML/Text):
+${text}`;
 
     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
       method: "POST",
@@ -91,26 +104,38 @@ ${text}`
       body: JSON.stringify({
         contents: [{
           parts: [{ text: prompt }]
-        }]
+        }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
       })
     });
 
     if (geminiRes.ok) {
       const geminiData = await geminiRes.json();
-      let geminiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || text;
-      // Limpar blocos de código se Gemini envolver em ```html
-      geminiText = geminiText.replace(/^```html\s*/i, '').replace(/\s*```$/i, '');
-
-      return NextResponse.json({ 
-        translatedText: geminiText,
-        detectedSourceLang: "AUTO",
-        targetLang: target,
-        targetLangName: langName,
-        isHtml: !!isHtml
-      });
+      const rawJson = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawJson) {
+        try {
+          const parsed = JSON.parse(rawJson);
+          return NextResponse.json({ 
+            translatedText: parsed.translatedBody || text,
+            translatedSubject: parsed.translatedSubject || subject,
+            detectedSourceLang: "AUTO",
+            targetLang: target,
+            targetLangName: langName,
+            isHtml: !!isHtml
+          });
+        } catch(e) {}
+      }
     }
 
-    return NextResponse.json({ translatedText: text, detectedSourceLang: "EN", targetLang: target, isHtml: !!isHtml });
+    return NextResponse.json({ 
+      translatedText: text, 
+      translatedSubject: subject || "",
+      detectedSourceLang: "EN", 
+      targetLang: target, 
+      isHtml: !!isHtml 
+    });
 
   } catch (error: any) {
     console.error("Translation Server Error:", error);

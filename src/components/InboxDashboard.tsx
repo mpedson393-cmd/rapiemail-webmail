@@ -49,6 +49,7 @@ interface Props {
 // Lista de Línguas Disponíveis para Tradução Inteligente com DeepL AI
 export interface EmailTranslation {
   text: string;
+  subject?: string;
   lang: string;
   isHtml?: boolean;
   detectedSourceLang?: string;
@@ -851,7 +852,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       const res = await fetch('/api/ai/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToTranslate, targetLang: langToUse, isHtml })
+        body: JSON.stringify({ 
+          text: textToTranslate, 
+          subject: selectedEmail.subject,
+          targetLang: langToUse, 
+          isHtml 
+        })
       });
       const data = await res.json();
       if (data.translatedText) {
@@ -859,6 +865,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           ...translations,
           [emailId]: {
             text: data.translatedText,
+            subject: data.translatedSubject || selectedEmail.subject,
             isHtml: data.isHtml ?? isHtml,
             lang: langToUse,
             detectedSourceLang: data.detectedSourceLang,
@@ -1285,7 +1292,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               ? 'font-bold text-[#202124] dark:text-white' 
                               : 'font-normal text-[#5F6368] dark:text-zinc-400'
                           }`}>
-                            {email.subject || '(Sem assunto)'}
+                            {(() => {
+                              const itemTrans = translations[email.id];
+                              const isItemTrans = Boolean(itemTrans && !itemTrans.showOriginal);
+                              return (isItemTrans && itemTrans?.subject) ? itemTrans.subject : (email.subject || '(Sem assunto)');
+                            })()}
                           </p>
 
                           <p className={`text-[11px] truncate leading-tight ${
@@ -1395,7 +1406,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   
                   {/* Subject Header */}
                   <h1 className={`text-lg md:text-xl font-bold tracking-tight leading-snug select-text ${isLight ? 'text-[#202124]' : 'text-white'}`}>
-                    {selectedEmail.subject || '(Sem assunto)'}
+                    {(isShowingTranslation && currentTranslation?.subject) ? currentTranslation.subject : (selectedEmail.subject || '(Sem assunto)')}
                   </h1>
 
                   {/* Sender Header Card com SmartAvatar HD */}
@@ -1452,7 +1463,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     </div>
                   )}
 
-                  {/* 🌐 BARRA DE TRADUÇÃO INTELIGENTE COM SELEÇÃO DE LÍNGUAS (DeepL AI) */}
+                  {/* 🌐 BARRA DE TRADUÇÃO INTELIGENTE COM SELEÇÃO DE LÍNGUAS */}
                   <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-xl bg-[#F8F9FA] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 text-xs select-none">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Languages className="w-4 h-4 text-[#1A73E8] shrink-0" />
@@ -1463,8 +1474,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               <Sparkles className="w-3.5 h-3.5" />
                               <span>Traduzido automaticamente para:</span>
                             </span>
-                          ) : "Mensagem traduzida para:"
-                        ) : "Traduzir com DeepL AI para:"}
+                          ) : "✨ Traduzido para:"
+                        ) : "🌐 Traduzir para:"}
                       </span>
 
                       {/* Dropdown Seletor de Línguas */}
