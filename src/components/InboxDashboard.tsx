@@ -9,7 +9,7 @@ import {
   CheckCircle2, ChevronDown, Paperclip, Check, CheckCheck, 
   Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
   Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
-  Sparkles, Copy, KeyRound, Globe2
+  Sparkles, Copy, KeyRound, Globe2, RotateCcw
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -321,7 +321,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   });
 
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
-  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [starredIds, setStarredIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('rapi_starred_ids');
+        if (saved) return new Set(JSON.parse(saved));
+      } catch(e) {}
+    }
+    return new Set();
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -545,23 +553,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   const folders = useMemo(() => [
     { id: 'INBOX', label: 'Caixa de entrada', icon: Inbox, count: emails.filter(e => e.folder === 'INBOX' && !e.read).length },
+    { id: 'STARRED', label: 'Com estrela', icon: Star, count: emails.filter(e => starredIds.has(e.id) && e.folder !== 'TRASH').length },
     { id: 'DRAFT', label: 'Rascunhos', icon: FileText, count: emails.filter(e => e.folder === 'DRAFT').length },
     { id: 'SENT', label: 'Enviados', icon: Send, count: emails.filter(e => e.folder === 'SENT').length },
     { id: 'SPAM', label: 'Spam', icon: AlertOctagon, count: emails.filter(e => e.folder === 'SPAM').length },
     { id: 'TRASH', label: 'Lixo', icon: Trash2, count: emails.filter(e => e.folder === 'TRASH').length },
     { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, count: emails.filter(e => e.folder === 'ARCHIVE').length },
-  ], [emails]);
+  ], [emails, starredIds]);
 
   const filteredEmails = useMemo(() => {
     return emails.filter(email => {
-      const matchFolder = email.folder === selectedFolder;
+      let matchFolder = email.folder === selectedFolder;
+      if (selectedFolder === 'STARRED') {
+        matchFolder = starredIds.has(email.id) && email.folder !== 'TRASH';
+      }
       const matchSearch = searchQuery === '' || 
         email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
         email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
         email.body.toLowerCase().includes(searchQuery.toLowerCase());
       return matchFolder && matchSearch;
     });
-  }, [emails, selectedFolder, searchQuery]);
+  }, [emails, selectedFolder, searchQuery, starredIds]);
 
   const selectedEmail = useMemo(() => {
     return emails.find(e => e.id === selectedEmailId) || filteredEmails[0] || null;
@@ -576,7 +588,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const handleSelectFolder = (folderId: string) => {
     setSelectedFolder(folderId);
     setIsMobileMenuOpen(false);
-    const inFolder = emails.filter(e => e.folder === folderId);
+    let inFolder = emails.filter(e => e.folder === folderId);
+    if (folderId === 'STARRED') {
+      inFolder = emails.filter(e => starredIds.has(e.id) && e.folder !== 'TRASH');
+    }
     setSelectedEmailId(inFolder[0]?.id || null);
   };
 
@@ -600,6 +615,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      try {
+        localStorage.setItem('rapi_starred_ids', JSON.stringify(Array.from(next)));
+      } catch(err) {}
       return next;
     });
   };
@@ -626,8 +644,70 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   const handleDeleteEmail = async () => {
     if (!selectedEmail) return;
-    setEmails(prev => prev.filter(e => e.id !== selectedEmail.id));
-    setMobileView('list');
+    const emailId = selectedEmail.id;
+    const isAlreadyInTrash = selectedEmail.folder === 'TRASH' || selectedFolder === 'TRASH';
+
+    if (isAlreadyInTrash) {
+      // Eliminar permanentemente
+      setEmails(prev => prev.filter(e => e.id !== emailId));
+      setToastMessage("Mensagem eliminada definitivamente.");
+      setTimeout(() => setToastMessage(null), 3000);
+      setMobileView('list');
+
+      try {
+        await fetch('/api/emails/trash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: emailId, action: 'PERMANENT_DELETE' })
+        });
+      } catch (e) {}
+    } else {
+      // Mover para o Lixo
+      setEmails(prev => prev.map(e => e.id === emailId ? { ...e, folder: 'TRASH' } : e));
+      setToastMessage("Mensagem movida para o Lixo.");
+      setTimeout(() => setToastMessage(null), 3000);
+      setMobileView('list');
+
+      try {
+        await fetch('/api/emails/trash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: emailId, action: 'MOVE_TO_TRASH', folder: 'TRASH' })
+        });
+      } catch (e) {}
+    }
+  };
+
+  const handleRestoreEmail = async () => {
+    if (!selectedEmail) return;
+    const emailId = selectedEmail.id;
+
+    setEmails(prev => prev.map(e => e.id === emailId ? { ...e, folder: 'INBOX' } : e));
+    setToastMessage("✨ Mensagem restaurada para a Caixa de Entrada!");
+    setTimeout(() => setToastMessage(null), 3000);
+
+    try {
+      await fetch('/api/emails/trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: emailId, action: 'RESTORE' })
+      });
+    } catch (e) {}
+  };
+
+  const handleEmptyTrash = async () => {
+    if (typeof window !== 'undefined' && window.confirm("Tem a certeza que deseja esvaziar todo o lixo? Todas as mensagens serão eliminadas definitivamente.")) {
+      setEmails(prev => prev.filter(e => e.folder !== 'TRASH'));
+      setToastMessage("🗑️ Lixo esvaziado com sucesso!");
+      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        await fetch('/api/emails/trash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'EMPTY_TRASH' })
+        });
+      } catch(e) {}
+    }
   };
 
   // Funções de Resposta Inteligente com Captura Automática de E-mail e Contexto
@@ -1030,7 +1110,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                 <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
                 <span className="text-[11px] text-zinc-400 font-normal">({filteredEmails.length})</span>
               </div>
-              <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
+              {selectedFolder === 'TRASH' && filteredEmails.length > 0 ? (
+                <button 
+                  onClick={handleEmptyTrash}
+                  className="text-[11px] text-red-500 hover:text-red-600 font-bold cursor-pointer"
+                >
+                  Esvaziar Lixo
+                </button>
+              ) : (
+                <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.06]">
@@ -1170,12 +1259,33 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       <Forward className="w-4 h-4" />
                     </button>
                     <div className="w-px h-4 bg-[#E5E7EB] dark:bg-white/10 mx-1"></div>
-                    <button onClick={(e) => toggleStar(selectedEmail.id, e)} title="Com estrela" className="hover:text-amber-400 transition-colors">
+                    <button onClick={(e) => toggleStar(selectedEmail.id, e)} title="Com estrela (Favoritos)" className="hover:text-amber-400 transition-colors cursor-pointer">
                       <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-amber-400 text-amber-400' : ''}`} />
                     </button>
-                    <button onClick={handleDeleteEmail} title="Lixo" className="hover:text-red-500 transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {selectedEmail.folder === 'TRASH' || selectedFolder === 'TRASH' ? (
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={handleRestoreEmail} 
+                          title="Restaurar para a Caixa de Entrada" 
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Restaurar</span>
+                        </button>
+                        <button 
+                          onClick={handleDeleteEmail} 
+                          title="Eliminar definitivamente para sempre" 
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Eliminar</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={handleDeleteEmail} title="Mover para o Lixo" className="hover:text-red-500 transition-colors cursor-pointer">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Hora Exata Real no Cabeçalho */}
