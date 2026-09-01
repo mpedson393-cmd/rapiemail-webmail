@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { parseSenderDetails, getAvatarCandidateUrls, ParsedSenderInfo } from '@/lib/avatar';
+import { parseSenderDetails, getAvatarCandidateUrls, getCachedAvatar, setCachedAvatar, ParsedSenderInfo } from '@/lib/avatar';
 
 interface SmartAvatarProps {
   from: string;
@@ -20,16 +20,22 @@ const SIZE_MAP = {
 
 export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = '' }: SmartAvatarProps) {
   const sender: ParsedSenderInfo = parseSenderDetails(from);
-  const candidates = getAvatarCandidateUrls(sender, customAvatarUrl);
+  const cacheKey = (customAvatarUrl || sender.email || sender.name).trim().toLowerCase();
 
+  const [candidates, setCandidates] = useState<string[]>(() => getAvatarCandidateUrls(sender, customAvatarUrl));
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(() => {
+    return Boolean(getCachedAvatar(cacheKey));
+  });
 
   // Resetar índice se o remetente mudar
   useEffect(() => {
+    const nextCandidates = getAvatarCandidateUrls(sender, customAvatarUrl);
+    setCandidates(nextCandidates);
     setCandidateIndex(0);
-    setHasLoaded(false);
-  }, [from, customAvatarUrl]);
+    const cached = getCachedAvatar(cacheKey);
+    setHasLoaded(Boolean(cached));
+  }, [from, customAvatarUrl, cacheKey]);
 
   const currentUrl = candidateIndex < candidates.length ? candidates[candidateIndex] : null;
   const sizeConfig = SIZE_MAP[size] || SIZE_MAP.sm;
@@ -40,6 +46,9 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
 
   const handleImageLoad = () => {
     setHasLoaded(true);
+    if (currentUrl) {
+      setCachedAvatar(cacheKey, currentUrl);
+    }
   };
 
   // Se ainda houver candidatos para testar

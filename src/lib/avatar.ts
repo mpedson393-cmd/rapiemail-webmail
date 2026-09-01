@@ -260,11 +260,57 @@ export function parseSenderDetails(fromStr: string): ParsedSenderInfo {
   };
 }
 
+// Cache Global e Persistente de Avatares (Armazena fotos e logos já validados)
+const AVATAR_CACHE_KEY = 'rapi_avatar_cache_v2';
+let memoryAvatarCache: Record<string, string> = {};
+
+if (typeof window !== 'undefined') {
+  try {
+    const saved = localStorage.getItem(AVATAR_CACHE_KEY);
+    if (saved) memoryAvatarCache = JSON.parse(saved);
+  } catch (e) {}
+}
+
+export function getCachedAvatar(key: string): string | null {
+  if (!key) return null;
+  const cleanKey = key.trim().toLowerCase();
+  return memoryAvatarCache[cleanKey] || null;
+}
+
+export function setCachedAvatar(key: string, url: string) {
+  if (!key || !url) return;
+  const cleanKey = key.trim().toLowerCase();
+  memoryAvatarCache[cleanKey] = url;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(memoryAvatarCache));
+    } catch (e) {}
+  }
+}
+
+// Extrair Foto Real de Perfil do LinkedIn contida dentro do HTML do e-mail
+export function extractLinkedInAvatarFromHtml(html?: string): string | null {
+  if (!html) return null;
+  const match = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^\s"'<>?]+\?[^\s"'<>]+/i) ||
+                html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^\s"'<>]+/i);
+  if (match && match[0]) {
+    return match[0].replace(/&amp;/g, '&');
+  }
+  return null;
+}
+
 // Obter Lista de URLs Candidatas para o Avatar em Ordem Inteligente de Prioridade
 export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl?: string | null): string[] {
   const candidates: string[] = [];
+  const cacheKey = (customAvatarUrl || sender.email || sender.name).trim().toLowerCase();
 
-  if (customAvatarUrl) {
+  // 1. Se já temos a foto guardada em Cache (Carregamento instantâneo em 0ms)
+  const cached = getCachedAvatar(cacheKey);
+  if (cached) {
+    candidates.push(cached);
+  }
+
+  if (customAvatarUrl && !candidates.includes(customAvatarUrl)) {
     candidates.push(customAvatarUrl);
   }
 

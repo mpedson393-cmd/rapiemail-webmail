@@ -17,7 +17,7 @@ import { RapiSiteBuilderModal } from './RapiSiteBuilderModal';
 import { CalendarView } from './CalendarView';
 import { ContactsView } from './ContactsView';
 import { SmartAvatar } from './SmartAvatar';
-import { parseSenderDetails } from '@/lib/avatar';
+import { parseSenderDetails, extractLinkedInAvatarFromHtml, setCachedAvatar } from '@/lib/avatar';
 
 export interface EmailItem {
   id: string;
@@ -477,7 +477,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   }, []);
 
-  // 3. Abrir e-mail específico se passado por parâmetro na URL (?id=...)
+  // 3. Extrair e Guardar Permanentemente Fotos de Perfil do LinkedIn encontradas nos E-mails
+  useEffect(() => {
+    emails.forEach(email => {
+      if (email.html && (email.from.toLowerCase().includes('linkedin') || email.html.includes('media.licdn.com/dms/image'))) {
+        const extracted = extractLinkedInAvatarFromHtml(email.html);
+        if (extracted) {
+          const sender = parseSenderDetails(email.from);
+          const key1 = (sender.email || sender.name).trim().toLowerCase();
+          const key2 = email.from.trim().toLowerCase();
+          setCachedAvatar(key1, extracted);
+          setCachedAvatar(key2, extracted);
+        }
+      }
+    });
+  }, [emails]);
+
+  // 4. Abrir e-mail específico se passado por parâmetro na URL (?id=...)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
