@@ -824,15 +824,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   // Função para Traduzir E-mail para a Língua Selecionada com DeepL AI / Gemini (com Persistência Total e Alternância Rápida)
-  const handleTranslateEmail = async (targetLangCode?: string, isAuto: boolean = false) => {
+  const handleTranslateEmail = async (targetLangCode?: string, isAuto: boolean = false, forceRefresh: boolean = false) => {
     if (!selectedEmail) return;
     
     const emailId = selectedEmail.id;
     const langToUse = targetLangCode || selectedTargetLang;
     const currentTrans = translations[emailId];
 
-    // Se já temos a tradução gravada para este mesmo idioma:
-    if (currentTrans && currentTrans.lang === langToUse) {
+    // Se já temos a tradução gravada para este mesmo idioma com assunto traduzido e não for forceRefresh:
+    if (!forceRefresh && currentTrans && currentTrans.lang === langToUse && currentTrans.subject) {
       // Alternar suavemente entre ver original e ver tradução gravada (sem chamada de rede!)
       const updated: Record<string, EmailTranslation> = {
         ...translations,
@@ -891,13 +891,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
-  // Deteção e Auto-Tradução Automática ao abrir email em língua estrangeira
+  // Deteção e Auto-Tradução Automática ao abrir email em língua estrangeira (e atualização de traduções antigas sem assunto)
   useEffect(() => {
     if (!selectedEmail) return;
     const emailId = selectedEmail.id;
     const currentTrans = translations[emailId];
 
-    // Se já existe tradução (ou se o utilizador já interagiu com esta mensagem), não dispara auto-tradução
+    // Se já existia tradução antiga guardada sem o assunto traduzido, atualiza automaticamente:
+    if (currentTrans && !currentTrans.subject && !currentTrans.showOriginal && selectedEmail.subject && !isTranslating) {
+      handleTranslateEmail(currentTrans.lang, true, true);
+      return;
+    }
+
+    // Se já existe tradução completa, não dispara auto-tradução
     if (currentTrans) return;
 
     const isForeign = isLikelyForeignLanguage(selectedEmail.subject, selectedEmail.body, selectedTargetLang);
