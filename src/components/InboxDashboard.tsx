@@ -47,6 +47,47 @@ interface Props {
 }
 
 // Lista de Línguas Disponíveis para Tradução Inteligente com DeepL AI
+export interface EmailTranslation {
+  text: string;
+  lang: string;
+  isHtml?: boolean;
+  detectedSourceLang?: string;
+  showOriginal?: boolean;
+  autoTranslated?: boolean;
+}
+
+// Detetor Inteligente de Língua Estrangeira (Inglês/Internacional vs Português)
+function isLikelyForeignLanguage(subject: string, body: string, userLang: string = 'PT-PT'): boolean {
+  if (!userLang.startsWith('PT')) return false;
+  const sample = (subject + ' ' + body).toLowerCase().slice(0, 1000);
+  
+  const foreignWords = [
+    'the ', 'to ', 'and ', 'you ', 'your ', 'for ', 'with ', 'from ', 
+    'have ', 'this ', 'that ', 'will ', 'thanks', 'please', 'welcome', 
+    'verify', 'account', 'security', 'report', 'digest', 'message', 
+    'connection', 'reached out', 'invited', 'team', 'hi ', 'hello',
+    'joined', 'confirmation', 'click here', 'subject:', 'hi edson'
+  ];
+  
+  const ptWords = [
+    'você', 'voce', 'para ', 'com ', 'não ', 'nao ', 'está ', 'esta ', 
+    'uma ', 'pela ', 'pelo ', 'obrigado', 'olá', 'ola', 'seus', 'sua ', 
+    'mensagem', 'enviar', 'recebido', 'código', 'segurança'
+  ];
+
+  let foreignScore = 0;
+  for (const w of foreignWords) {
+    if (sample.includes(w)) foreignScore++;
+  }
+
+  let ptScore = 0;
+  for (const w of ptWords) {
+    if (sample.includes(w)) ptScore++;
+  }
+
+  return foreignScore >= 2 && foreignScore > ptScore;
+}
+
 const TRANSLATION_LANGUAGES = [
   { code: 'PT-PT', label: 'Português (Portugal)', flag: '🇵🇹' },
   { code: 'PT-BR', label: 'Português (Brasil)', flag: '🇧🇷' },
@@ -339,8 +380,26 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
-  // Estado de Tradução com Seleção Livre de Línguas e Preservação de HTML
-  const [translations, setTranslations] = useState<Record<string, { text: string; lang: string; isHtml?: boolean }>>({});
+  // Estado de Tradução Persistente com Seleção Livre de Línguas e Preservação de HTML
+  const [translations, setTranslations] = useState<Record<string, EmailTranslation>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('rapi_email_translations');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const saveTranslations = (newTranslations: Record<string, EmailTranslation>) => {
+    setTranslations(newTranslations);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('rapi_email_translations', JSON.stringify(newTranslations));
+      } catch (e) {}
+    }
+  };
+
   const [selectedTargetLang, setSelectedTargetLang] = useState<string>('PT-PT');
   const [isTranslating, setIsTranslating] = useState(false);
 
@@ -763,19 +822,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     });
   };
 
-  // Função para Traduzir E-mail para a Língua Selecionada com DeepL AI / Gemini
-  const handleTranslateEmail = async (targetLangCode?: string) => {
+  // Função para Traduzir E-mail para a Língua Selecionada com DeepL AI / Gemini (com Persistência Total e Alternância Rápida)
+  const handleTranslateEmail = async (targetLangCode?: string, isAuto: boolean = false) => {
     if (!selectedEmail) return;
     
+    const emailId = selectedEmail.id;
     const langToUse = targetLangCode || selectedTargetLang;
+    const currentTrans = translations[emailId];
 
-    // Se já está traduzido para essa mesma língua, voltar ao original
-    if (translations[selectedEmail.id]?.lang === langToUse) {
-      setTranslations(prev => {
-        const next = { ...prev };
-        delete next[selectedEmail.id];
-        return next;
-      });
+    // Se já temos a tradução gravada para este mesmo idioma:
+    if (currentTrans && currentTrans.lang === langToUse) {
+      // Alternar suavemente entre ver original e ver tradução gravada (sem chamada de rede!)
+      const updated: Record<string, EmailTranslation> = {
+        ...translations,
+        [emailId]: {
+          ...currentTrans,
+          showOriginal: !currentTrans.showOriginal
+        }
+      };
+      saveTranslations(updated);
       return;
     }
 
@@ -790,25 +855,49 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       });
       const data = await res.json();
       if (data.translatedText) {
-        setTranslations(prev => ({
-          ...prev,
-          [selectedEmail.id]: {
+        const updated: Record<string, EmailTranslation> = {
+          ...translations,
+          [emailId]: {
             text: data.translatedText,
             isHtml: data.isHtml ?? isHtml,
-            lang: langToUse
+            lang: langToUse,
+            detectedSourceLang: data.detectedSourceLang,
+            showOriginal: false,
+            autoTranslated: isAuto
           }
-        }));
+        };
+        saveTranslations(updated);
+
         const langObj = TRANSLATION_LANGUAGES.find(l => l.code === langToUse);
-        setToastMessage(`✨ Mensagem traduzida para ${langObj?.label || langToUse}!`);
-        setTimeout(() => setToastMessage(null), 3000);
+        if (!isAuto) {
+          setToastMessage(`✨ Mensagem traduzida para ${langObj?.label || langToUse}!`);
+          setTimeout(() => setToastMessage(null), 3000);
+        }
       }
     } catch(e) {
-      setToastMessage("Erro ao traduzir mensagem.");
-      setTimeout(() => setToastMessage(null), 3000);
+      if (!isAuto) {
+        setToastMessage("Erro ao traduzir mensagem.");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
     } finally {
       setIsTranslating(false);
     }
   };
+
+  // Deteção e Auto-Tradução Automática ao abrir email em língua estrangeira
+  useEffect(() => {
+    if (!selectedEmail) return;
+    const emailId = selectedEmail.id;
+    const currentTrans = translations[emailId];
+
+    // Se já existe tradução (ou se o utilizador já interagiu com esta mensagem), não dispara auto-tradução
+    if (currentTrans) return;
+
+    const isForeign = isLikelyForeignLanguage(selectedEmail.subject, selectedEmail.body, selectedTargetLang);
+    if (isForeign && !isTranslating) {
+      handleTranslateEmail(selectedTargetLang, true);
+    }
+  }, [selectedEmail?.id, selectedTargetLang]);
 
   const parsedSender = selectedEmail ? parseSenderDetails(selectedEmail.from) : { name: "", email: "", domain: "", initial: "RE", isCompanyService: false, isFreePersonalEmail: false, color: { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" } };
   
@@ -816,8 +905,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const cleanSenderEmail = selectedEmail ? (parsedSender.email || selectedEmail.from).replace(/[<>]/g, '').trim() : "";
   const cleanToEmail = selectedEmail ? selectedEmail.to.replace(/[<>]/g, '').trim() : "";
 
+  // Tradução ativa do email atualmente selecionado
+  const currentTranslation = selectedEmail ? translations[selectedEmail.id] : null;
+  const isShowingTranslation = Boolean(currentTranslation && !currentTranslation.showOriginal);
+
   // Conteúdo ativo a exibir (Traduzido ou Original)
-  const activeBodyText = selectedEmail ? (translations[selectedEmail.id]?.text || selectedEmail.body) : "";
+  const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
@@ -1364,18 +1457,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Languages className="w-4 h-4 text-[#1A73E8] shrink-0" />
                       <span className="font-semibold text-[#202124] dark:text-zinc-200">
-                        {translations[selectedEmail.id] ? "Mensagem traduzida:" : "Traduzir com DeepL AI para:"}
+                        {isShowingTranslation ? (
+                          currentTranslation?.autoTranslated ? (
+                            <span className="flex items-center gap-1 text-[#1A73E8] dark:text-blue-400">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Traduzido automaticamente para:</span>
+                            </span>
+                          ) : "Mensagem traduzida para:"
+                        ) : "Traduzir com DeepL AI para:"}
                       </span>
 
                       {/* Dropdown Seletor de Línguas */}
                       <select
-                        value={selectedTargetLang}
+                        value={currentTranslation?.lang || selectedTargetLang}
                         onChange={(e) => {
                           const newLang = e.target.value;
                           setSelectedTargetLang(newLang);
-                          if (translations[selectedEmail.id]) {
-                            handleTranslateEmail(newLang);
-                          }
+                          handleTranslateEmail(newLang, false);
                         }}
                         className="bg-white dark:bg-zinc-800 border border-[#E5E7EB] dark:border-white/10 text-xs font-semibold rounded-lg px-2.5 py-1 text-[#202124] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#1A73E8] cursor-pointer"
                       >
@@ -1387,33 +1485,52 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       </select>
                     </div>
 
+                    {/* Botões de Ação */}
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleTranslateEmail()}
-                        disabled={isTranslating}
-                        className="px-3 py-1 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        {isTranslating ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>A traduzir...</span>
-                          </>
-                        ) : translations[selectedEmail.id] ? (
-                          <span>Ver Original</span>
-                        ) : (
-                          <span>🌐 Traduzir Agora</span>
-                        )}
-                      </button>
+                      {currentTranslation && (
+                        <button
+                          onClick={() => {
+                            const updated: Record<string, EmailTranslation> = {
+                              ...translations,
+                              [selectedEmail.id]: {
+                                ...currentTranslation,
+                                showOriginal: !currentTranslation.showOriginal
+                              }
+                            };
+                            saveTranslations(updated);
+                          }}
+                          className="px-3 py-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-200 font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        >
+                          {isShowingTranslation ? "📄 Ver Original" : "🌐 Ver Tradução"}
+                        </button>
+                      )}
+
+                      {(!currentTranslation || !isShowingTranslation) && (
+                        <button
+                          onClick={() => handleTranslateEmail(selectedTargetLang, false)}
+                          disabled={isTranslating}
+                          className="px-3 py-1 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-95 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                        >
+                          {isTranslating ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>A traduzir...</span>
+                            </>
+                          ) : (
+                            <span>🌐 Traduzir Agora</span>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Body Content com Seleção Total de Texto e Preservação de HTML */}
-                  {translations[selectedEmail.id]?.isHtml ? (
+                  {isShowingTranslation && currentTranslation?.isHtml ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
-                      dangerouslySetInnerHTML={{ __html: translations[selectedEmail.id].text }}
+                      dangerouslySetInnerHTML={{ __html: currentTranslation.text }}
                     />
-                  ) : selectedEmail.html && !translations[selectedEmail.id] ? (
+                  ) : selectedEmail.html && !isShowingTranslation ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
                       dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
