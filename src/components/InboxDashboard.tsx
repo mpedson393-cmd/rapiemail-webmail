@@ -1316,14 +1316,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                             }`}>
                               {isSent ? `Para: ${senderDetails.name}` : senderDetails.name}
                             </span>
-                            <span 
-                              title={new Date(email.createdAt).toLocaleString('pt-PT')}
-                              className={`text-[10px] shrink-0 ml-2 font-mono ${
-                                isUnread ? 'font-bold text-[#1A73E8]' : 'text-zinc-400'
-                              }`}
-                            >
-                              {dateDisplay}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              {isSent && (
+                                email.isOpened ? (
+                                  <span title={`✅ Lido pelo destinatário em ${email.openedAt ? new Date(email.openedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : ''} (${email.openCount || 1}x no ${email.userAgent || 'dispositivo'})`}>
+                                    <CheckCheck className="w-3.5 h-3.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                                  </span>
+                                ) : (
+                                  <span title="Enviado e entregue (Aguardando leitura)">
+                                    <Check className="w-3 h-3 text-zinc-400" />
+                                  </span>
+                                )
+                              )}
+                              <span 
+                                title={new Date(email.createdAt).toLocaleString('pt-PT')}
+                                className={`text-[10px] font-mono ${
+                                  isUnread ? 'font-bold text-[#1A73E8]' : 'text-zinc-400'
+                                }`}
+                              >
+                                {dateDisplay}
+                              </span>
+                            </div>
                           </div>
 
                           <p className={`text-xs truncate mb-0.5 ${
@@ -1448,7 +1461,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     {(isShowingTranslation && currentTranslation?.subject) ? currentTranslation.subject : (selectedEmail.subject || '(Sem assunto)')}
                   </h1>
 
-                  {/* Sender Header Card com SmartAvatar HD */}
+                  {/* Sender Header Card com SmartAvatar HD & Badge de Vista Real (Dois Riscos) */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10 select-none">
                     <div className="flex items-center gap-3">
                       <SmartAvatar 
@@ -1469,6 +1482,32 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         </span>
                       </div>
                     </div>
+
+                    {/* Badge de Vista Real / Dois Riscos para Mensagens Enviadas */}
+                    {(selectedEmail.folder === 'SENT' || selectedEmail.from === user.email) && (
+                      <div className="shrink-0">
+                        {selectedEmail.isOpened ? (
+                          <div 
+                            title={`Lido pelo destinatário em ${selectedEmail.openedAt ? new Date(selectedEmail.openedAt).toLocaleString('pt-PT') : ''} (${selectedEmail.openCount || 1} visualizações no ${selectedEmail.userAgent || 'dispositivo'})`}
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-[#1A73E8] dark:text-blue-300 text-xs font-bold shadow-xs select-none"
+                          >
+                            <CheckCheck className="w-4 h-4 text-[#1A73E8] dark:text-blue-400" />
+                            <span className="hidden sm:inline">Lido</span>
+                            {selectedEmail.openCount && selectedEmail.openCount > 1 ? (
+                              <span className="text-[10px] opacity-80">({selectedEmail.openCount}x)</span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div 
+                            title="Mensagem enviada com sucesso e entregue ao servidor do destinatário. A aguardar abertura."
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-500 text-xs font-medium select-none"
+                          >
+                            <Check className="w-3.5 h-3.5 text-zinc-400" />
+                            <span className="hidden sm:inline">Entregue</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* 🔑 DESTAQUE DE CÓDIGO DE VERIFICAÇÃO 2FA / OTP (CÓPIA COM 1 CLIQUE) */}
