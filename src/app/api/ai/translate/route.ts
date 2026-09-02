@@ -71,13 +71,17 @@ export async function POST(req: Request) {
         }
 
         if (translatedBody) {
+          // Se o original era HTML rico mas a tradução perdeu as tags ou ficou truncada, preserva o HTML original
+          const isTruncatedHtml = isHtml && text.length > 300 && (!translatedBody.includes('<') || translatedBody.length < text.length * 0.25);
+          const safeBody = isTruncatedHtml ? text : translatedBody;
+
           return NextResponse.json({ 
-            translatedText: translatedBody,
+            translatedText: safeBody,
             translatedSubject: translatedSubject || subject,
             detectedSourceLang,
             targetLang: target,
             targetLangName: langName,
-            isHtml: !!isHtml
+            isHtml: !!isHtml && !isTruncatedHtml
           });
         }
       }
@@ -117,13 +121,17 @@ ${text}`;
       if (rawJson) {
         try {
           const parsed = JSON.parse(rawJson);
+          const gBody = parsed.translatedBody || text;
+          const isTruncatedHtml = isHtml && text.length > 300 && (!gBody.includes('<') || gBody.length < text.length * 0.25);
+          const safeBody = isTruncatedHtml ? text : gBody;
+
           return NextResponse.json({ 
-            translatedText: parsed.translatedBody || text,
+            translatedText: safeBody,
             translatedSubject: parsed.translatedSubject || subject,
             detectedSourceLang: "AUTO",
             targetLang: target,
             targetLangName: langName,
-            isHtml: !!isHtml
+            isHtml: !!isHtml && !isTruncatedHtml
           });
         } catch(e) {}
       }

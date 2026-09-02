@@ -324,9 +324,9 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
 
           <div className="h-4 w-px bg-white/10 mx-1"></div>
 
-          {/* DeepL Translation Buttons */}
+          {/* Translation Buttons */}
           <div className="flex items-center gap-1 text-[10px]">
-            <span className="text-zinc-500 font-medium mr-1">DeepL Traduzir:</span>
+            <span className="text-zinc-400 font-medium mr-1">🌐 Traduzir:</span>
             {["EN", "ES", "FR", "DE", "PT"].map((lang) => (
               <button 
                 key={lang}

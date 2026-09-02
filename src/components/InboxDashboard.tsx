@@ -60,33 +60,45 @@ export interface EmailTranslation {
 // Detetor Inteligente de Língua Estrangeira (Inglês/Internacional vs Português)
 function isLikelyForeignLanguage(subject: string, body: string, userLang: string = 'PT-PT'): boolean {
   if (!userLang.startsWith('PT')) return false;
-  const sample = (subject + ' ' + body).toLowerCase().slice(0, 1000);
   
-  const foreignWords = [
-    'the ', 'to ', 'and ', 'you ', 'your ', 'for ', 'with ', 'from ', 
-    'have ', 'this ', 'that ', 'will ', 'thanks', 'please', 'welcome', 
-    'verify', 'account', 'security', 'report', 'digest', 'message', 
-    'connection', 'reached out', 'invited', 'team', 'hi ', 'hello',
-    'joined', 'confirmation', 'click here', 'subject:', 'hi edson'
-  ];
-  
-  const ptWords = [
-    'você', 'voce', 'para ', 'com ', 'não ', 'nao ', 'está ', 'esta ', 
-    'uma ', 'pela ', 'pelo ', 'obrigado', 'olá', 'ola', 'seus', 'sua ', 
-    'mensagem', 'enviar', 'recebido', 'código', 'segurança'
-  ];
+  // Limpar tags HTML para analisar apenas texto legível
+  const plainText = (subject + ' ' + body)
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
+    .toLowerCase()
+    .slice(0, 2000);
 
-  let foreignScore = 0;
-  for (const w of foreignWords) {
-    if (sample.includes(w)) foreignScore++;
-  }
+  // Palavras inequívocas e fortes em Português
+  const ptPatterns = [
+    /\b(você|voce|olá|ola|obrigado|obrigada|atenciosamente|saudações|abraço|prezado|prezada)\b/i,
+    /\b(não|nao|está|estao|estamos|foram|será|serao|quando|muito|mais|todos|todas)\b/i,
+    /\b(documento|acesso|novo|nova|clique|favor|confirmar|recebido|enviar|mensagem)\b/i,
+    /\b(segurança|código|conta|utilizador|usuario|assinatura|assinado|concluído|concluido)\b/i,
+    /\b(para mim|pela|pelo|pelos|pelas|nossa|nosso|nossos|nossas|seus|suas)\b/i
+  ];
 
   let ptScore = 0;
-  for (const w of ptWords) {
-    if (sample.includes(w)) ptScore++;
+  for (const regex of ptPatterns) {
+    if (regex.test(plainText)) ptScore++;
+  }
+  // Se tem pelo menos 1 termo claro em português, É PORTUGUÊS! NÃO TRADUZIR!
+  if (ptScore >= 1) return false;
+
+  // Palavras em Inglês com limites de palavra
+  const enPatterns = [
+    /\b(the|and|you|your|with|from|have|this|that|will|would|should)\b/i,
+    /\b(thanks|thank you|please|welcome|verify|verification|account|security|report)\b/i,
+    /\b(digest|connection|reached out|invited|joined|team|hi|hello|dear)\b/i,
+    /\b(confirmation|click here|subject|view invitation|connect with)\b/i
+  ];
+
+  let enScore = 0;
+  for (const regex of enPatterns) {
+    if (regex.test(plainText)) enScore++;
   }
 
-  return foreignScore >= 2 && foreignScore > ptScore;
+  return enScore >= 3 && enScore > ptScore;
 }
 
 const TRANSLATION_LANGUAGES = [
@@ -894,12 +906,17 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       });
       const data = await res.json();
       if (data.translatedText) {
+        const hasOriginalHtml = Boolean(selectedEmail.html && selectedEmail.html.includes('<'));
+        const translationHasHtml = Boolean(data.translatedText.includes('<'));
+        const safeIsHtml = hasOriginalHtml ? (translationHasHtml && data.isHtml) : data.isHtml;
+        const safeBody = (hasOriginalHtml && !translationHasHtml) ? selectedEmail.html : data.translatedText;
+
         const updated: Record<string, EmailTranslation> = {
           ...translations,
           [emailId]: {
-            text: data.translatedText,
+            text: safeBody,
             subject: data.translatedSubject || selectedEmail.subject,
-            isHtml: data.isHtml ?? isHtml,
+            isHtml: safeIsHtml,
             lang: langToUse,
             detectedSourceLang: data.detectedSourceLang,
             showOriginal: false,
@@ -929,6 +946,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     if (!selectedEmail) return;
     const emailId = selectedEmail.id;
     const currentTrans = translations[emailId];
+
+    // Se o email tem HTML rico mas a tradução em cache é apenas texto simples corrupto de 1 linha:
+    if (currentTrans && selectedEmail.html && selectedEmail.html.includes('<') && (!currentTrans.text || !currentTrans.text.includes('<'))) {
+      const copy = { ...translations };
+      delete copy[emailId];
+      saveTranslations(copy);
+      return;
+    }
 
     // Se já existia tradução antiga guardada sem o assunto traduzido, atualiza automaticamente:
     if (currentTrans && !currentTrans.subject && !currentTrans.showOriginal && selectedEmail.subject && !isTranslating) {
@@ -1614,12 +1639,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </div>
 
                   {/* Body Content com Seleção Total de Texto e Preservação de HTML */}
-                  {isShowingTranslation && currentTranslation?.isHtml ? (
+                  {isShowingTranslation && currentTranslation?.isHtml && currentTranslation.text && currentTranslation.text.includes('<') ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
                       dangerouslySetInnerHTML={{ __html: currentTranslation.text }}
                     />
-                  ) : selectedEmail.html && !isShowingTranslation ? (
+                  ) : selectedEmail.html ? (
                     <div 
                       className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
                       dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
