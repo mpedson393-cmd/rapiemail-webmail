@@ -9,7 +9,8 @@ import {
   CheckCircle2, ChevronDown, Paperclip, Check, CheckCheck, 
   Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
   Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
-  Sparkles, Copy, KeyRound, Globe2, RotateCcw
+  Sparkles, Copy, KeyRound, Globe2, RotateCcw, Video, ExternalLink, 
+  HelpCircle, CalendarCheck2
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -219,6 +220,82 @@ function extractVerificationCode(subject: string, body: string): string | null {
   return null;
 }
 
+// Detetor e Extrator Inteligente de Reuniões e Convites de Calendário (Google Meet, Zoom, Teams, Calendly)
+export interface MeetingInviteInfo {
+  title: string;
+  dateTimeDisplay: string;
+  meetingUrl?: string;
+  meetingType: 'google_meet' | 'zoom' | 'teams' | 'generic';
+  organizer: string;
+  participantsInfo?: string;
+}
+
+function extractMeetingInvite(subject: string, body: string, from: string): MeetingInviteInfo | null {
+  if (!subject && !body) return null;
+  const fullText = `${subject}\n${body}`;
+
+  // Verificar se é um convite de reunião ou agendamento
+  const isMeeting = 
+    /(?:appointment|meeting|reunião|reuniao|convite|invitation|discovery call|interview|1:1|calendar invite|videocall|agendamento|dashboard experience)/i.test(subject) ||
+    /(?:meet\.google\.com|zoom\.us\/j|teams\.microsoft\.com|calendly\.com|cal\.com)/i.test(fullText) ||
+    fullText.includes("Join with Google Meet") ||
+    fullText.includes("Entrar na reunião");
+
+  if (!isMeeting) return null;
+
+  // Extrair Link da Reunião
+  let meetingUrl: string | undefined;
+  let meetingType: MeetingInviteInfo['meetingType'] = 'generic';
+
+  const meetMatch = fullText.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  const zoomMatch = fullText.match(/https:\/\/[a-z0-9.]*zoom\.us\/j\/[0-9?=&-]+/i);
+  const teamsMatch = fullText.match(/https:\/\/teams\.microsoft\.com\/[^\s"'<>]+/i);
+
+  if (meetMatch) {
+    meetingUrl = meetMatch[0];
+    meetingType = 'google_meet';
+  } else if (zoomMatch) {
+    meetingUrl = zoomMatch[0];
+    meetingType = 'zoom';
+  } else if (teamsMatch) {
+    meetingUrl = teamsMatch[0];
+    meetingType = 'teams';
+  }
+
+  // Extrair Data / Horário
+  let dateTimeDisplay = "";
+  const dateMatch = fullText.match(/(?:sexta-feira|segunda-feira|terça-feira|quarta-feira|quinta-feira|sábado|domingo|friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]+,\s*\d+[:h]\d+\s*(?:-|–|to)\s*[^,\n\r<]+/i) ||
+                    fullText.match(/(?:friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]+,\s*\d+:\d+(?:am|pm)?\s*(?:-|–|to)\s*[^,\n\r<]+/i) ||
+                    fullText.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?,\s*\d{1,2}:\d{2}\s*(?:-|–)\s*\d{1,2}:\d{2}\b/);
+
+  if (dateMatch) {
+    dateTimeDisplay = dateMatch[0].replace(/<[^>]*>/g, '').trim();
+  }
+
+  // Extrair Organizador
+  const organizerMatch = from.match(/^(.*?)\s*<([^>]+)>/) || [null, from, from];
+  const organizerName = organizerMatch[1]?.replace(/["']/g, '').trim() || from;
+  const organizerEmail = organizerMatch[2]?.trim() || "";
+  const organizer = organizerEmail ? `${organizerName} <${organizerEmail}>` : organizerName;
+
+  // Título limpo
+  let cleanTitle = subject
+    .replace(/^appointment booked:\s*/i, '')
+    .replace(/^invitation:\s*/i, '')
+    .replace(/^convite:\s*/i, '')
+    .replace(/^reunião:\s*/i, '')
+    .trim();
+
+  return {
+    title: cleanTitle || "Reunião Agendada",
+    dateTimeDisplay: dateTimeDisplay || "Data e hora indicadas no convite",
+    meetingUrl,
+    meetingType,
+    organizer,
+    participantsInfo: `${organizer} (organizador) · Participantes incluídos`
+  };
+}
+
 // Limpar snippet da lista de e-mails (remove logos, CSS embutido, tags, links)
 function cleanSnippetText(body: string): string {
   if (!body) return "";
@@ -421,6 +498,35 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   const [selectedTargetLang, setSelectedTargetLang] = useState<string>('PT-PT');
   const [isTranslating, setIsTranslating] = useState(false);
+
+  // Estado de RSVP de Reuniões e Sincronização com Calendário
+  const [meetingRsvpMap, setMeetingRsvpMap] = useState<Record<string, 'accepted' | 'tentative' | 'declined'>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('rapi_meeting_rsvp');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+    }
+    return {};
+  });
+
+  const handleRsvp = (emailId: string, status: 'accepted' | 'tentative' | 'declined') => {
+    const updated = { ...meetingRsvpMap, [emailId]: status };
+    setMeetingRsvpMap(updated);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('rapi_meeting_rsvp', JSON.stringify(updated));
+      } catch(e) {}
+    }
+    if (status === 'accepted') {
+      setToastMessage("📅 Reunião aceite e adicionada ao teu Calendário!");
+    } else if (status === 'tentative') {
+      setToastMessage("❓ Marcado como talvez.");
+    } else {
+      setToastMessage("✖️ Convite de reunião recusado.");
+    }
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const prevEmailCountRef = useRef<number>(initialEmails.length);
   const [isLight, setIsLight] = useState<boolean>(true);
@@ -980,6 +1086,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const currentTranslation = selectedEmail ? translations[selectedEmail.id] : null;
   const isShowingTranslation = Boolean(currentTranslation && !currentTranslation.showOriginal);
 
+  // Deteção Inteligente de Reuniões / Convites
+  const detectedMeeting = selectedEmail ? extractMeetingInvite(selectedEmail.subject, selectedEmail.body, selectedEmail.from) : null;
+  const meetingRsvpState = selectedEmail ? meetingRsvpMap[selectedEmail.id] : undefined;
+
   // Conteúdo ativo a exibir (Traduzido ou Original)
   const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
 
@@ -1534,6 +1644,103 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       </div>
                     )}
                   </div>
+
+                  {/* 📅 DESTAQUE DE REUNIÃO / CONVITE DE CALENDÁRIO COM RSVP INTELIGENTE (GOOGLE MEET / ZOOM / TEAMS) */}
+                  {detectedMeeting && (
+                    <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-[#12141C] border border-[#E5E7EB] dark:border-white/10 shadow-sm space-y-4 animate-in fade-in duration-200 select-none">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                        <div className="space-y-1.5 flex-1">
+                          <h3 className="text-sm md:text-base font-bold text-[#202124] dark:text-white leading-tight">
+                            {detectedMeeting.title}
+                          </h3>
+
+                          {detectedMeeting.dateTimeDisplay && (
+                            <div className="flex items-center gap-1.5 text-xs text-[#5F6368] dark:text-zinc-300 font-medium">
+                              <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span>{detectedMeeting.dateTimeDisplay}</span>
+                            </div>
+                          )}
+
+                          {detectedMeeting.meetingUrl && (
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <Video className="w-3.5 h-3.5 text-[#1A73E8] shrink-0" />
+                              <a
+                                href={detectedMeeting.meetingUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[#1A73E8] hover:underline font-semibold flex items-center gap-1 break-all"
+                              >
+                                <span>{detectedMeeting.meetingUrl}</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          )}
+
+                          <div className="text-[11px] text-zinc-400">
+                            <span>{detectedMeeting.participantsInfo}</span>
+                          </div>
+                        </div>
+
+                        {detectedMeeting.meetingUrl && (
+                          <a
+                            href={detectedMeeting.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-4 py-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
+                          >
+                            <Video className="w-4 h-4" />
+                            <span>Entrar na Reunião</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Botões de Resposta RSVP (Recusar, Talvez, Aceite) */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-[#F1F3F4] dark:border-white/5 flex-wrap">
+                        <button
+                          onClick={() => handleRsvp(selectedEmail.id, 'declined')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            meetingRsvpState === 'declined'
+                              ? 'bg-red-500 text-white shadow-xs'
+                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                          }`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Recusar</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleRsvp(selectedEmail.id, 'tentative')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            meetingRsvpState === 'tentative'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                          }`}
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          <span>Talvez</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleRsvp(selectedEmail.id, 'accepted')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            meetingRsvpState === 'accepted'
+                              ? 'bg-[#1A73E8] text-white shadow-xs'
+                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                          }`}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Aceite</span>
+                        </button>
+
+                        {meetingRsvpState === 'accepted' && (
+                          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 ml-2">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Confirmado no Calendário</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 🔑 DESTAQUE DE CÓDIGO DE VERIFICAÇÃO 2FA / OTP (CÓPIA COM 1 CLIQUE) */}
                   {detectedOtpCode && (
