@@ -525,6 +525,80 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
   );
 }
 
+// Renderizador Inteligente de E-mails HTML com Detetor e Colapso de Histórico (Estilo Gmail)
+function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
+  const [showQuoted, setShowQuoted] = useState(false);
+
+  // Detetar marcadores de citação do Gmail, Outlook, Apple Mail e Webmail
+  const quoteMarkers = [
+    '<div class="gmail_quote',
+    '<div class="gmail_attr',
+    '<blockquote class="gmail_quote',
+    '<blockquote',
+    'id="appendonsend"',
+    'id="divRplyFwdMsg"',
+    'class="yahoo_quoted"',
+    '---------- Mensagem original ----------',
+    '----- Original Message -----'
+  ];
+
+  let splitIndex = -1;
+
+  for (const marker of quoteMarkers) {
+    const idx = htmlContent.indexOf(marker);
+    if (idx !== -1 && (splitIndex === -1 || idx < splitIndex)) {
+      splitIndex = idx;
+    }
+  }
+
+  if (splitIndex !== -1 && splitIndex > 0) {
+    const mainHtml = htmlContent.substring(0, splitIndex).trim();
+    const quotedHtml = htmlContent.substring(splitIndex).trim();
+
+    return (
+      <div className="space-y-4 select-text cursor-text">
+        {/* Conteúdo Principal do E-mail (Mensagem Nova) */}
+        <div 
+          className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
+          dangerouslySetInnerHTML={{ __html: mainHtml }}
+        />
+
+        {/* Histórico Anterior Formatado Estilo Gmail com Botão (...) */}
+        <div className="pt-2 select-none">
+          <button
+            type="button"
+            onClick={() => setShowQuoted(!showQuoted)}
+            className="px-2.5 py-1 rounded-md bg-[#F1F3F4] dark:bg-white/10 hover:bg-[#E8EAED] dark:hover:bg-white/15 text-zinc-600 dark:text-zinc-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            title={showQuoted ? "Ocultar histórico de mensagens" : "Mostrar mensagens anteriores"}
+          >
+            <span>...</span>
+            <span className="text-[11px] font-medium text-zinc-500">
+              {showQuoted ? "Ocultar mensagens anteriores" : "Mostrar mensagens anteriores"}
+            </span>
+          </button>
+
+          {showQuoted && (
+            <div className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/[0.02] animate-in fade-in duration-150 select-text">
+              <div 
+                className="email-rich-html text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 select-text"
+                dangerouslySetInnerHTML={{ __html: quotedHtml }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Se não tem bloco de citação separado, exibe o HTML normalmente
+  return (
+    <div 
+      className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+    />
+  );
+}
+
 function renderParagraphs(text: string) {
   return text.split('\n\n').map((para, idx) => (
     <p key={idx} className="whitespace-pre-line leading-relaxed select-text">
@@ -2097,17 +2171,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     </div>
                   </div>
 
-                  {/* Body Content com Seleção Total de Texto e Preservação de HTML */}
+                  {/* Body Content com Seleção Total de Texto, Preservação de HTML e Colapso de Histórico */}
                   {isShowingTranslation && currentTranslation?.isHtml && currentTranslation.text && currentTranslation.text.includes('<') ? (
-                    <div 
-                      className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
-                      dangerouslySetInnerHTML={{ __html: currentTranslation.text }}
-                    />
+                    <SmartEmailHtmlRenderer htmlContent={currentTranslation.text} />
                   ) : selectedEmail.html ? (
-                    <div 
-                      className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
-                      dangerouslySetInnerHTML={{ __html: selectedEmail.html }}
-                    />
+                    <SmartEmailHtmlRenderer htmlContent={selectedEmail.html} />
                   ) : (
                     <div className={`text-sm md:text-[15px] leading-relaxed space-y-4 font-normal select-text cursor-text ${
                       isLight ? 'text-[#202124]' : 'text-[#E8EAED]'

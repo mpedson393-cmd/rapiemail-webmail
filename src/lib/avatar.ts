@@ -367,8 +367,11 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
       if (userPart && userPart.length > 2 && !userPart.includes('.')) {
         candidates.push(`https://unavatar.io/github/${encodeURIComponent(userPart)}?fallback=false`);
       }
+      // 5. Avatar Ilustrado Moderno (DiceBear Personas)
+      const seed = encodeURIComponent(userPart || sender.name || email);
+      candidates.push(`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`);
+      candidates.push(`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`);
     }
-    // Fallback é monograma personalizado
     return candidates;
   }
 
@@ -384,6 +387,9 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     candidates.push(`https://logo.clearbit.com/${domain}`);
     candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
   }
+
+  const seed = encodeURIComponent(email || sender.name || 'user');
+  candidates.push(`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`);
 
   return candidates;
 }
