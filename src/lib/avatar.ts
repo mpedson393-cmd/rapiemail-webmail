@@ -291,8 +291,28 @@ export function setCachedAvatar(key: string, url: string) {
 // Extrair Foto Real de Perfil do LinkedIn contida dentro do HTML do e-mail
 export function extractLinkedInAvatarFromHtml(html?: string): string | null {
   if (!html) return null;
-  const match = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^\s"'<>?]+\?[^\s"'<>]+/i) ||
-                html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^\s"'<>]+/i);
+  const matches = html.match(/https:\/\/[a-z0-9\-_.]*licdn\.com\/dms\/image\/[^\s"'<>?]+\?[^\s"'<>]+/gi) ||
+                  html.match(/https:\/\/[a-z0-9\-_.]*licdn\.com\/dms\/image\/[^\s"'<>]+/gi) ||
+                  html.match(/https:\/\/[a-z0-9\-_.]*licdn\.com\/mpr\/[^\s"'<>]+/gi);
+  if (matches && matches.length > 0) {
+    const profileImg = matches.find(m => 
+      m.includes('profile-framedphoto') || 
+      m.includes('profile-displayphoto') || 
+      m.includes('shrink_') || 
+      m.includes('member')
+    ) || matches[0];
+    return profileImg.replace(/&amp;/g, '&');
+  }
+  return null;
+}
+
+// Extrair Link Direto para o Perfil do LinkedIn
+export function extractLinkedInProfileUrl(html?: string, body?: string): string | null {
+  const full = `${html || ''} ${body || ''}`;
+  if (!full) return null;
+  const match = full.match(/https:\/\/[a-z0-9\-_.]*linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i) ||
+                full.match(/https:\/\/[a-z0-9\-_.]*linkedin\.com\/comm\/mynetwork\/[^\s"'<>]+/i) ||
+                full.match(/https:\/\/[a-z0-9\-_.]*linkedin\.com\/comm\/in\/[^\s"'<>]+/i);
   if (match && match[0]) {
     return match[0].replace(/&amp;/g, '&');
   }
@@ -302,25 +322,28 @@ export function extractLinkedInAvatarFromHtml(html?: string): string | null {
 // Obter Lista de URLs Candidatas para o Avatar em Ordem Inteligente de Prioridade
 export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl?: string | null): string[] {
   const candidates: string[] = [];
-  const cacheKey = (customAvatarUrl || sender.email || sender.name).trim().toLowerCase();
+  const cacheKey = (customAvatarUrl || (sender.isCompanyService && sender.name && sender.name.toLowerCase() !== 'linkedin' ? `${sender.domain}_${sender.name.toLowerCase()}` : sender.email || sender.name)).trim().toLowerCase();
 
-  // 1. Se já temos a foto guardada em Cache (Carregamento instantâneo em 0ms)
-  const cached = getCachedAvatar(cacheKey);
-  if (cached) {
-    candidates.push(cached);
+  // 1. Avatar personalizado explícito (ex: foto extraída do HTML do email específico)
+  if (customAvatarUrl) {
+    candidates.push(customAvatarUrl);
   }
 
-  if (customAvatarUrl && !candidates.includes(customAvatarUrl)) {
-    candidates.push(customAvatarUrl);
+  // 2. Se já temos a foto guardada em Cache para esta pessoa / remetente
+  const cached = getCachedAvatar(cacheKey);
+  if (cached && !candidates.includes(cached)) {
+    candidates.push(cached);
   }
 
   const { email, domain, isCompanyService, isFreePersonalEmail } = sender;
 
   // CASO 1: Contas de Serviço / Empresa (ex: LinkedIn, Stripe, PawaPay Support)
   if (isCompanyService && domain && !isFreePersonalEmail) {
-    candidates.push(`https://logo.clearbit.com/${domain}`);
-    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-    candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    if (candidates.length === 0) {
+      candidates.push(`https://logo.clearbit.com/${domain}`);
+      candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+      candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    }
     return candidates;
   }
 
@@ -345,19 +368,18 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
         candidates.push(`https://unavatar.io/github/${encodeURIComponent(userPart)}?fallback=false`);
       }
     }
-    // NUNCA colocar o logo do Gmail para uma pessoa! Se não tiver foto, o fallback será o monograma da pessoa.
+    // Fallback é monograma personalizado
     return candidates;
   }
 
   // CASO 3: Pessoas Individuais com Email Corporativo (ex: tymur.v@sensus.tech, filipe.abrantes@bel.money)
-  // Prioridade 1: Foto Pessoal do Indivíduo (Gravatar / Redes Sociais / Google)
   if (email) {
     const emailHash = md5(email.trim().toLowerCase());
     candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
     candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
   }
 
-  // Prioridade 2: Logótipo da Empresa onde a pessoa trabalha (se não tiver foto pessoal cadastrada)
+  // Logótipo da Empresa como fallback para e-mails corporativos
   if (domain) {
     candidates.push(`https://logo.clearbit.com/${domain}`);
     candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);

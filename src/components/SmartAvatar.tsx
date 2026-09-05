@@ -20,13 +20,16 @@ const SIZE_MAP = {
 
 export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = '' }: SmartAvatarProps) {
   const sender: ParsedSenderInfo = parseSenderDetails(from);
-  const cacheKey = (customAvatarUrl || sender.email || sender.name).trim().toLowerCase();
+  const cacheKey = (
+    customAvatarUrl || 
+    (sender.isCompanyService && sender.name && sender.name.toLowerCase() !== 'linkedin' 
+      ? `${sender.domain}_${sender.name.toLowerCase()}` 
+      : (sender.email || sender.name))
+  ).trim().toLowerCase();
 
   const [candidates, setCandidates] = useState<string[]>(() => getAvatarCandidateUrls(sender, customAvatarUrl));
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [hasLoaded, setHasLoaded] = useState(() => {
-    return Boolean(getCachedAvatar(cacheKey));
-  });
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Resetar índice se o remetente mudar
   useEffect(() => {

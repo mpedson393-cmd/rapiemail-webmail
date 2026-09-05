@@ -18,7 +18,7 @@ import { RapiSiteBuilderModal } from './RapiSiteBuilderModal';
 import { CalendarView } from './CalendarView';
 import { ContactsView } from './ContactsView';
 import { SmartAvatar } from './SmartAvatar';
-import { parseSenderDetails, extractLinkedInAvatarFromHtml, setCachedAvatar } from '@/lib/avatar';
+import { parseSenderDetails, extractLinkedInAvatarFromHtml, extractLinkedInProfileUrl, setCachedAvatar } from '@/lib/avatar';
 
 export interface EmailAttachment {
   filename: string;
@@ -396,58 +396,131 @@ function cleanPlainTextBody(text: string): string {
     .replace(/\[image:\s*([^\]]+)\]\s*<([^%>\s]+)(?:%3E|>)?/gi, '$1: $2')
     .replace(/\[image:\s*([^\]]+)\]/gi, '')
     .replace(/\[\s*[^\]]*logo[^\]]*\|?\s*\]/gi, '')
-    .replace(/<([^>\s]+)%3E/gi, '$1')
-    .replace(/<([^>\s]+)>/g, '$1')
+    .replace(/<([^>\s@]+@[^>\s]+)%3E/gi, '$1')
+    .replace(/<([^>\s@]+@[^>\s]+)>/g, '$1')
     .replace(/%3E/gi, '')
+    .replace(/%3C/gi, '')
     .trim();
 }
 
-// Renderizador Inteligente com Seleção Livre de Texto e Colapso de Quotes
+interface ThreadMessage {
+  header?: string;
+  sender?: string;
+  date?: string;
+  body: string;
+}
+
+// Separador Inteligente de Threads e Respostas Anteriores (Remove caracteres feios <> e organiza por data/hora)
+function parseEmailThread(fullText: string): { mainMessage: string; quotedMessages: ThreadMessage[] } {
+  if (!fullText) return { mainMessage: "", quotedMessages: [] };
+
+  const cleaned = cleanPlainTextBody(fullText);
+
+  // Padrão que divide a mensagem principal das mensagens citadas / histórico anterior:
+  const threadSplitRegex = /(?:^|\n)(?=(?:A\s+(?:segunda|terça|quarta|quinta|sexta|sábado|domingo|seg|ter|qua|qui|sex|sáb|dom)[^\n]*,\s*escreveu:|Em\s+\d{1,2}\s+de\s+[a-zA-Zç]+\s+de\s+\d{4}[^\n]*,\s*escreveu:|On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+[^\n]*wrote:|[-]{3,}\s*(?:Mensagem original|Original Message)\s*[-]{3,}|(?:De|From):\s*["']?[^<\n]+["']?\s*(?:<[^>]+>)?\s*\n\s*(?:Data|Date|Sent):))/i;
+
+  const match = cleaned.search(threadSplitRegex);
+  if (match === -1) {
+    return { mainMessage: cleaned, quotedMessages: [] };
+  }
+
+  const mainMessage = cleaned.substring(0, match).trim();
+  const rawHistory = cleaned.substring(match).trim();
+
+  // Dividir as várias mensagens anteriores no histórico
+  const singleThreadRegex = /(?:A\s+(?:segunda|terça|quarta|quinta|sexta|sábado|domingo|seg|ter|qua|qui|sex|sáb|dom)[^\n]*,\s*escreveu:|Em\s+\d{1,2}\s+de\s+[a-zA-Zç]+\s+de\s+\d{4}[^\n]*,\s*escreveu:|On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+[^\n]*wrote:|[-]{3,}\s*(?:Mensagem original|Original Message)\s*[-]{3,}|(?:De|From):\s*["']?[^<\n]+["']?\s*(?:<[^>]+>)?\s*\n\s*(?:Data|Date|Sent):[^\n]*)/gi;
+
+  const parts: ThreadMessage[] = [];
+  const splits = rawHistory.split(singleThreadRegex);
+  const headers = rawHistory.match(singleThreadRegex) || [];
+
+  if (headers.length > 0) {
+    for (let i = 0; i < headers.length; i++) {
+      const rawHeader = headers[i]?.trim() || "";
+      const rawBody = (splits[i + 1] || splits[i] || "").trim();
+
+      // Limpar o corpo das linhas com prefixo > e remover tags feias
+      const cleanBody = rawBody
+        .split('\n')
+        .map(line => line.replace(/^>\s?/g, '').trim())
+        .join('\n')
+        .replace(/<([^>\s@]+@[^>\s]+)>/g, '$1')
+        .trim();
+
+      if (cleanBody || rawHeader) {
+        parts.push({
+          header: rawHeader.replace(/[-]{3,}/g, '').trim(),
+          body: cleanBody
+        });
+      }
+    }
+  } else {
+    // Fallback: uma única mensagem histórica limpa
+    const cleanFallback = rawHistory
+      .split('\n')
+      .map(line => line.replace(/^>\s?/g, '').trim())
+      .join('\n')
+      .replace(/<([^>\s@]+@[^>\s]+)>/g, '$1')
+      .trim();
+
+    parts.push({
+      header: "Mensagem Anterior",
+      body: cleanFallback
+    });
+  }
+
+  return { mainMessage: mainMessage || cleaned, quotedMessages: parts };
+}
+
+// Renderizador Inteligente com Seleção Livre de Texto e Visualização Elegante de Histórico
 function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
   const [showQuoted, setShowQuoted] = useState(false);
-  const cleanedText = cleanPlainTextBody(bodyText);
+  const { mainMessage, quotedMessages } = useMemo(() => parseEmailThread(bodyText), [bodyText]);
 
-  const quoteSplitMatch = cleanedText.match(/(?:On\s+[A-Za-z]+,\s+[A-Za-z]+\s+\d+.*wrote:|>+\s+On\s+.*wrote:)/i);
-  
-  if (quoteSplitMatch && quoteSplitMatch.index !== undefined) {
-    const mainMessage = cleanedText.substring(0, quoteSplitMatch.index).trim();
-    const quotedContent = cleanedText.substring(quoteSplitMatch.index).trim();
+  return (
+    <div className="space-y-4 select-text cursor-text">
+      {/* Mensagem Principal / Mais Recente */}
+      <div className="space-y-3 select-text">
+        {renderParagraphs(mainMessage)}
+      </div>
 
-    return (
-      <div className="space-y-4 select-text cursor-text">
-        <div className="space-y-3 select-text">
-          {renderParagraphs(mainMessage)}
-        </div>
-
+      {/* Histórico Anterior Formatado Estilo Gmail */}
+      {quotedMessages.length > 0 && (
         <div className="pt-2 select-none">
           <button
+            type="button"
             onClick={() => setShowQuoted(!showQuoted)}
             className="px-2.5 py-1 rounded-md bg-[#F1F3F4] dark:bg-white/10 hover:bg-[#E8EAED] dark:hover:bg-white/15 text-zinc-600 dark:text-zinc-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-            title={showQuoted ? "Ocultar texto citado" : "Mostrar texto citado"}
+            title={showQuoted ? "Ocultar histórico de mensagens" : "Mostrar mensagens anteriores"}
           >
             <span>...</span>
             <span className="text-[11px] font-medium text-zinc-500">
-              {showQuoted ? "Ocultar histórico" : "Mostrar histórico anterior"}
+              {showQuoted ? "Ocultar mensagens anteriores" : `Mostrar histórico anterior (${quotedMessages.length})`}
             </span>
           </button>
 
           {showQuoted && (
-            <div className="mt-3 pl-4 border-l-2 border-[#CBD5E1] dark:border-zinc-700 text-[#5F6368] dark:text-zinc-400 text-xs font-mono space-y-2 animate-in fade-in duration-150 select-text">
-              {quotedContent.split('\n\n').map((qPara, qIdx) => (
-                <p key={qIdx} className="whitespace-pre-line leading-relaxed select-text">
-                  {renderInlineLinks(qPara)}
-                </p>
+            <div className="mt-4 space-y-4 animate-in fade-in duration-150 select-text">
+              {quotedMessages.map((msg, qIdx) => (
+                <div 
+                  key={qIdx} 
+                  className="p-3.5 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/80 dark:bg-white/[0.02] space-y-2 select-text"
+                >
+                  {msg.header && (
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#1A73E8] dark:text-blue-400 border-b border-zinc-200/60 dark:border-white/5 pb-2">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{msg.header}</span>
+                    </div>
+                  )}
+                  <div className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 space-y-2 select-text">
+                    {renderParagraphs(msg.body)}
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 select-text cursor-text">
-      {renderParagraphs(cleanedText)}
+      )}
     </div>
   );
 }
@@ -525,15 +598,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   });
 
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
-  const [starredIds, setStarredIds] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('rapi_starred_ids');
-        if (saved) return new Set(JSON.parse(saved));
-      } catch(e) {}
-    }
-    return new Set();
-  });
+  const [mounted, setMounted] = useState(false);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -542,24 +608,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   // Estados Mobile & Notificações
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      if (localStorage.getItem('rapi_alerts_enabled') === 'true') return true;
-      if ('Notification' in window && Notification.permission === 'granted') return true;
-    }
-    return false;
-  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
 
   // Estado de Tradução Persistente com Seleção Livre de Línguas e Preservação de HTML
-  const [translations, setTranslations] = useState<Record<string, EmailTranslation>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('rapi_email_translations');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return {};
-  });
+  const [translations, setTranslations] = useState<Record<string, EmailTranslation>>({});
 
   const saveTranslations = (newTranslations: Record<string, EmailTranslation>) => {
     setTranslations(newTranslations);
@@ -574,15 +626,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [isTranslating, setIsTranslating] = useState(false);
 
   // Estado de RSVP de Reuniões e Sincronização com Calendário
-  const [meetingRsvpMap, setMeetingRsvpMap] = useState<Record<string, 'accepted' | 'tentative' | 'declined'>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('rapi_meeting_rsvp');
-        if (saved) return JSON.parse(saved);
-      } catch(e) {}
-    }
-    return {};
-  });
+  const [meetingRsvpMap, setMeetingRsvpMap] = useState<Record<string, 'accepted' | 'tentative' | 'declined'>>({});
 
   const handleRsvp = (emailId: string, status: 'accepted' | 'tentative' | 'declined') => {
     const updated = { ...meetingRsvpMap, [emailId]: status };
@@ -600,6 +644,28 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       setToastMessage("✖️ Convite de reunião recusado.");
     }
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Arquivar E-mail (Mover para Pasta Arquivo)
+  const handleArchiveEmail = async (id?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const emailId = id || selectedEmail?.id;
+    if (!emailId) return;
+
+    setEmails(prev => prev.map(item => item.id === emailId ? { ...item, folder: 'ARCHIVE' } : item));
+    setToastMessage("📦 Mensagem arquivada com sucesso.");
+    setTimeout(() => setToastMessage(null), 3000);
+    if (emailId === selectedEmail?.id && selectedFolder !== 'ARCHIVE') {
+      setMobileView('list');
+    }
+
+    try {
+      await fetch('/api/emails/trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: emailId, action: 'ARCHIVE', folder: 'ARCHIVE' })
+      });
+    } catch (err) {}
   };
 
   // Funções de Descarregar e Pré-visualizar Anexos / Documentos
@@ -651,7 +717,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   }, [emails]);
 
-  // 2. Inicializar Service Worker, Tema e Sincronização Automática de Push
+  // 2. Inicializar Estados Locais no Client (Prevenção Total de Erros de Hydration)
+  useEffect(() => {
+    setMounted(true);
+
+    try {
+      const savedStarred = localStorage.getItem('rapi_starred_ids');
+      if (savedStarred) setStarredIds(new Set(JSON.parse(savedStarred)));
+
+      const savedTrans = localStorage.getItem('rapi_email_translations');
+      if (savedTrans) setTranslations(JSON.parse(savedTrans));
+
+      const savedRsvp = localStorage.getItem('rapi_meeting_rsvp');
+      if (savedRsvp) setMeetingRsvpMap(JSON.parse(savedRsvp));
+
+      if (localStorage.getItem('rapi_alerts_enabled') === 'true') {
+        setNotificationsEnabled(true);
+      }
+    } catch(e) {}
+  }, []);
+
+  // 3. Inicializar Service Worker, Tema e Sincronização Automática de Push
   useEffect(() => {
     const saved = localStorage.getItem('rapi_theme');
     if (saved === 'dark') {
@@ -1200,6 +1286,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const detectedMeeting = selectedEmail ? extractMeetingInvite(selectedEmail.subject, selectedEmail.body, selectedEmail.from, selectedEmail.html) : null;
   const meetingRsvpState = selectedEmail ? meetingRsvpMap[selectedEmail.id] : undefined;
   const currentEmailAttachments = useMemo(() => extractAttachmentsFromEmail(selectedEmail), [selectedEmail]);
+  const linkedInProfileUrl = useMemo(() => {
+    if (!selectedEmail) return null;
+    return extractLinkedInProfileUrl(selectedEmail.html, selectedEmail.body);
+  }, [selectedEmail]);
 
   // Conteúdo ativo a exibir (Traduzido ou Original)
   const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
@@ -1548,7 +1638,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         <div className="mt-0.5 shrink-0">
                           <SmartAvatar 
                             from={isSent ? email.to : email.from} 
-                            customAvatarUrl={isSent ? avatarUrl : null}
+                            customAvatarUrl={isSent ? avatarUrl : (extractLinkedInAvatarFromHtml(email.html) || null)}
                             size="sm" 
                           />
                         </div>
@@ -1575,6 +1665,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                                 )
                               )}
                               <span 
+                                suppressHydrationWarning
                                 title={new Date(email.createdAt).toLocaleString('pt-PT')}
                                 className={`text-[10px] font-mono ${
                                   isUnread ? 'font-bold text-[#1A73E8]' : 'text-zinc-400'
@@ -1604,12 +1695,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           </p>
                         </div>
 
-                        <button
-                          onClick={(e) => toggleStar(email.id, e)}
-                          className="text-zinc-300 hover:text-amber-400 shrink-0 pt-0.5"
-                        >
-                          <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-amber-400 text-amber-400' : ''}`} />
-                        </button>
+                        {/* Ações Rápidas do Item */}
+                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchiveEmail(email.id, e)}
+                            title={email.folder === 'ARCHIVE' ? "Mover para Caixa de Entrada" : "Arquivar mensagem"}
+                            className="text-zinc-300 hover:text-[#1A73E8] dark:hover:text-blue-400 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => toggleStar(email.id, e)}
+                            title="Com estrela"
+                            className="text-zinc-300 hover:text-amber-400 p-0.5 cursor-pointer"
+                          >
+                            <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-amber-400 text-amber-400' : ''}`} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1664,6 +1768,28 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <button onClick={(e) => toggleStar(selectedEmail.id, e)} title="Com estrela (Favoritos)" className="hover:text-amber-400 transition-colors cursor-pointer">
                       <Star className={`w-4 h-4 ${starredIds.has(selectedEmail.id) ? 'fill-amber-400 text-amber-400' : ''}`} />
                     </button>
+
+                    {/* Botão Arquivar / Desarquivar */}
+                    {selectedEmail.folder === 'ARCHIVE' || selectedFolder === 'ARCHIVE' ? (
+                      <button 
+                        onClick={handleRestoreEmail} 
+                        title="Mover para a Caixa de Entrada" 
+                        className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors cursor-pointer text-xs font-semibold text-[#1A73E8]"
+                      >
+                        <Inbox className="w-4 h-4" />
+                        <span className="hidden lg:inline">Desarquivar</span>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleArchiveEmail(selectedEmail.id)} 
+                        title="Arquivar mensagem" 
+                        className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors cursor-pointer text-xs font-medium"
+                      >
+                        <Archive className="w-4 h-4" />
+                        <span className="hidden lg:inline">Arquivar</span>
+                      </button>
+                    )}
+
                     {selectedEmail.folder === 'TRASH' || selectedFolder === 'TRASH' ? (
                       <div className="flex items-center gap-2">
                         <button 
@@ -1692,6 +1818,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
                   {/* Hora Exata Real no Cabeçalho */}
                   <span 
+                    suppressHydrationWarning
                     title={new Date(selectedEmail.createdAt).toISOString()}
                     className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 font-mono"
                   >
@@ -1712,6 +1839,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className="flex items-center gap-3">
                       <SmartAvatar 
                         from={selectedEmail.from} 
+                        customAvatarUrl={extractLinkedInAvatarFromHtml(selectedEmail.html) || null}
                         size="md" 
                       />
                       <div className="min-w-0">
@@ -1722,6 +1850,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           <span className="text-xs text-zinc-500 font-medium font-mono">
                             {cleanSenderEmail}
                           </span>
+                          {linkedInProfileUrl && (
+                            <a
+                              href={linkedInProfileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0077B5]/10 text-[#0077B5] hover:bg-[#0077B5]/20 text-[11px] font-bold transition-all"
+                              title="Ver perfil completo no LinkedIn"
+                            >
+                              <Globe2 className="w-3 h-3" />
+                              <span>LinkedIn</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
                         </div>
                         <span className="text-[11px] text-zinc-400 block mt-0.5 select-text">
                           para {cleanToEmail === user.email.toLowerCase() ? 'mim' : cleanToEmail}
