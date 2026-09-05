@@ -48,6 +48,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       to: e.to,
       subject: e.subject,
       body: e.body,
+      html: e.html || undefined,
       folder: e.folder,
       read: e.read,
       createdAt: e.createdAt.toISOString(),
@@ -55,7 +56,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       isOpened: e.isOpened,
       openedAt: e.openedAt ? e.openedAt.toISOString() : undefined,
       openCount: e.openCount || 0,
-      userAgent: e.userAgent || undefined
+      userAgent: e.userAgent || undefined,
+      attachments: (e as any).attachments || undefined
     }));
   } catch (err) {
     console.error("Prisma Inbox Fetch Warning (Fallback gracefully to empty Inbox):", err);

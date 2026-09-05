@@ -66,6 +66,9 @@ model Email {
   openCount   Int       @default(0)
   userAgent   String?
 
+  // Anexos de E-mail (PDFs, Documentos, Imagens)
+  attachments Json?
+
   createdAt   DateTime  @default(now())
 }
 

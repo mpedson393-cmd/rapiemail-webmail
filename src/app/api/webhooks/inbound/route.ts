@@ -18,6 +18,14 @@ export async function POST(req: NextRequest) {
     let body = "";
     let html = "";
 
+    let attachmentsList: Array<{
+      filename: string;
+      contentType: string;
+      size: number;
+      content?: string;
+      cid?: string;
+    }> = [];
+
     if (contentType.includes("application/json")) {
       const json = await req.json();
 
@@ -30,8 +38,17 @@ export async function POST(req: NextRequest) {
           subject = parsed.subject || json.subject || "(Sem assunto)";
           body = parsed.text || parsed.html ? parsed.text || "" : json.body || "";
           html = parsed.html || json.html || "";
+
+          if (parsed.attachments && Array.isArray(parsed.attachments)) {
+            attachmentsList = parsed.attachments.map(att => ({
+              filename: att.filename || "anexo",
+              contentType: att.contentType || "application/octet-stream",
+              size: att.size || (att.content ? att.content.length : 0),
+              content: att.content ? `data:${att.contentType || 'application/octet-stream'};base64,${att.content.toString('base64')}` : undefined,
+              cid: att.cid || undefined
+            }));
+          }
         } catch (e) {
-          // Fallback caso a análise do raw falhe
           to = json.to || "";
           from = json.from || "";
           subject = json.subject || "(Sem assunto)";
@@ -45,6 +62,15 @@ export async function POST(req: NextRequest) {
         subject = d.subject || "(Sem assunto)";
         body = d.text || d.html?.replace(/<[^>]*>?/gm, '') || "";
         html = d.html || "";
+
+        if (d.attachments && Array.isArray(d.attachments)) {
+          attachmentsList = d.attachments.map((att: any) => ({
+            filename: att.filename || att.name || "anexo",
+            contentType: att.content_type || att.type || "application/octet-stream",
+            size: att.size || 0,
+            content: att.content ? (att.content.startsWith("data:") ? att.content : `data:${att.content_type || 'application/octet-stream'};base64,${att.content}`) : undefined
+          }));
+        }
       } else {
         // Generic JSON format
         to = Array.isArray(json.to) ? json.to[0] : (json.to || json.recipient || "");
@@ -52,6 +78,15 @@ export async function POST(req: NextRequest) {
         subject = json.subject || "(Sem assunto)";
         body = json.text || json.body || json.html?.replace(/<[^>]*>?/gm, '') || "";
         html = json.html || "";
+
+        if (json.attachments && Array.isArray(json.attachments)) {
+          attachmentsList = json.attachments.map((att: any) => ({
+            filename: att.filename || att.name || "anexo",
+            contentType: att.contentType || att.type || "application/octet-stream",
+            size: att.size || 0,
+            content: att.content || att.url || undefined
+          }));
+        }
       }
     } else if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
       // SendGrid / Mailgun Form Data format
@@ -72,6 +107,16 @@ export async function POST(req: NextRequest) {
           subject = parsed.subject || "(Sem assunto)";
           body = parsed.text || "";
           html = parsed.html || "";
+
+          if (parsed.attachments && Array.isArray(parsed.attachments)) {
+            attachmentsList = parsed.attachments.map(att => ({
+              filename: att.filename || "anexo",
+              contentType: att.contentType || "application/octet-stream",
+              size: att.size || (att.content ? att.content.length : 0),
+              content: att.content ? `data:${att.contentType || 'application/octet-stream'};base64,${att.content.toString('base64')}` : undefined,
+              cid: att.cid || undefined
+            }));
+          }
         } catch(e) {
           body = rawText;
         }
@@ -86,7 +131,7 @@ export async function POST(req: NextRequest) {
     const match = to.match(/<([^>]+)>/);
     const cleanTo = (match ? match[1] : to).trim().toLowerCase();
 
-    console.log(`[RapiEmail Universal Inbound] Email recebido para: "${cleanTo}" de "${from}" com assunto "${subject}"`);
+    console.log(`[RapiEmail Universal Inbound] Email recebido para: "${cleanTo}" de "${from}" com assunto "${subject}" (Anexos: ${attachmentsList.length})`);
 
     // Procurar utilizador correspondente no Supabase PostgreSQL
     let user = await prisma.user.findFirst({
@@ -131,7 +176,8 @@ export async function POST(req: NextRequest) {
         html: html || undefined,
         folder: "INBOX",
         read: false,
-        userId: user.id
+        userId: user.id,
+        attachments: attachmentsList.length > 0 ? (attachmentsList as any) : undefined
       }
     });
 

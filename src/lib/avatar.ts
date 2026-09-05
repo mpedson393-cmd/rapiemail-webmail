@@ -330,14 +330,16 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
       const emailHash = md5(email.trim().toLowerCase());
       const userPart = email.split('@')[0];
 
-      // 1. Gravatar Oficial
-      candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
-      // 2. Unavatar Universal (Google, Twitter/X, GitHub, Gravatar)
-      candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
-      // 3. Unavatar Google / YouTube Profile
+      // 1. Google Profile Picture (para contas @gmail.com ou Google Workspace)
       if (domain.includes('gmail') || domain.includes('google')) {
+        candidates.push(`https://profiles.google.com/s2/photos/profile/${encodeURIComponent(email)}?sz=128`);
         candidates.push(`https://unavatar.io/google/${encodeURIComponent(email)}?fallback=false`);
       }
+
+      // 2. Gravatar Oficial
+      candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+      // 3. Unavatar Universal (Google, Twitter/X, GitHub, Gravatar)
+      candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
       // 4. Unavatar por Username (para utilizadores com perfil GitHub/Twitter)
       if (userPart && userPart.length > 2 && !userPart.includes('.')) {
         candidates.push(`https://unavatar.io/github/${encodeURIComponent(userPart)}?fallback=false`);

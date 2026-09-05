@@ -21,6 +21,7 @@ interface AttachmentFile {
   size: string;
   type: string;
   url?: string;
+  content?: string;
 }
 
 export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initialSubject = "", initialBody = "" }: Props) {
@@ -81,19 +82,26 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
     setHasSignature(true);
   };
 
-  // Handle File Upload Attachment with Object URL for Visual Image Preview
+  // Handle File Upload Attachment with Data URL for base64 storage & preview
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles: AttachmentFile[] = Array.from(e.target.files).map(file => {
-        const isImage = file.type.startsWith("image/");
-        return {
-          name: file.name,
-          size: (file.size / 1024).toFixed(1) + " KB",
-          type: file.type,
-          url: isImage ? URL.createObjectURL(file) : undefined
+      const filesArray = Array.from(e.target.files);
+      filesArray.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = reader.result as string;
+          const isImage = file.type.startsWith("image/");
+          const newAtt: AttachmentFile = {
+            name: file.name,
+            size: (file.size / 1024).toFixed(1) + " KB",
+            type: file.type || "application/octet-stream",
+            url: isImage ? content : undefined,
+            content: content
+          };
+          setAttachments(prev => [...prev, newAtt]);
         };
+        reader.readAsDataURL(file);
       });
-      setAttachments(prev => [...prev, ...newFiles]);
     }
   };
 
@@ -125,10 +133,22 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
     }
 
     try {
+      const formattedAttachments = attachments.map(att => ({
+        filename: att.name,
+        contentType: att.type,
+        size: att.size,
+        content: att.content || att.url
+      }));
+
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject: finalSubject, body: finalBody })
+        body: JSON.stringify({ 
+          to, 
+          subject: finalSubject, 
+          body: finalBody,
+          attachments: formattedAttachments.length > 0 ? formattedAttachments : undefined 
+        })
       });
       const data = await res.json();
       

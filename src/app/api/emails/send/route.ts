@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const { to, subject, body } = await req.json();
+    const { to, subject, body, attachments } = await req.json();
 
     if (!to || !subject || !body) {
       return NextResponse.json({ error: "Campos em falta" }, { status: 400 });
@@ -50,13 +50,25 @@ export async function POST(req: Request) {
 
     console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para "${to}" com pixel: "${trackingPixelUrl}"...`);
 
-    const sendResult = await resend.emails.send({
+    // Formatar anexos para o Resend se existirem
+    const resendAttachments = (attachments && Array.isArray(attachments)) ? attachments.map((att: any) => ({
+      filename: att.name || att.filename || "anexo",
+      content: att.content ? (att.content.includes(',') ? att.content.split(',')[1] : att.content) : undefined,
+      path: att.url || undefined
+    })).filter((att: any) => att.content || att.path) : undefined;
+
+    const sendPayload: any = {
       from: sender,
       to: [to],
       subject: subject,
       html: htmlBody,
       replyTo: fromEmail,
-    });
+    };
+    if (resendAttachments && resendAttachments.length > 0) {
+      sendPayload.attachments = resendAttachments;
+    }
+
+    const sendResult = await resend.emails.send(sendPayload);
 
     if (sendResult.error) {
       console.error("Resend Final Error:", sendResult.error);
@@ -81,7 +93,8 @@ export async function POST(req: Request) {
           userId: user.id,
           trackingId: trackingId,
           isOpened: false,
-          openCount: 0
+          openCount: 0,
+          attachments: (attachments && attachments.length > 0) ? attachments : undefined
         }
       });
     }
@@ -103,7 +116,8 @@ export async function POST(req: Request) {
           userId: recipientUser.id,
           trackingId: trackingId,
           isOpened: false,
-          openCount: 0
+          openCount: 0,
+          attachments: (attachments && attachments.length > 0) ? attachments : undefined
         }
       });
 

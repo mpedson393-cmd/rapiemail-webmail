@@ -43,7 +43,8 @@ export async function GET(req: Request) {
       isOpened: e.isOpened,
       openedAt: e.openedAt ? e.openedAt.toISOString() : undefined,
       openCount: e.openCount || 0,
-      userAgent: e.userAgent || undefined
+      userAgent: e.userAgent || undefined,
+      attachments: (e as any).attachments || undefined
     }));
 
     return NextResponse.json({ success: true, emails: formatted });
