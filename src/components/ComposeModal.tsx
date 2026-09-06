@@ -115,7 +115,7 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
     setIsConfidential(!isConfidential);
   };
 
-  const handleSend = async (scheduleNotice?: string) => {
+  const handleSend = async (scheduleNotice?: string, scheduledAtIso?: string) => {
     if (!to || !subject || !body) {
       setError("Preencha o destinatário, assunto e a mensagem.");
       return;
@@ -147,6 +147,9 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
           to, 
           subject: finalSubject, 
           body: finalBody,
+          cc: cc.trim() || undefined,
+          bcc: bcc.trim() || undefined,
+          scheduledAt: scheduledAtIso,
           attachments: formattedAttachments.length > 0 ? formattedAttachments : undefined 
         })
       });
@@ -156,9 +159,11 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
         setError(data.error || "Erro ao enviar.");
       } else {
         if (scheduleNotice) {
-          alert(`⏰ E-mail agendado com sucesso para ${scheduleNotice}! O sistema enviará automaticamente.`);
+          alert(`⏰ E-mail agendado no Resend com sucesso para ${scheduleNotice}!`);
         }
         setTo("");
+        setCc("");
+        setBcc("");
         setSubject("");
         setBody("");
         setAttachments([]);
@@ -562,7 +567,10 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
                   <button
                     onClick={() => {
                       setShowScheduleMenu(false);
-                      handleSend("Amanhã às 09:00");
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      tomorrow.setHours(9, 0, 0, 0);
+                      handleSend("Amanhã às 09:00", tomorrow.toISOString());
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-xl flex items-center justify-between font-medium"
                   >
@@ -571,7 +579,11 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
                   <button
                     onClick={() => {
                       setShowScheduleMenu(false);
-                      handleSend("Segunda-feira às 09:00");
+                      const nextMonday = new Date();
+                      const daysUntilMonday = ((1 + 7 - nextMonday.getDay()) % 7) || 7;
+                      nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+                      nextMonday.setHours(9, 0, 0, 0);
+                      handleSend("Segunda-feira às 09:00", nextMonday.toISOString());
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-white/5 rounded-xl flex items-center justify-between font-medium border-b border-white/5"
                   >
@@ -667,7 +679,14 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
                 Cancelar
               </button>
               <button 
-                onClick={() => handleSend(`${customDate} às ${customTime}`)} 
+                onClick={() => {
+                  try {
+                    const scheduledIso = new Date(`${customDate}T${customTime}:00`).toISOString();
+                    handleSend(`${customDate} às ${customTime}`, scheduledIso);
+                  } catch (e) {
+                    handleSend(`${customDate} às ${customTime}`);
+                  }
+                }} 
                 className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
               >
                 🚀 Confirmar Agendamento

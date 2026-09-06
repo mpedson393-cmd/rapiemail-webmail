@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { registerDomain, updateDomainNameServers } from "@/lib/porkbun";
 import { createDomain, setupEmailDnsRecords } from "@/lib/digitalocean";
+import { setupResendDomainWithDigitalOcean } from "@/lib/resend";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -58,13 +59,14 @@ export async function POST(req: Request) {
           console.warn(`[Porkbun] Aviso ao atualizar nameservers:`, err);
         }
 
-        // c) Criar Zona DNS na DigitalOcean
+        // c) Criar Zona DNS na DigitalOcean e Registar no Resend com Verificação DKIM/SPF
         try {
           await createDomain(domainName);
           await setupEmailDnsRecords(domainName);
-          console.log(`[DigitalOcean] Zona DNS e registos MX/SPF/DKIM criados com sucesso para ${domainName}.`);
+          await setupResendDomainWithDigitalOcean(domainName);
+          console.log(`[Resend & DigitalOcean] Domínio ${domainName} provisionado com registos DKIM, SPF, MX e verificação ativa.`);
         } catch (err) {
-          console.warn(`[DigitalOcean] Aviso ao criar zona DNS:`, err);
+          console.warn(`[Resend/DigitalOcean] Aviso ao provisionar zona e registos:`, err);
         }
       }
 
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
               from: "RapiEmail Suporte <suporte@rapiemail.com>",
               to: customerEmail,
               subject: `🎉 Sua Assinatura e Domínio ${domainName || ''} estão Ativos!`,
-              body: `Olá,\n\nConfirmamos com sucesso o seu pagamento para o plano ${itemType || 'RapiEmail Pro'}.\n\nO seu domínio ${domainName || 'profissional'} e a sua infraestrutura na nuvem já se encontram provisionados e ativos.\n\nPode começar a enviar e receber e-mails profissionais com rastreador e inteligência artificial.\n\nObrigado pela sua confiança!\nEquipa RapiEmail`,
+              body: `Olá,\n\nConfirmamos com sucesso o seu pagamento para o plano ${itemType || 'RapiEmail Pro'}.\n\nO seu domínio ${domainName || 'profissional'}, a infraestrutura na nuvem DigitalOcean e o motor de envio corporativo Resend já se encontram provisionados e verificados.\n\nPode começar a enviar e receber e-mails profissionais com rastreador, agendamento e inteligência artificial.\n\nObrigado pela sua confiança!\nEquipa RapiEmail`,
               folder: "INBOX",
               read: false,
               userId: user.id

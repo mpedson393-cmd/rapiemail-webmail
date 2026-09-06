@@ -5,9 +5,20 @@ import { authOptions } from "../../../api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "");
 
 export const dynamic = 'force-dynamic';
+
+function cleanEmailList(input: any): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.map(s => String(s).trim()).filter(Boolean);
+  }
+  if (typeof input === 'string') {
+    return input.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +27,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const { to, subject, body, attachments } = await req.json();
+    const { 
+      to, 
+      subject, 
+      body, 
+      attachments, 
+      cc, 
+      bcc, 
+      replyTo, 
+      scheduledAt,
+      tags,
+      headers 
+    } = await req.json();
 
     if (!to || !subject || !body) {
-      return NextResponse.json({ error: "Campos em falta" }, { status: 400 });
+      return NextResponse.json({ error: "Campos em falta (destinatário, assunto ou mensagem)" }, { status: 400 });
+    }
+
+    const toList = cleanEmailList(to);
+    const ccList = cleanEmailList(cc);
+    const bccList = cleanEmailList(bcc);
+
+    if (toList.length === 0) {
+      return NextResponse.json({ error: "Insira pelo menos um destinatário válido." }, { status: 400 });
     }
 
     const fromEmail = session.user.email;
@@ -29,7 +59,7 @@ export async function POST(req: Request) {
     const trackingId = crypto.randomUUID();
     
     // Obter URL pública do domínio de produção
-    const baseUrl = "https://rapiemail.online";
+    const baseUrl = process.env.NEXTAUTH_URL || "https://rapiemail.online";
     const trackingPixelUrl = `${baseUrl}/api/track/open/${trackingId}`;
 
     // Montar HTML com o Pixel Invisível de Rastreamento
@@ -42,13 +72,13 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    // Determinar o remetente oficial com base nos domínios verificados (rapiemail.online)
+    // Determinar o remetente oficial com base nos domínios verificados (rapiemail.online / rapimoneyit.online)
     const isDomainVerified = fromEmail.endsWith("@rapiemail.online") || fromEmail.endsWith("@rapimoneyit.online");
     const sender = isDomainVerified 
       ? `${fromName} <${fromEmail}>` 
       : `${fromName} (${fromEmail}) <noreply@rapiemail.online>`;
 
-    console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para "${to}" com pixel: "${trackingPixelUrl}"...`);
+    console.log(`[RapiEmail Real Send Engine] A enviar email de "${sender}" para ${toList.join(', ')} (cc: ${ccList.join(', ')}, bcc: ${bccList.join(', ')}) com pixel: "${trackingPixelUrl}"...`);
 
     // Formatar anexos para o Resend se existirem
     const resendAttachments = (attachments && Array.isArray(attachments)) ? attachments.map((att: any) => ({
@@ -57,13 +87,32 @@ export async function POST(req: Request) {
       path: att.url || undefined
     })).filter((att: any) => att.content || att.path) : undefined;
 
+    // Configuração Completa do Payload Resend
     const sendPayload: any = {
       from: sender,
-      to: [to],
+      to: toList,
       subject: subject,
       html: htmlBody,
-      replyTo: fromEmail,
+      replyTo: replyTo || fromEmail,
     };
+
+    // Opções Avançadas do Resend
+    if (ccList.length > 0) {
+      sendPayload.cc = ccList;
+    }
+    if (bccList.length > 0) {
+      sendPayload.bcc = bccList;
+    }
+    if (scheduledAt) {
+      sendPayload.scheduled_at = scheduledAt;
+      console.log(`[Resend Engine] Envio agendado para: ${scheduledAt}`);
+    }
+    if (tags && Array.isArray(tags)) {
+      sendPayload.tags = tags;
+    }
+    if (headers && typeof headers === 'object') {
+      sendPayload.headers = headers;
+    }
     if (resendAttachments && resendAttachments.length > 0) {
       sendPayload.attachments = resendAttachments;
     }
@@ -85,7 +134,7 @@ export async function POST(req: Request) {
       createdEmail = await prisma.email.create({
         data: {
           from: fromEmail,
-          to: to,
+          to: toList.join(', '),
           subject: subject,
           body: body,
           folder: "SENT",
@@ -99,38 +148,40 @@ export async function POST(req: Request) {
       });
     }
 
-    // Se o destinatário for também um utilizador na nossa plataforma, guardar na Caixa de Entrada dele e disparar Notificação Push!
-    const recipientUser = await prisma.user.findFirst({
-      where: { email: { equals: to.toLowerCase().trim(), mode: 'insensitive' } }
-    });
-
-    if (recipientUser) {
-      const inboxEmail = await prisma.email.create({
-        data: {
-          from: sender,
-          to: to,
-          subject: subject,
-          body: body,
-          folder: "INBOX",
-          read: false,
-          userId: recipientUser.id,
-          trackingId: trackingId,
-          isOpened: false,
-          openCount: 0,
-          attachments: (attachments && attachments.length > 0) ? attachments : undefined
-        }
+    // Se qualquer destinatário for também um utilizador na nossa plataforma, guardar na Caixa de Entrada dele e disparar Push!
+    for (const recipient of toList) {
+      const recipientUser = await prisma.user.findFirst({
+        where: { email: { equals: recipient.toLowerCase().trim(), mode: 'insensitive' } }
       });
 
-      try {
-        const { sendPushNotificationToUser } = await import("@/lib/push");
-        await sendPushNotificationToUser(recipientUser.id, {
-          title: `Novo E-mail de ${fromName}`,
-          body: subject ? `${subject} — ${body.slice(0, 60)}` : "(Sem assunto)",
-          emailId: inboxEmail.id,
-          url: `/inbox?id=${inboxEmail.id}`
+      if (recipientUser) {
+        const inboxEmail = await prisma.email.create({
+          data: {
+            from: sender,
+            to: recipient,
+            subject: subject,
+            body: body,
+            folder: "INBOX",
+            read: false,
+            userId: recipientUser.id,
+            trackingId: trackingId,
+            isOpened: false,
+            openCount: 0,
+            attachments: (attachments && attachments.length > 0) ? attachments : undefined
+          }
         });
-      } catch(pushErr) {
-        console.warn("[Send Push Notification Error]:", pushErr);
+
+        try {
+          const { sendPushNotificationToUser } = await import("@/lib/push");
+          await sendPushNotificationToUser(recipientUser.id, {
+            title: `Novo E-mail de ${fromName}`,
+            body: subject ? `${subject} — ${body.slice(0, 60)}` : "(Sem assunto)",
+            emailId: inboxEmail.id,
+            url: `/inbox?id=${inboxEmail.id}`
+          });
+        } catch(pushErr) {
+          console.warn("[Send Push Notification Error]:", pushErr);
+        }
       }
     }
 
