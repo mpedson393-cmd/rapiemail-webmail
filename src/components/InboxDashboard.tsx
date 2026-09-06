@@ -749,7 +749,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           mode: 'summarize_and_tasks',
           subject: email.subject,
           body: email.body,
-          from: email.from
+          html: email.html,
+          from: email.from,
+          userName: user.name
         })
       });
       const data = await res.json();
@@ -786,7 +788,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           mode: 'smart_reply',
           subject: email.subject,
           body: email.body,
+          html: email.html,
           from: email.from,
+          userName: user.name,
+          userEmail: user.email,
           tone
         })
       });
@@ -1177,11 +1182,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const folders = useMemo(() => [
     { id: 'INBOX', label: 'Caixa de entrada', icon: Inbox, count: emails.filter(e => e.folder === 'INBOX' && !e.read).length },
     { id: 'STARRED', label: 'Com estrela', icon: Star, count: emails.filter(e => starredIds.has(e.id) && e.folder !== 'TRASH').length },
-    { id: 'DRAFT', label: 'Rascunhos', icon: FileText, count: emails.filter(e => e.folder === 'DRAFT').length },
     { id: 'SENT', label: 'Enviados', icon: Send, count: emails.filter(e => e.folder === 'SENT').length },
     { id: 'SPAM', label: 'Spam', icon: AlertOctagon, count: emails.filter(e => e.folder === 'SPAM').length },
     { id: 'TRASH', label: 'Lixo', icon: Trash2, count: emails.filter(e => e.folder === 'TRASH').length },
     { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, count: emails.filter(e => e.folder === 'ARCHIVE').length },
+    { id: 'DRAFT', label: 'Rascunhos', icon: FileText, count: emails.filter(e => e.folder === 'DRAFT').length },
+    { id: 'AGENT', label: 'Agente IA', icon: Bot, isSpecialAi: true, count: 0 },
   ], [emails, starredIds]);
 
   const filteredEmails = useMemo(() => {
@@ -1209,6 +1215,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   }, [selectedEmail]);
 
   const handleSelectFolder = (folderId: string) => {
+    if (folderId === 'AGENT') {
+      setIsAiDrawerOpen(true);
+      return;
+    }
     setSelectedFolder(folderId);
     setIsMobileMenuOpen(false);
     let inFolder = emails.filter(e => e.folder === folderId);
@@ -1685,6 +1695,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               {folders.map(f => {
                 const Icon = f.icon;
                 const isActive = selectedFolder === f.id;
+                const isAgent = f.id === 'AGENT';
                 return (
                   <button
                     key={f.id}
@@ -1694,10 +1705,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className="w-4 h-4" />
+                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
                       <span>{f.label}</span>
                     </div>
-                    {f.count > 0 && <span className="text-[10px] font-bold text-[#1A73E8]">{f.count}</span>}
+                    {isAgent ? (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                        DO AI
+                      </span>
+                    ) : f.count > 0 ? (
+                      <span className="text-[10px] font-bold text-[#1A73E8]">{f.count}</span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -1746,6 +1763,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               {folders.map(folder => {
                 const Icon = folder.icon;
                 const isActive = selectedFolder === folder.id;
+                const isAgent = folder.id === 'AGENT';
                 return (
                   <button
                     key={folder.id}
@@ -1761,14 +1779,18 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#1A73E8]' : isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
+                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-600 dark:text-indigo-400' : isActive ? 'text-[#1A73E8]' : isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
                       <span>{folder.label}</span>
                     </div>
-                    {folder.count > 0 && (
+                    {isAgent ? (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                        DO AI
+                      </span>
+                    ) : folder.count > 0 ? (
                       <span className={`text-[11px] font-bold ${isActive ? 'text-[#1A73E8]' : 'text-[#5F6368]'}`}>
                         {folder.count}
                       </span>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}

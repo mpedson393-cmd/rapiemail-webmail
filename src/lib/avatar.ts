@@ -325,8 +325,18 @@ export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
   const name = (sender.name || "").toLowerCase();
   const email = (sender.email || "").toLowerCase();
 
-  // 1. Google & Gmail
-  if (domain.includes('google') || name.includes('google') || email.includes('google.com') || email.includes('accounts.google.com')) {
+  // 1. Google & Gmail (G Suite, Workspace, contas pessoais e serviços @gmail.com)
+  if (
+    domain.includes('google') || 
+    domain.includes('gmail') || 
+    domain.includes('googlemail') || 
+    name.includes('google') || 
+    name.includes('gmail') || 
+    email.includes('google.com') || 
+    email.includes('accounts.google.com') ||
+    email.includes('@gmail.com') ||
+    email.includes('@googlemail.com')
+  ) {
     return 'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png';
   }
 
@@ -370,13 +380,21 @@ export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
     return 'https://www.google.com/s2/favicons?domain=resend.com&sz=128';
   }
 
-  // 10. Microsoft / Office365 / Outlook
-  if (domain.includes('microsoft') || domain.includes('office') || domain.includes('outlook') || name.includes('microsoft')) {
+  // 10. Microsoft / Office365 / Outlook / Hotmail / Live
+  if (
+    domain.includes('microsoft') || 
+    domain.includes('office') || 
+    domain.includes('outlook') || 
+    domain.includes('hotmail') || 
+    domain.includes('live.com') ||
+    name.includes('microsoft') ||
+    name.includes('outlook')
+  ) {
     return 'https://www.google.com/s2/favicons?domain=microsoft.com&sz=128';
   }
 
-  // 11. Apple
-  if (domain.includes('apple') || name.includes('apple')) {
+  // 11. Apple / iCloud
+  if (domain.includes('apple') || domain.includes('icloud') || domain.includes('me.com') || name.includes('apple')) {
     return 'https://www.google.com/s2/favicons?domain=apple.com&sz=128';
   }
 
@@ -408,6 +426,16 @@ export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
   // 17. Artha Fintech
   if (domain.includes('artha') || name.includes('artha')) {
     return 'https://www.google.com/s2/favicons?domain=arthafintech.com&sz=128';
+  }
+
+  // 18. Yahoo
+  if (domain.includes('yahoo')) {
+    return 'https://www.google.com/s2/favicons?domain=yahoo.com&sz=128';
+  }
+
+  // 19. ProtonMail
+  if (domain.includes('proton')) {
+    return 'https://www.google.com/s2/favicons?domain=proton.me&sz=128';
   }
 
   return null;
@@ -449,7 +477,6 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
   if (isFreePersonalEmail) {
     if (email) {
       const emailHash = md5(email.trim().toLowerCase());
-      const userPart = email.split('@')[0];
 
       // Google Profile Picture (para contas @gmail.com ou Google Workspace)
       if (domain.includes('gmail') || domain.includes('google')) {
@@ -462,10 +489,10 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
       // Unavatar Universal
       candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
       
-      // Avatar Ilustrado Moderno (DiceBear Personas)
-      const seed = encodeURIComponent(userPart || sender.name || email);
-      candidates.push(`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`);
-      candidates.push(`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`);
+      // Se não há foto pessoal, usa o logótipo oficial do provedor (Google, Microsoft, Yahoo, etc.)
+      if (brandLogo && !candidates.includes(brandLogo)) {
+        candidates.push(brandLogo);
+      }
     }
     return candidates;
   }
@@ -483,9 +510,6 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
     candidates.push(`https://logo.clearbit.com/${domain}`);
   }
-
-  const seed = encodeURIComponent(email || sender.name || 'user');
-  candidates.push(`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`);
 
   return candidates;
 }
