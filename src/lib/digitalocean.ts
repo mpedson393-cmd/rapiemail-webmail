@@ -68,7 +68,7 @@ export async function createDomain(name: string, ipAddress?: string) {
     method: 'POST',
     body: JSON.stringify({
       name,
-      ip_address: ipAddress
+      ip_address: ipAddress || '138.68.100.1' // default entry IP
     })
   });
 }
@@ -90,4 +90,30 @@ export async function createDomainRecord(domainName: string, record: {
       ttl: record.ttl || 1800
     })
   });
+}
+
+// 4. Configuração Automática de Registos DNS de Email Corporativo (Resend / Mailgun / Webmail)
+export async function setupEmailDnsRecords(domainName: string) {
+  const records = [
+    // MX Records para receber e-mails
+    { type: 'MX' as const, name: '@', data: 'feedback-smtp.eu-west-1.amazonses.com.', priority: 10 },
+    // SPF TXT Record
+    { type: 'TXT' as const, name: '@', data: 'v=spf1 include:amazonses.com ~all' },
+    // DMARC TXT Record
+    { type: 'TXT' as const, name: '_dmarc', data: 'v=DMARC1; p=none;' },
+    // Webmail CNAME
+    { type: 'CNAME' as const, name: 'mail', data: '@' },
+    { type: 'CNAME' as const, name: 'webmail', data: '@' },
+  ];
+
+  const results = [];
+  for (const rec of records) {
+    try {
+      const res = await createDomainRecord(domainName, rec);
+      results.push({ record: rec, res });
+    } catch (err: any) {
+      results.push({ record: rec, error: err.message });
+    }
+  }
+  return results;
 }

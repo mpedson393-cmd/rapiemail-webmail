@@ -10,7 +10,8 @@ import {
   Edit3, X, Eye, ShieldCheck, Moon, Sun, Reply, ReplyAll, 
   Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
   Sparkles, Copy, KeyRound, Globe2, RotateCcw, Video, ExternalLink, 
-  HelpCircle, CalendarCheck2, Download, FileSpreadsheet, FileArchive, DownloadCloud
+  HelpCircle, CalendarCheck2, Download, FileSpreadsheet, FileArchive, DownloadCloud,
+  Bot, Zap, ListTodo, Wand2, Brain, MessageSquare
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -718,6 +719,145 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       setToastMessage("✖️ Convite de reunião recusado.");
     }
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Estados e Funções do Agente Executivo de IA
+  const [emailSummaries, setEmailSummaries] = useState<Record<string, { summary: string; urgency: 'HIGH' | 'MEDIUM' | 'LOW'; actionItems: string[]; sentiment?: string }>>({});
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isGeneratingSmartReply, setIsGeneratingSmartReply] = useState(false);
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
+  const [aiDrawerPrompt, setAiDrawerPrompt] = useState("");
+  const [aiDrawerLoading, setAiDrawerLoading] = useState(false);
+  const [aiDrawerMessages, setAiDrawerMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string; time: string }>>([
+    {
+      role: 'assistant',
+      text: 'Olá! Sou o Assistente Executivo de IA do RapiEmail. Posso redigir propostas, responder e-mails com alta conversão, resumir tópicos longos ou detetar dados de reuniões. Como posso ajudar?',
+      time: 'Agora'
+    }
+  ]);
+
+  const handleAiSummarizeEmail = async (email: EmailItem) => {
+    if (!email) return;
+    setIsSummarizing(true);
+    try {
+      const res = await fetch('/api/ai/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'summarize_and_tasks',
+          subject: email.subject,
+          body: email.body,
+          from: email.from
+        })
+      });
+      const data = await res.json();
+      if (data && data.summary) {
+        setEmailSummaries(prev => ({
+          ...prev,
+          [email.id]: {
+            summary: data.summary,
+            urgency: data.urgency || 'MEDIUM',
+            actionItems: Array.isArray(data.actionItems) ? data.actionItems : ['Rever mensagem e responder'],
+            sentiment: data.sentiment
+          }
+        }));
+        setToastMessage("✨ Resumo Executivo & Tarefas gerados com sucesso!");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (err) {
+      setToastMessage("Erro ao gerar resumo com IA.");
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleAiSmartReply = async (email: EmailItem, tone: 'professional' | 'friendly' | 'concise' | 'urgent' = 'professional') => {
+    if (!email) return;
+    setIsGeneratingSmartReply(true);
+    try {
+      const sender = parseSenderDetails(email.from);
+      const res = await fetch('/api/ai/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'smart_reply',
+          subject: email.subject,
+          body: email.body,
+          from: email.from,
+          tone
+        })
+      });
+      const data = await res.json();
+      const replySubject = data.subject || (email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`);
+      const replyBody = data.body || `Olá ${sender.name},\n\nAgradeço a sua mensagem. Analisei os detalhes com atenção e confirmo a nossa disponibilidade.\n\nCom os melhores cumprimentos,\n${user.name}`;
+
+      setComposeConfig({
+        isOpen: true,
+        initialTo: sender.email || email.from,
+        initialSubject: replySubject,
+        initialBody: replyBody
+      });
+      setToastMessage(`⚡ Resposta Inteligente pronta no editor!`);
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      setToastMessage("Erro ao gerar resposta com IA.");
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsGeneratingSmartReply(false);
+    }
+  };
+
+  const handleAiScheduleMeeting = async (email: EmailItem) => {
+    if (!email) return;
+    try {
+      const res = await fetch('/api/ai/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'extract_meeting',
+          subject: email.subject,
+          body: email.body,
+          from: email.from,
+          emailDate: email.createdAt
+        })
+      });
+      const data = await res.json();
+      setActiveTab('calendar');
+      setToastMessage(`📅 Reunião: "${data.title || email.subject}" sincronizada no Calendário!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      setActiveTab('calendar');
+    }
+  };
+
+  const handleSendAiDrawerMessage = async () => {
+    if (!aiDrawerPrompt.trim() || aiDrawerLoading) return;
+    const userMsg = aiDrawerPrompt.trim();
+    const timeNow = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    setAiDrawerMessages(prev => [...prev, { role: 'user', text: userMsg, time: timeNow }]);
+    setAiDrawerPrompt("");
+    setAiDrawerLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: userMsg,
+          subject: selectedEmail?.subject,
+          body: selectedEmail?.body,
+          from: selectedEmail?.from
+        })
+      });
+      const data = await res.json();
+      const replyText = data.response || "Aqui está a sugestão solicitada para a sua comunicação.";
+      setAiDrawerMessages(prev => [...prev, { role: 'assistant', text: replyText, time: new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) }]);
+    } catch (err) {
+      setAiDrawerMessages(prev => [...prev, { role: 'assistant', text: "Ocorreu um erro temporário ao contactar o agente de IA.", time: timeNow }]);
+    } finally {
+      setAiDrawerLoading(false);
+    }
   };
 
   // Arquivar E-mail (Mover para Pasta Arquivo)
@@ -1890,14 +2030,50 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     )}
                   </div>
 
-                  {/* Hora Exata Real no Cabeçalho */}
-                  <span 
-                    suppressHydrationWarning
-                    title={new Date(selectedEmail.createdAt).toISOString()}
-                    className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 font-mono"
-                  >
-                    {formatFullEmailDateTime(selectedEmail.createdAt)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/* Botão Resposta Rápida com IA */}
+                    <button
+                      onClick={() => handleAiSmartReply(selectedEmail, 'professional')}
+                      disabled={isGeneratingSmartReply}
+                      title="Gerar Resposta Executiva com IA"
+                      className="px-2.5 py-1 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] rounded-lg flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 text-indigo-500 ${isGeneratingSmartReply ? 'animate-spin' : ''}`} />
+                      <span className="hidden sm:inline">{isGeneratingSmartReply ? 'A gerar...' : 'Resposta IA'}</span>
+                    </button>
+
+                    {/* Botão Resumo Executivo & Tarefas */}
+                    <button
+                      onClick={() => handleAiSummarizeEmail(selectedEmail)}
+                      disabled={isSummarizing}
+                      title="Gerar Resumo Executivo & Tarefas com IA"
+                      className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold text-[11px] rounded-lg flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      <ListTodo className={`w-3.5 h-3.5 text-[#1A73E8] ${isSummarizing ? 'animate-spin' : ''}`} />
+                      <span className="hidden md:inline">{isSummarizing ? 'A resumir...' : 'Resumo IA'}</span>
+                    </button>
+
+                    {/* Botão Agente Executivo Chat Drawer */}
+                    <button
+                      onClick={() => setIsAiDrawerOpen(true)}
+                      title="Abrir Assistente Executivo RapiAI"
+                      className="px-2.5 py-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white font-bold text-[11px] rounded-lg flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Assistente</span>
+                    </button>
+
+                    <div className="w-px h-4 bg-[#E5E7EB] dark:bg-white/10 mx-1 hidden sm:block"></div>
+
+                    {/* Hora Exata Real no Cabeçalho */}
+                    <span 
+                      suppressHydrationWarning
+                      title={new Date(selectedEmail.createdAt).toISOString()}
+                      className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 font-mono"
+                    >
+                      {formatFullEmailDateTime(selectedEmail.createdAt)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Área de Leitura (Com Seleção Livre de Texto) */}
@@ -2096,6 +2272,107 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         <Copy className="w-3.5 h-3.5" />
                         <span>Copiar Código</span>
                       </button>
+                    </div>
+                  )}
+
+                  {/* 🤖 PAINEL DO AGENTE EXECUTIVO DE IA (RESUMO, AÇÕES E RESPOSTAS RÁPIDAS) */}
+                  {emailSummaries[selectedEmail.id] && (
+                    <div className="p-4 md:p-5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-blue-50/90 dark:from-[#131522] dark:via-[#161328] dark:to-[#111928] border border-indigo-200/80 dark:border-indigo-500/30 shadow-sm space-y-4 animate-in fade-in duration-200 select-none">
+                      <div className="flex items-center justify-between border-b border-indigo-200/50 dark:border-white/10 pb-3 flex-wrap gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-indigo-600/30">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs md:text-sm font-bold text-[#202124] dark:text-white">
+                                Resumo Executivo & Tarefas (RapiAI)
+                              </h4>
+                              {emailSummaries[selectedEmail.id].urgency === 'HIGH' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30">
+                                  🚨 Urgência Alta
+                                </span>
+                              )}
+                              {emailSummaries[selectedEmail.id].urgency === 'MEDIUM' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                  ⚡ Prioridade Média
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                              Gerado pelo Agente DigitalOcean & RapiAI Engine
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleAiSmartReply(selectedEmail, 'professional')}
+                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                            <span>Responder com IA</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Resumo */}
+                      <div className="text-xs md:text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed font-medium bg-white/60 dark:bg-black/30 p-3 rounded-xl border border-indigo-100 dark:border-white/5">
+                        {emailSummaries[selectedEmail.id].summary}
+                      </div>
+
+                      {/* Ações / Tarefas Detetadas */}
+                      {emailSummaries[selectedEmail.id].actionItems && emailSummaries[selectedEmail.id].actionItems.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                            <ListTodo className="w-3.5 h-3.5" />
+                            <span>Tarefas e Próximos Passos Identificados:</span>
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {emailSummaries[selectedEmail.id].actionItems.map((item, idx) => (
+                              <label 
+                                key={idx} 
+                                className="flex items-start gap-2 p-2 rounded-lg bg-white/80 dark:bg-white/5 border border-indigo-100 dark:border-white/5 text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-colors"
+                              >
+                                <input type="checkbox" className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                                <span className="leading-snug">{item}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sugestões de Resposta Rápida com 1-Clique */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-indigo-200/50 dark:border-white/5 flex-wrap">
+                        <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                          Respostas Rápidas IA:
+                        </span>
+                        <button
+                          onClick={() => handleAiSmartReply(selectedEmail, 'professional')}
+                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 transition-all cursor-pointer"
+                        >
+                          👔 Formal & Corporativo
+                        </button>
+                        <button
+                          onClick={() => handleAiSmartReply(selectedEmail, 'friendly')}
+                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 transition-all cursor-pointer"
+                        >
+                          🤝 Simpático & Próximo
+                        </button>
+                        <button
+                          onClick={() => handleAiSmartReply(selectedEmail, 'concise')}
+                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 transition-all cursor-pointer"
+                        >
+                          ⚡ Curto & Objetivo
+                        </button>
+                        <button
+                          onClick={() => handleAiScheduleMeeting(selectedEmail)}
+                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>Agendar Reunião</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -2430,6 +2707,114 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🤖 DRAWER SLIDE-OVER: ASSISTENTE EXECUTIVO DE IA (RAPIAI AGENT) */}
+      {isAiDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-150 select-none">
+          <div className="w-full max-w-md bg-white dark:bg-[#0F1118] h-full flex flex-col shadow-2xl border-l border-[#E5E7EB] dark:border-white/10 animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-[#E5E7EB] dark:border-white/10 bg-zinc-50 dark:bg-[#0B0D13] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-indigo-600/30">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Assistente Executivo IA</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 uppercase">
+                      DO Agent
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Inteligência Empresarial 24/7</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsAiDrawerOpen(false)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white rounded-lg hover:bg-zinc-200/50 dark:hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Prompt Suggestions */}
+            <div className="p-3 border-b border-[#E5E7EB] dark:border-white/5 bg-zinc-50/50 dark:bg-black/20 flex gap-2 overflow-x-auto text-[11px]">
+              <button
+                onClick={() => {
+                  setAiDrawerPrompt("Escreve uma proposta comercial executiva com valores e prazos.");
+                }}
+                className="px-2.5 py-1 rounded-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-indigo-500 shrink-0 transition-colors"
+              >
+                💼 Proposta Comercial
+              </button>
+              <button
+                onClick={() => {
+                  setAiDrawerPrompt("Cria um lembrete educado para pagamento de fatura em atraso.");
+                }}
+                className="px-2.5 py-1 rounded-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-indigo-500 shrink-0 transition-colors"
+              >
+                💳 Cobrança Educada
+              </button>
+              <button
+                onClick={() => {
+                  setAiDrawerPrompt("Redige um pedido de desculpas por perder a reunião e sugere reagendamento.");
+                }}
+                className="px-2.5 py-1 rounded-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-indigo-500 shrink-0 transition-colors"
+              >
+                📅 Reagendar Reunião
+              </button>
+            </div>
+
+            {/* Messages Chat Stream */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 select-text">
+              {aiDrawerMessages.map((msg, index) => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div key={index} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[88%] p-3 rounded-2xl text-xs leading-relaxed ${
+                      isUser 
+                        ? 'bg-[#1A73E8] text-white rounded-br-xs shadow-sm font-medium' 
+                        : 'bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-zinc-200 rounded-bl-xs shadow-xs'
+                    }`}>
+                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 mt-1 px-1">{msg.time}</span>
+                  </div>
+                );
+              })}
+
+              {aiDrawerLoading && (
+                <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl text-xs text-indigo-600 dark:text-indigo-300 animate-pulse">
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                  <span>O Agente RapiAI está a pensar...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Input Bar */}
+            <div className="p-3.5 border-t border-[#E5E7EB] dark:border-white/10 bg-white dark:bg-[#0B0D13]">
+              <div className="flex items-center gap-2 bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl px-3 py-1.5 focus-within:border-indigo-500 transition-all">
+                <input
+                  type="text"
+                  value={aiDrawerPrompt}
+                  onChange={e => setAiDrawerPrompt(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSendAiDrawerMessage(); }}
+                  disabled={aiDrawerLoading}
+                  placeholder="Pergunte ao agente ou peça um rascunho..."
+                  className="flex-1 bg-transparent text-xs text-zinc-900 dark:text-white placeholder:text-zinc-500 focus:outline-none"
+                />
+                <button
+                  onClick={handleSendAiDrawerMessage}
+                  disabled={!aiDrawerPrompt.trim() || aiDrawerLoading}
+                  className="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-all shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
