@@ -319,6 +319,100 @@ export function extractLinkedInProfileUrl(html?: string, body?: string): string 
   return null;
 }
 
+// Dicionário de Logótipos Oficiais de Alta Resolução (Google, Sinch, IONOS, Termii, Twilio, etc.)
+export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
+  const domain = (sender.domain || "").toLowerCase();
+  const name = (sender.name || "").toLowerCase();
+  const email = (sender.email || "").toLowerCase();
+
+  // 1. Google & Gmail
+  if (domain.includes('google') || name.includes('google') || email.includes('google.com') || email.includes('accounts.google.com')) {
+    return 'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png';
+  }
+
+  // 2. Sinch
+  if (domain.includes('sinch') || name.includes('sinch')) {
+    return 'https://www.google.com/s2/favicons?domain=sinch.com&sz=128';
+  }
+
+  // 3. IONOS
+  if (domain.includes('ionos') || name.includes('ionos')) {
+    return 'https://www.google.com/s2/favicons?domain=ionos.com&sz=128';
+  }
+
+  // 4. Twilio
+  if (domain.includes('twilio') || name.includes('twilio')) {
+    return 'https://www.google.com/s2/favicons?domain=twilio.com&sz=128';
+  }
+
+  // 5. Termii
+  if (domain.includes('termii') || name.includes('termii')) {
+    return 'https://www.google.com/s2/favicons?domain=termii.com&sz=128';
+  }
+
+  // 6. LinkedIn
+  if (domain.includes('linkedin') || name.includes('linkedin')) {
+    return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg';
+  }
+
+  // 7. Stripe
+  if (domain.includes('stripe') || name.includes('stripe')) {
+    return 'https://www.google.com/s2/favicons?domain=stripe.com&sz=128';
+  }
+
+  // 8. DigitalOcean
+  if (domain.includes('digitalocean') || name.includes('digitalocean')) {
+    return 'https://www.google.com/s2/favicons?domain=digitalocean.com&sz=128';
+  }
+
+  // 9. Resend
+  if (domain.includes('resend') || name.includes('resend')) {
+    return 'https://www.google.com/s2/favicons?domain=resend.com&sz=128';
+  }
+
+  // 10. Microsoft / Office365 / Outlook
+  if (domain.includes('microsoft') || domain.includes('office') || domain.includes('outlook') || name.includes('microsoft')) {
+    return 'https://www.google.com/s2/favicons?domain=microsoft.com&sz=128';
+  }
+
+  // 11. Apple
+  if (domain.includes('apple') || name.includes('apple')) {
+    return 'https://www.google.com/s2/favicons?domain=apple.com&sz=128';
+  }
+
+  // 12. GitHub
+  if (domain.includes('github') || name.includes('github')) {
+    return 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg';
+  }
+
+  // 13. dLocal
+  if (domain.includes('dlocal') || name.includes('dlocal')) {
+    return 'https://www.google.com/s2/favicons?domain=dlocal.com&sz=128';
+  }
+
+  // 14. Swan.io
+  if (domain.includes('swan.io') || name.includes('swan')) {
+    return 'https://www.google.com/s2/favicons?domain=swan.io&sz=128';
+  }
+
+  // 15. Adyen
+  if (domain.includes('adyen') || name.includes('adyen')) {
+    return 'https://www.google.com/s2/favicons?domain=adyen.com&sz=128';
+  }
+
+  // 16. PayFonte
+  if (domain.includes('payfonte') || name.includes('payfonte')) {
+    return 'https://www.google.com/s2/favicons?domain=payfonte.com&sz=128';
+  }
+
+  // 17. Artha Fintech
+  if (domain.includes('artha') || name.includes('artha')) {
+    return 'https://www.google.com/s2/favicons?domain=arthafintech.com&sz=128';
+  }
+
+  return null;
+}
+
 // Obter Lista de URLs Candidatas para o Avatar em Ordem Inteligente de Prioridade
 export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl?: string | null): string[] {
   const candidates: string[] = [];
@@ -329,7 +423,13 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     candidates.push(customAvatarUrl);
   }
 
-  // 2. Se já temos a foto guardada em Cache para esta pessoa / remetente
+  // 2. Logótipo de Marca Conhecida (Google, Sinch, IONOS, Termii, Twilio, etc.)
+  const brandLogo = getKnownBrandLogo(sender);
+  if (brandLogo && !candidates.includes(brandLogo)) {
+    candidates.push(brandLogo);
+  }
+
+  // 3. Se já temos a foto guardada em Cache para esta pessoa / remetente
   const cached = getCachedAvatar(cacheKey);
   if (cached && !candidates.includes(cached)) {
     candidates.push(cached);
@@ -337,13 +437,11 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
 
   const { email, domain, isCompanyService, isFreePersonalEmail } = sender;
 
-  // CASO 1: Contas de Serviço / Empresa (ex: LinkedIn, Stripe, PawaPay Support)
+  // CASO 1: Contas de Serviço / Empresa (ex: Sinch, Twilio, IONOS, etc.)
   if (isCompanyService && domain && !isFreePersonalEmail) {
-    if (candidates.length === 0) {
-      candidates.push(`https://logo.clearbit.com/${domain}`);
-      candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-      candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
-    }
+    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    candidates.push(`https://logo.clearbit.com/${domain}`);
     return candidates;
   }
 
@@ -353,21 +451,18 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
       const emailHash = md5(email.trim().toLowerCase());
       const userPart = email.split('@')[0];
 
-      // 1. Google Profile Picture (para contas @gmail.com ou Google Workspace)
+      // Google Profile Picture (para contas @gmail.com ou Google Workspace)
       if (domain.includes('gmail') || domain.includes('google')) {
         candidates.push(`https://profiles.google.com/s2/photos/profile/${encodeURIComponent(email)}?sz=128`);
         candidates.push(`https://unavatar.io/google/${encodeURIComponent(email)}?fallback=false`);
       }
 
-      // 2. Gravatar Oficial
+      // Gravatar Oficial
       candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
-      // 3. Unavatar Universal (Google, Twitter/X, GitHub, Gravatar)
+      // Unavatar Universal
       candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
-      // 4. Unavatar por Username (para utilizadores com perfil GitHub/Twitter)
-      if (userPart && userPart.length > 2 && !userPart.includes('.')) {
-        candidates.push(`https://unavatar.io/github/${encodeURIComponent(userPart)}?fallback=false`);
-      }
-      // 5. Avatar Ilustrado Moderno (DiceBear Personas)
+      
+      // Avatar Ilustrado Moderno (DiceBear Personas)
       const seed = encodeURIComponent(userPart || sender.name || email);
       candidates.push(`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`);
       candidates.push(`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`);
@@ -375,7 +470,7 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
     return candidates;
   }
 
-  // CASO 3: Pessoas Individuais com Email Corporativo (ex: tymur.v@sensus.tech, filipe.abrantes@bel.money)
+  // CASO 3: Pessoas Individuais com Email Corporativo
   if (email) {
     const emailHash = md5(email.trim().toLowerCase());
     candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
@@ -384,8 +479,9 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
 
   // Logótipo da Empresa como fallback para e-mails corporativos
   if (domain) {
-    candidates.push(`https://logo.clearbit.com/${domain}`);
     candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    candidates.push(`https://logo.clearbit.com/${domain}`);
   }
 
   const seed = encodeURIComponent(email || sender.name || 'user');

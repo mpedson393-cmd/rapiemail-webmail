@@ -56,12 +56,17 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
 
   // Se ainda houver candidatos para testar
   if (currentUrl) {
-    const isGoogleFavicon = currentUrl.includes('google.com/s2/favicons');
+    const isLogo = currentUrl.includes('google.com/s2/favicons') || 
+                  currentUrl.includes('gstatic.com') || 
+                  currentUrl.includes('devicon') || 
+                  currentUrl.includes('logo.clearbit') || 
+                  currentUrl.includes('unavatar.io') ||
+                  sender.isCompanyService;
 
     return (
       <div 
         className={`relative rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center shrink-0 shadow-xs select-none transition-all ${sizeConfig.box} ${
-          isGoogleFavicon ? 'bg-white' : sender.color.bg
+          isLogo ? 'bg-white text-zinc-800' : sender.color.bg
         } ${className}`}
       >
         {/* Placeholder / Iniciais enquanto a imagem carrega */}
@@ -78,7 +83,7 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
           onError={handleImageError}
           onLoad={handleImageLoad}
           className={`${
-            isGoogleFavicon ? sizeConfig.logo : 'w-full h-full object-cover'
+            isLogo ? 'w-full h-full object-contain p-1' : 'w-full h-full object-cover'
           } ${hasLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}
         />
       </div>

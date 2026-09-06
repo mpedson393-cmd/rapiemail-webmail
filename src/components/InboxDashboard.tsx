@@ -322,47 +322,49 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
 export function extractAttachmentsFromEmail(email?: EmailItem | null): EmailAttachment[] {
   if (!email) return [];
   const result: EmailAttachment[] = [];
-  const seenNames = new Set<string>();
+  const seenKeys = new Set<string>();
 
-  // 1. Anexos diretos na base de dados
+  // 1. Anexos diretos na base de dados (com URLs ou dados em base64)
   if (email.attachments && Array.isArray(email.attachments)) {
     email.attachments.forEach(att => {
       const name = att.filename || "documento";
-      if (!seenNames.has(name.toLowerCase())) {
-        seenNames.add(name.toLowerCase());
+      const key = `${name.toLowerCase()}_${att.url || att.content || ''}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
         result.push(att);
       }
     });
   }
 
-  // 2. Detetar anexos / documentos mencionados ou linkados no texto ou HTML (ex: "NDA Belmoney.pdf", etc.)
-  const fullText = `${email.subject}\n${email.body}\n${email.html || ''}`;
-  const fileRegex = /([a-zA-Z0-9_\-\s]+\.(pdf|docx?|xlsx?|pptx?|zip|rar|csv|png|jpe?g|svg|txt))\b/gi;
-  let match;
-  while ((match = fileRegex.exec(fullText)) !== null) {
-    const rawFilename = match[1].trim();
-    if (
-      !rawFilename.includes('/') && 
-      !rawFilename.includes('\\') && 
-      rawFilename.length > 3 && 
-      !['schema.prisma', 'route.ts', 'page.tsx', 'style.css', 'index.html', 'favicon.ico'].includes(rawFilename.toLowerCase())
-    ) {
-      const lower = rawFilename.toLowerCase();
-      if (!seenNames.has(lower)) {
-        seenNames.add(lower);
-        const ext = match[2].toLowerCase();
-        let contentType = "application/octet-stream";
-        if (ext === 'pdf') contentType = 'application/pdf';
-        else if (ext.startsWith('doc')) contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        else if (ext.startsWith('xls') || ext === 'csv') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        else if (['png', 'jpg', 'jpeg', 'svg'].includes(ext)) contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        else if (['zip', 'rar'].includes(ext)) contentType = 'application/zip';
+  // 2. Detetar links reais para descarregar documentos no HTML (ex: <a href="https://...file.pdf">)
+  if (email.html) {
+    const linkRegex = /<a\s+[^>]*href=["']([^"']+\.(pdf|docx?|xlsx?|pptx?|zip|rar|csv))["'][^>]*>(.*?)<\/a>/gi;
+    let match;
+    while ((match = linkRegex.exec(email.html)) !== null) {
+      const href = match[1].trim();
+      const linkText = match[3]?.replace(/<[^>]*>/g, '').trim();
+      const filename = linkText && linkText.includes('.') ? linkText : href.split('/').pop()?.split('?')[0] || `documento.${match[2]}`;
+      const lower = filename.toLowerCase();
 
-        result.push({
-          filename: rawFilename,
-          contentType,
-          size: "45.2 KB"
-        });
+      // Ignorar scripts ou ficheiros de sistema
+      if (!['schema.prisma', 'route.ts', 'page.tsx', 'style.css', 'index.html', 'favicon.ico'].includes(lower)) {
+        const key = `${lower}_${href}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const ext = match[2].toLowerCase();
+          let contentType = "application/octet-stream";
+          if (ext === 'pdf') contentType = 'application/pdf';
+          else if (ext.startsWith('doc')) contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (ext.startsWith('xls') || ext === 'csv') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          else if (['zip', 'rar'].includes(ext)) contentType = 'application/zip';
+
+          result.push({
+            filename,
+            contentType,
+            url: href,
+            size: "Download Web"
+          });
+        }
       }
     }
   }
@@ -2147,6 +2149,68 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     )}
                   </div>
 
+                  {/* 🤖 BARRA DO AGENTE EXECUTIVO RAPIAI (AÇÕES DIRETAS NO EMAIL) */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-3.5 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-blue-50/90 dark:from-[#121424] dark:via-[#17132A] dark:to-[#0F1626] border border-indigo-200/80 dark:border-indigo-500/25 shadow-xs select-none animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-extrabold text-[#202124] dark:text-white tracking-tight">
+                            Agente Executivo IA
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                            DO & RapiAI Engine
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block truncate">
+                          Automação de respostas, síntese & agendamento inteligente
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => handleAiSmartReply(selectedEmail, 'professional')}
+                        disabled={isGeneratingSmartReply}
+                        title="Gerar Resposta Rápida Executiva com IA"
+                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ${isGeneratingSmartReply ? 'animate-spin' : ''}`} />
+                        <span>{isGeneratingSmartReply ? 'A gerar...' : 'Resposta Rápida IA'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleAiSummarizeEmail(selectedEmail)}
+                        disabled={isSummarizing}
+                        title="Gerar Resumo Executivo e Lista de Tarefas"
+                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                      >
+                        <ListTodo className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 ${isSummarizing ? 'animate-spin' : ''}`} />
+                        <span>{isSummarizing ? 'A resumir...' : 'Resumo & Tarefas'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleAiScheduleMeeting(selectedEmail)}
+                        title="Detetar e Agendar Reunião no Calendário"
+                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span className="hidden sm:inline">Agendar Reunião</span>
+                      </button>
+
+                      <button
+                        onClick={() => setIsAiDrawerOpen(true)}
+                        title="Abrir Chat com o Agente Executivo"
+                        className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                      >
+                        <Bot className="w-3.5 h-3.5" />
+                        <span>Perguntar ao Agente</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* 📅 DESTAQUE DE REUNIÃO / CONVITE DE CALENDÁRIO COM RSVP INTELIGENTE (GOOGLE MEET / ZOOM / TEAMS) */}
                   {detectedMeeting && (
                     <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-[#12141C] border border-[#E5E7EB] dark:border-white/10 shadow-sm space-y-4 animate-in fade-in duration-200 select-none">
@@ -2520,9 +2584,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               onClick={() => handlePreviewAttachment(att)}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center border font-black text-xs shrink-0 ${bgClass}`}>
-                                  {ext.slice(0, 4)}
-                                </div>
+                                {isImg && (att.url || (att.content && (att.content.startsWith('data:image/') || att.content.startsWith('http')))) ? (
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 shrink-0 bg-white dark:bg-zinc-800 flex items-center justify-center shadow-xs">
+                                    <img 
+                                      src={att.url || att.content} 
+                                      alt={att.filename} 
+                                      className="w-full h-full object-contain p-0.5" 
+                                      onError={(e) => {
+                                        // Fallback para ícone se falhar carregar imagem
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center border font-black text-xs shrink-0 ${bgClass}`}>
+                                    {ext.slice(0, 4)}
+                                  </div>
+                                )}
                                 <div className="min-w-0 flex-1">
                                   <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-[#1A73E8] transition-colors" title={att.filename}>
                                     {att.filename}
@@ -2665,15 +2743,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
             {/* Modal Body Preview */}
             <div className="flex-1 overflow-auto p-4 md:p-6 flex items-center justify-center bg-zinc-100 dark:bg-[#07090E] min-h-[350px]">
-              {previewAttachment.content && previewAttachment.content.startsWith('data:image/') ? (
+              {(previewAttachment.url && (previewAttachment.url.match(/\.(png|jpe?g|svg|webp|gif)/i) || previewAttachment.contentType?.startsWith('image/'))) || (previewAttachment.content && (previewAttachment.content.startsWith('data:image/') || previewAttachment.content.startsWith('http'))) ? (
                 <img 
-                  src={previewAttachment.content} 
+                  src={previewAttachment.url || previewAttachment.content} 
                   alt={previewAttachment.filename} 
-                  className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-lg"
+                  className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-lg bg-white/40 p-2"
                 />
-              ) : previewAttachment.content && previewAttachment.content.startsWith('data:application/pdf') ? (
+              ) : (previewAttachment.url && (previewAttachment.url.endsWith('.pdf') || previewAttachment.contentType === 'application/pdf')) || (previewAttachment.content && previewAttachment.content.startsWith('data:application/pdf')) ? (
                 <iframe 
-                  src={previewAttachment.content} 
+                  src={previewAttachment.url || previewAttachment.content} 
                   className="w-full h-[70vh] rounded-lg border border-zinc-300 dark:border-white/10 shadow" 
                   title={previewAttachment.filename}
                 />
