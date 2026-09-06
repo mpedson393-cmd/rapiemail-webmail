@@ -73,6 +73,16 @@ export async function createDomain(name: string, ipAddress?: string) {
   });
 }
 
+export async function deleteDomain(name: string) {
+  return doFetch(`/domains/${encodeURIComponent(name)}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function listDomainRecords(domainName: string) {
+  return doFetch(`/domains/${encodeURIComponent(domainName)}/records?per_page=100`);
+}
+
 export async function createDomainRecord(domainName: string, record: {
   type: 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS';
   name: string;
@@ -89,6 +99,12 @@ export async function createDomainRecord(domainName: string, record: {
       priority: record.priority,
       ttl: record.ttl || 1800
     })
+  });
+}
+
+export async function deleteDomainRecord(domainName: string, recordId: number | string) {
+  return doFetch(`/domains/${encodeURIComponent(domainName)}/records/${recordId}`, {
+    method: 'DELETE'
   });
 }
 

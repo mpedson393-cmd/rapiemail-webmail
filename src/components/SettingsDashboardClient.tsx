@@ -6,7 +6,8 @@ import {
   ArrowLeft, Shield, Sparkles, Sliders, Filter, Repeat, 
   MessageSquare, FileSignature, Smartphone, Globe, Users, 
   Key, Moon, Sun, Check, ExternalLink, Keyboard, Edit2, 
-  Plus, Trash2, X, CheckCircle2, RefreshCw, Camera, Upload, Image as ImageIcon
+  Plus, Trash2, X, CheckCircle2, RefreshCw, Camera, Upload, Image as ImageIcon,
+  Cloud, Server, Database, Activity
 } from 'lucide-react';
 import { SmartAvatar } from './SmartAvatar';
 
@@ -44,8 +45,82 @@ export function SettingsDashboardClient({ user }: Props) {
   ]);
   const [toastMessage, setToastMessage] = useState("");
 
+  // DigitalOcean Cloud Live State
+  const [doInfo, setDoInfo] = useState<{
+    configured: boolean;
+    account: any;
+    domains: any[];
+    droplets: any[];
+    status: string;
+  } | null>(null);
+  const [loadingDo, setLoadingDo] = useState(false);
+  const [syncingDns, setSyncingDns] = useState(false);
+  const [targetDoDomain, setTargetDoDomain] = useState("rapiemail.online");
+  const [newDropletName, setNewDropletName] = useState("");
+
+  const loadDigitalOceanData = async () => {
+    setLoadingDo(true);
+    try {
+      const res = await fetch('/api/infrastructure/digitalocean');
+      const data = await res.json();
+      if (data && data.configured) {
+        setDoInfo(data);
+      }
+    } catch (e) {
+      console.error("DO fetch error:", e);
+    } finally {
+      setLoadingDo(false);
+    }
+  };
+
+  const handleSyncDoDns = async (domainToSync: string) => {
+    if (!domainToSync) return;
+    setSyncingDns(true);
+    try {
+      const res = await fetch('/api/infrastructure/digitalocean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setup_dns', domainName: domainToSync })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✅ DNS e registos de e-mail (MX, SPF, DMARC) configurados na DigitalOcean para ${domainToSync}!`);
+        loadDigitalOceanData();
+      } else {
+        showToast(data.error || "Erro ao sincronizar DNS na DigitalOcean");
+      }
+    } catch (e) {
+      showToast("Erro de comunicação ao sincronizar DNS");
+    } finally {
+      setSyncingDns(false);
+    }
+  };
+
+  const handleCreateDroplet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDropletName.trim()) return;
+    try {
+      const res = await fetch('/api/infrastructure/digitalocean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_droplet', dropletName: newDropletName.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`🚀 Servidor Cloud "${newDropletName}" em provisionamento na DigitalOcean!`);
+        setNewDropletName("");
+        loadDigitalOceanData();
+      } else {
+        showToast(data.error || "Erro ao criar servidor");
+      }
+    } catch (e) {
+      showToast("Erro ao contactar DigitalOcean");
+    }
+  };
+
   // Carregar tema e foto salvos no arranque
   useEffect(() => {
+    loadDigitalOceanData();
     try {
       const savedTheme = localStorage.getItem('rapi_theme') as "dark" | "light" | null;
       if (savedTheme) {
@@ -598,6 +673,41 @@ export function SettingsDashboardClient({ user }: Props) {
             </button>
           </div>
 
+          {/* 10. INFRAESTRUTURA DIGITALOCEAN CLOUD */}
+          <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
+            isLight ? 'bg-gradient-to-br from-white to-sky-50 border-sky-200 hover:border-sky-300 shadow-sky-100/50' : 'bg-gradient-to-br from-[#121216] to-sky-950/20 border-sky-500/20 hover:border-sky-500/40'
+          }`}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-500 flex items-center justify-center">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{doInfo?.status === "ONLINE" ? "DO API Ativa" : "Conectado"}</span>
+                </div>
+              </div>
+              <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>DigitalOcean Cloud &amp; DNS</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Gestão integrada de servidores VPS Droplets e sincronização automática de DNS (MX, SPF, DMARC) na cloud.
+              </p>
+              <div className={`p-2.5 rounded-xl border text-[11px] font-mono space-y-1 ${
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-black/40 border-white/5 text-zinc-400'
+              }`}>
+                <p>Conta: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{doInfo?.account?.email || 'edsonpc818@gmail.com'}</strong></p>
+                <p>Droplets: <strong className="text-sky-500">{doInfo?.droplets?.length || 0} / {doInfo?.account?.droplet_limit || 10}</strong> ativos</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => { setActiveModal('digitalocean'); loadDigitalOceanData(); }}
+              className="w-full text-center py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-sky-600/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Server className="w-4 h-4" />
+              <span>Gerir DigitalOcean &amp; DNS</span>
+            </button>
+          </div>
+
         </div>
 
       </main>
@@ -881,6 +991,112 @@ export function SettingsDashboardClient({ user }: Props) {
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
               Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: DigitalOcean Cloud & DNS */}
+      {activeModal === 'digitalocean' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className={`border rounded-3xl p-6 max-w-xl w-full space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#121216] border-white/10'
+          }`}>
+            <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
+              <div className="flex items-center gap-3">
+                <Cloud className="w-5 h-5 text-sky-500" />
+                <div>
+                  <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>DigitalOcean Cloud &amp; DNS</h3>
+                  <p className="text-[11px] text-zinc-500">Gestão oficial de infraestrutura e registos de e-mail</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Account Status Box */}
+            <div className={`p-4 rounded-2xl border space-y-2 ${
+              isLight ? 'bg-sky-50/50 border-sky-200' : 'bg-sky-950/20 border-sky-500/20'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-sky-500">Estado da Conta DigitalOcean:</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                  {doInfo?.account?.status?.toUpperCase() || 'ATIVO'}
+                </span>
+              </div>
+              <div className="text-xs font-mono grid grid-cols-2 gap-2 pt-1 text-zinc-400">
+                <p>E-mail: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.email || 'edsonpc818@gmail.com'}</strong></p>
+                <p>Equipa: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.team?.name || 'My Team'}</strong></p>
+                <p>Limite Droplets: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.droplet_limit || 10} VPS</strong></p>
+                <p>Floating IPs: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.floating_ip_limit || 10}</strong></p>
+              </div>
+            </div>
+
+            {/* DNS Auto-Setup & Domain Sync */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Sincronizador DNS de E-mail (MX, SPF, DMARC)</h4>
+                <span className="text-[10px] text-zinc-500">DigitalOcean DNS v2</span>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={targetDoDomain}
+                  onChange={e => setTargetDoDomain(e.target.value)}
+                  className={`flex-1 border rounded-xl px-3 py-2 text-xs outline-none focus:border-sky-500 cursor-pointer ${
+                    isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-black/60 border-white/10 text-white'
+                  }`}
+                >
+                  <option value="rapiemail.online">rapiemail.online (Domínio Principal)</option>
+                  <option value="rapimoneyit.online">rapimoneyit.online (Domínio Corporativo)</option>
+                  <option value="mariomendes.online">mariomendes.online (Domínio Pessoal)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleSyncDoDns(targetDoDomain)}
+                  disabled={syncingDns}
+                  className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-sky-600/20 active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingDns ? 'animate-spin' : ''}`} />
+                  <span>{syncingDns ? "A sincronizar..." : "Sincronizar DNS"}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                Cria o domínio na DigitalOcean e configura automaticamente os registos <strong>MX</strong> (receção), <strong>SPF</strong> (segurança), <strong>DMARC</strong> e <strong>CNAME</strong> (webmail).
+              </p>
+            </div>
+
+            {/* Provision VPS Droplet Form */}
+            <form onSubmit={handleCreateDroplet} className="space-y-3 pt-2 border-t border-white/5">
+              <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Provisionar Servidor VPS Cloud (Droplet)</h4>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newDropletName}
+                  onChange={e => setNewDropletName(e.target.value)}
+                  placeholder="ex: rapiemail-mail-relay-01"
+                  className={`flex-1 border rounded-xl px-3 py-2 text-xs outline-none focus:border-sky-500 ${
+                    isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-black/60 border-white/10 text-white'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                >
+                  <Server className="w-3.5 h-3.5" />
+                  <span>Criar VPS</span>
+                </button>
+              </div>
+              <div className="text-[11px] text-zinc-500 flex justify-between">
+                <span>Configuração: Ubuntu 24.04 LTS (1 vCPU, 1 GB RAM, SSD NVMe)</span>
+                <span>Região: Frankfurt (fra1)</span>
+              </div>
+            </form>
+
+            <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
+              isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
+            }`}>
+              Fechar Painel DigitalOcean
             </button>
           </div>
         </div>
