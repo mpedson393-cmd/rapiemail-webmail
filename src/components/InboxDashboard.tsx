@@ -808,6 +808,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     if (!email) return;
     setIsSummarizing(true);
     try {
+      const emailAttachments = extractAttachmentsFromEmail(email);
       const res = await fetch('/api/ai/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -817,7 +818,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           body: email.body,
           html: email.html,
           from: email.from,
-          userName: user.name
+          userName: user.name,
+          attachments: emailAttachments
         })
       });
       const data = await res.json();
@@ -847,6 +849,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     setIsGeneratingSmartReply(true);
     try {
       const sender = parseSenderDetails(email.from);
+      const emailAttachments = extractAttachmentsFromEmail(email);
       const res = await fetch('/api/ai/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -858,7 +861,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           from: email.from,
           userName: user.name,
           userEmail: user.email,
-          tone
+          tone,
+          attachments: emailAttachments
         })
       });
       const data = await res.json();
@@ -914,6 +918,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     setAiDrawerLoading(true);
 
     try {
+      const emailAttachments = selectedEmail ? extractAttachmentsFromEmail(selectedEmail) : [];
       const res = await fetch('/api/ai/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -923,7 +928,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           body: selectedEmail?.body,
           html: selectedEmail?.html,
           from: selectedEmail?.from,
-          userName: user.name
+          userName: user.name,
+          attachments: emailAttachments
         })
       });
       const data = await res.json();
@@ -2986,6 +2992,26 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             <div className="p-3 border-b border-[#E5E7EB] dark:border-white/5 bg-zinc-50/50 dark:bg-black/20 flex gap-2 overflow-x-auto text-[11px] no-scrollbar">
               {selectedEmail ? (
                 <>
+                  {extractAttachmentsFromEmail(selectedEmail).some(a => a.contentType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(a.filename || '')) && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleSendAiDrawerMessage("Analisa as fotografias dos produtos anexadas e descreve os itens para elaboração de proposta comercial e catálogo.");
+                        }}
+                        className="px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 shrink-0 transition-colors font-semibold cursor-pointer flex items-center gap-1"
+                      >
+                        📸 Analisar Fotos de Produtos
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleSendAiDrawerMessage("Gera uma proposta comercial estruturada com preços por volume para os produtos nas fotografias anexadas.");
+                        }}
+                        className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 shrink-0 transition-colors font-medium cursor-pointer"
+                      >
+                        💼 Proposta com Fotos
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => {
                       const sender = parseSenderDetails(selectedEmail.from);
