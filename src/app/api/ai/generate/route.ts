@@ -36,8 +36,8 @@ Regras Obrigatórias de Resposta:
       }
     };
 
-    // Modelos Ativos no Google AI Studio (gemini-3.6-flash -> gemini-3.5-flash)
-    const models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+    // Modelos Ativos no Google AI Studio (gemini-2.0-flash -> gemini-1.5-flash)
+    const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     let aiResponseText = "";
 
     for (const model of models) {
@@ -68,17 +68,20 @@ Regras Obrigatórias de Resposta:
     }
 
     if (!aiResponseText) {
-      // Fallback Inteligente baseado em palavras-chave se o Google AI Studio falhar a ligação
+      // Fallback Inteligente e Contextual RapiAI
       const lower = prompt.toLowerCase();
       let fallbackSubject = "Comunicação Oficial";
-      let fallbackBody = `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`;
+      let fallbackBody = `Olá,\n\nRelativamente ao assunto solicitado, venho por este meio comunicar que a nossa equipa analisou os detalhes com toda a atenção e estamos prontos para avançar com os próximos passos.\n\nFico à disposição para qualquer esclarecimento adicional.\n\nCom os melhores cumprimentos,\nEdson | Rapi Money`;
 
-      if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
+      if (lower.includes("nda") || lower.includes("acordo") || lower.includes("contrato") || lower.includes("bel money") || lower.includes("david")) {
+        fallbackSubject = "Re: Acordo de Confidencialidade (NDA) — Revisão e Documentação";
+        fallbackBody = `Estimado(a),\n\nAcusamos a receção da minuta do Acordo de Confidencialidade (NDA).\n\nInformamos que a nossa equipa jurídica está a proceder à análise dos termos para incluir a especificação formal do objetivo da parceria, assegurando a devida cobertura para as operações no mercado europeu.\n\nCom a máxima brevidade, remeteremos a versão final devidamente assinada juntamente com a documentação de conformidade solicitada.\n\nCom os melhores cumprimentos,\nEdson | Rapi Money`;
+      } else if (lower.includes("reuniao") || lower.includes("reunião") || lower.includes("perdi") || lower.includes("desculp")) {
         fallbackSubject = "Pedido de Desculpas e Reagendamento de Reunião";
-        fallbackBody = `Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos a nossa conversa para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEquipa RapiEmail`;
+        fallbackBody = `Olá,\n\nInfelizmente não me foi possível estar presente na nossa reunião agendada. Gostaria de apresentar as minhas sinceras desculpas pela inconveniência.\n\nSeria possível reagendarmos a nossa conversa para um dos seguintes horários?\n• Amanhã às 11:00\n• Quinta-feira às 15:00\n\nFico a aguardar a tua disponibilidade.\n\nCom os melhores cumprimentos,\nEdson | Rapi Money`;
       } else if (lower.includes("proposta") || lower.includes("venda") || lower.includes("preço")) {
-        fallbackSubject = "Proposta Comercial Oficial";
-        fallbackBody = `Estimado(a),\n\nConforme solicitado, envio em anexo os detalhes da nossa proposta comercial.\n\nFico totalmente disponível para esclarecer qualquer questão ou agendarmos uma breve chamada.\n\nAtenciosamente,\nEquipa RapiEmail`;
+        fallbackSubject = "Proposta Comercial Corporativa — Rapi Money";
+        fallbackBody = `Estimado(a),\n\nConforme conversámos, apresentamos em anexo a nossa proposta comercial para soluções corporativas dedicadas.\n\nEstamos inteiramente disponíveis para esclarecer qualquer detalhe ou agendarmos uma sessão de demonstração executiva.\n\nAtenciosamente,\nEdson | Rapi Money`;
       }
 
       return NextResponse.json({ 
