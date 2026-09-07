@@ -211,21 +211,39 @@ function formatFullEmailDateTime(dateStr: string): string {
   }
 }
 
-// Detetar Códigos de Verificação / 2FA / OTP no E-mail (ex: Sinch, Twilio, bancos, LinkedIn)
+// Detetar Códigos de Verificação / 2FA / OTP no E-mail (ex: Sinch, Twilio, bancos, LinkedIn, Stripe, Google)
 function extractVerificationCode(subject: string, body: string): string | null {
   if (!subject && !body) return null;
-  const text = `${subject} ${body}`;
+  const full = `${subject} ${body}`;
+  const lower = full.toLowerCase();
 
-  // Padrão 1: Código explícito com contexto (ex: "code is: 279587", "código: 077137", "verification code 123456")
-  const contextMatch = text.match(/(?:código|code|código de verificação|verification code|pin|otp|passcode)[\s\S]{0,40}?\b([0-9]{4,8}|[0-9]\s[0-9]\s[0-9]\s[0-9]\s[0-9]\s[0-9])\b/i);
+  // Critério obrigatório: O e-mail TEM QUE ser expressamente de autenticação, verificação, 2FA, OTP ou segurança
+  const isAuthEmail = 
+    lower.includes("verificação") || 
+    lower.includes("verificacao") || 
+    lower.includes("verification") || 
+    lower.includes("código de segurança") || 
+    lower.includes("security code") || 
+    lower.includes("código de acesso") || 
+    lower.includes("código de confirmação") || 
+    lower.includes("confirmation code") || 
+    lower.includes("one-time password") || 
+    lower.includes("one-time passcode") || 
+    lower.includes("código otp") || 
+    lower.includes("código 2fa") || 
+    lower.includes("your code is") ||
+    lower.includes("o seu código é") ||
+    lower.includes("seu código é");
+
+  if (!isAuthEmail) return null;
+
+  // Extrair o código exclusivamente no contexto de verificação (ex: "código: 279587", "code is: 077137", "verification code 123456")
+  const contextMatch = full.match(/(?:código|code|pin|otp|passcode)[\s\S]{0,35}?\b([0-9]{4,8}|[0-9]\s[0-9]\s[0-9]\s[0-9]\s[0-9]\s[0-9])\b/i);
   if (contextMatch && contextMatch[1]) {
-    return contextMatch[1].replace(/\s+/g, '');
-  }
-
-  // Padrão 2: 6 dígitos isolados em destaque (muito comum em OTPs)
-  const sixDigitMatch = text.match(/\b([0-9]{6})\b/);
-  if (sixDigitMatch && sixDigitMatch[1]) {
-    return sixDigitMatch[1];
+    const code = contextMatch[1].replace(/\s+/g, '');
+    if (code.length >= 4 && code.length <= 8) {
+      return code;
+    }
   }
 
   return null;
@@ -325,20 +343,37 @@ export function extractAttachmentsFromEmail(email?: EmailItem | null): EmailAtta
   const seenKeys = new Set<string>();
 
   // 1. Anexos diretos na base de dados (com URLs ou dados em base64)
-  if (email.attachments && Array.isArray(email.attachments)) {
-    email.attachments.forEach(att => {
-      const name = att.filename || "documento";
+  if (email.attachments) {
+    let list: any[] = [];
+    if (Array.isArray(email.attachments)) {
+      list = email.attachments;
+    } else if (typeof email.attachments === 'string') {
+      try {
+        const parsed = JSON.parse(email.attachments);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (e) {}
+    }
+
+    list.forEach(att => {
+      if (!att) return;
+      const name = att.filename || att.name || "documento";
       const key = `${name.toLowerCase()}_${att.url || att.content || ''}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
-        result.push(att);
+        result.push({
+          filename: name,
+          contentType: att.contentType || att.type || 'application/octet-stream',
+          url: att.url,
+          content: att.content,
+          size: att.size || 'Anexo'
+        });
       }
     });
   }
 
   // 2. Detetar links reais para descarregar documentos no HTML (ex: <a href="https://...file.pdf">)
   if (email.html) {
-    const linkRegex = /<a\s+[^>]*href=["']([^"']+\.(pdf|docx?|xlsx?|pptx?|zip|rar|csv))["'][^>]*>(.*?)<\/a>/gi;
+    const linkRegex = /<a\s+[^>]*href=["']([^"']+\.(pdf|docx?|xlsx?|pptx?|zip|rar|csv|png|jpe?g|webp|svg))["'][^>]*>(.*?)<\/a>/gi;
     let match;
     while ((match = linkRegex.exec(email.html)) !== null) {
       const href = match[1].trim();
@@ -347,6 +382,37 @@ export function extractAttachmentsFromEmail(email?: EmailItem | null): EmailAtta
       const lower = filename.toLowerCase();
 
       // Ignorar scripts ou ficheiros de sistema
+      if (!['schema.prisma', 'route.ts', 'page.tsx', 'style.css', 'index.html', 'favicon.ico'].includes(lower)) {
+        const key = `${lower}_${href}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const ext = match[2].toLowerCase();
+          let contentType = "application/octet-stream";
+          if (ext === 'pdf') contentType = 'application/pdf';
+          else if (ext.startsWith('doc')) contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (ext.startsWith('xls') || ext === 'csv') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          else if (['zip', 'rar'].includes(ext)) contentType = 'application/zip';
+          else if (['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(ext)) contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+
+          result.push({
+            filename,
+            contentType,
+            url: href,
+            size: "Download Web"
+          });
+        }
+      }
+    }
+  }
+
+  // 3. Detetar links de ficheiros em texto puro no corpo
+  if (email.body && !result.length) {
+    const urlRegex = /(https?:\/\/[^\s<>"']+\.(pdf|docx?|xlsx?|pptx?|zip|rar|csv))(\?[^\s<>"']*)?/gi;
+    let match;
+    while ((match = urlRegex.exec(email.body)) !== null) {
+      const href = match[1].trim();
+      const filename = href.split('/').pop()?.split('?')[0] || `documento.${match[2]}`;
+      const lower = filename.toLowerCase();
       if (!['schema.prisma', 'route.ts', 'page.tsx', 'style.css', 'index.html', 'favicon.ico'].includes(lower)) {
         const key = `${lower}_${href}`;
         if (!seenKeys.has(key)) {
@@ -1521,7 +1587,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
 
   return (
-    <div className={`h-screen w-screen overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
+    <div className={`h-screen h-[100dvh] w-screen overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
       isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
     }`}>
       
@@ -1850,6 +1916,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   const dateDisplay = formatEmailDate(email.createdAt);
                   const isUnread = !email.read && !isSent;
                   const cleanPreview = cleanSnippetText(email.body);
+                  const emailAttachments = extractAttachmentsFromEmail(email);
+                  const hasAttachment = emailAttachments.length > 0;
 
                   return (
                     <div
@@ -1891,6 +1959,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               {isSent ? `Para: ${senderDetails.name}` : senderDetails.name}
                             </span>
                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              {/* Ícone de Anexo Clip na Lista */}
+                              {hasAttachment && (
+                                <span title={`${emailAttachments.length} ${emailAttachments.length === 1 ? 'Anexo' : 'Anexos'} anexado(s)`}>
+                                  <Paperclip className="w-3.5 h-3.5 text-[#1A73E8] dark:text-[#8AB4F8] shrink-0" />
+                                </span>
+                              )}
+
                               {isSent && (
                                 email.isOpened ? (
                                   <span title={`✅ Lido pelo destinatário em ${email.openedAt ? new Date(email.openedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : ''} (${email.openCount || 1}x no ${email.userAgent || 'dispositivo'})`}>
@@ -1931,6 +2006,40 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           }`}>
                             {cleanPreview}
                           </p>
+
+                          {/* Chips de Anexos no Item da Lista (Estilo Gmail/Outlook) */}
+                          {hasAttachment && (
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              {emailAttachments.slice(0, 2).map((att, attIdx) => {
+                                const ext = att.filename.split('.').pop()?.toUpperCase() || 'FILE';
+                                const isDoc = ['DOC', 'DOCX'].includes(ext);
+                                const isPdf = ext === 'PDF';
+                                const isXls = ['XLS', 'XLSX', 'CSV'].includes(ext);
+                                const isImg = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF'].includes(ext);
+
+                                let tagColor = "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30";
+                                if (isPdf) tagColor = "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30";
+                                else if (isXls) tagColor = "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30";
+                                else if (isImg) tagColor = "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30";
+
+                                return (
+                                  <span
+                                    key={attIdx}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${tagColor} max-w-[210px] truncate`}
+                                    title={att.filename}
+                                  >
+                                    <Paperclip className="w-2.5 h-2.5 shrink-0 opacity-80" />
+                                    <span className="truncate">{att.filename}</span>
+                                  </span>
+                                );
+                              })}
+                              {emailAttachments.length > 2 && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/10">
+                                  +{emailAttachments.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Ações Rápidas do Item */}
@@ -1973,11 +2082,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           {/* COLUMN 3: EMAIL READER PANE (Com Cópia de Código 2FA, Tradutor Multi-Línguas e Responder) */}
           <main className={`${
             mobileView === 'list' ? 'hidden md:flex' : 'flex'
-          } flex-1 flex-col h-full overflow-hidden transition-colors ${
+          } flex-1 flex-col h-full overflow-hidden min-h-0 transition-colors ${
             isLight ? 'bg-[#FFFFFF]' : 'bg-[#07090E]'
           }`}>
             {selectedEmail ? (
-              <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <div className="flex-1 flex flex-col h-full overflow-hidden min-h-0">
                 
                 {/* Action Toolbar */}
                 <div className={`h-12 md:h-11 px-4 md:px-6 border-b flex items-center justify-between text-xs shrink-0 select-none ${
@@ -2100,13 +2209,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </div>
                 </div>
 
-                {/* Área de Leitura (Com Seleção Livre de Texto) */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 md:space-y-6 max-w-4xl select-text">
+                {/* Área de Leitura (Com Seleção Livre de Texto e Padding Inferior Generoso para Mobile) */}
+                <div className="flex-1 overflow-y-auto p-4 pb-36 md:p-8 md:pb-24 space-y-5 md:space-y-6 max-w-4xl select-text overscroll-contain">
                   
-                  {/* Subject Header */}
-                  <h1 className={`text-lg md:text-xl font-bold tracking-tight leading-snug select-text ${isLight ? 'text-[#202124]' : 'text-white'}`}>
-                    {(isShowingTranslation && currentTranslation?.subject) ? currentTranslation.subject : (selectedEmail.subject || '(Sem assunto)')}
-                  </h1>
+                  {/* Subject Header com Badge de Anexos */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className={`text-lg md:text-xl font-bold tracking-tight leading-snug select-text ${isLight ? 'text-[#202124]' : 'text-white'}`}>
+                      {(isShowingTranslation && currentTranslation?.subject) ? currentTranslation.subject : (selectedEmail.subject || '(Sem assunto)')}
+                    </h1>
+                    {currentEmailAttachments.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F0FE] text-[#1A73E8] dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 shrink-0 select-none">
+                        <Paperclip className="w-3.5 h-3.5" />
+                        <span>{currentEmailAttachments.length} {currentEmailAttachments.length === 1 ? 'Anexo' : 'Anexos'}</span>
+                      </span>
+                    )}
+                  </div>
 
                   {/* Sender Header Card com SmartAvatar HD & Badge de Vista Real (Dois Riscos) */}
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10 select-none">
@@ -2687,6 +2804,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       <span>Reencaminhar</span>
                     </button>
                   </div>
+
+                  {/* Espaçador Seguro Inferior para Mobile & Android Navigation Bar */}
+                  <div className="h-20 md:h-8 shrink-0" aria-hidden="true" />
 
                 </div>
               </div>
