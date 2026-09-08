@@ -2512,7 +2512,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               )}
                             </div>
                             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                              Gerado pelo Agente DigitalOcean & RapiAI Engine
+                              Gerado pelo Agente RapiAI Executive Engine
                             </span>
                           </div>
                         </div>

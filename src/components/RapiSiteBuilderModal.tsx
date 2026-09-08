@@ -106,7 +106,7 @@ Regras Obrigatórias:
   </section>
 
   <footer class="border-t border-white/5 py-8 text-center text-xs text-zinc-600">
-    © 2026 ${businessName}. Alojado no domínio ${userDomain} via RapiEmail & DigitalOcean.
+    © 2026 ${businessName}. Alojado no domínio ${userDomain} via RapiEmail & RapiCloud.
   </footer>
 </body>
 </html>`;
@@ -151,7 +151,7 @@ Regras Obrigatórias:
               <Globe className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Criador de Website IA & Alojamento DigitalOcean</h3>
+              <h3 className="text-sm font-bold text-white">Criador de Website IA &amp; Alojamento RapiCloud</h3>
               <p className="text-[11px] text-zinc-400">Domínio oficial: <strong className="text-indigo-400">{userDomain}</strong></p>
             </div>
           </div>
@@ -187,7 +187,7 @@ Regras Obrigatórias:
               <div className="bg-gradient-to-r from-indigo-950/40 to-purple-950/40 border border-indigo-500/20 rounded-2xl p-4 flex items-center gap-3">
                 <Sparkles className="w-6 h-6 text-indigo-400 flex-shrink-0 animate-pulse" />
                 <p className="text-xs text-indigo-200 leading-relaxed">
-                  Escreve os detalhes do teu negócio. A **RapiAI com Google Gemini 3.6 Flash** gera o site responsivo completo em 10 segundos e publica no servidor da **DigitalOcean** por apenas 88€/ano!
+                  Escreve os detalhes do teu negócio. A **RapiAI com Google Gemini 3.6 Flash** gera o site responsivo completo em 10 segundos e publica nos servidores da **RapiCloud** por apenas 88€/ano!
                 </p>
               </div>
 
@@ -316,7 +316,7 @@ Regras Obrigatórias:
         {/* Footer Checkout Action */}
         <div className="bg-[#1a1a20] border-t border-white/5 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400">Preço do Alojamento Web + Servidor DigitalOcean:</span>
+            <span className="text-xs text-zinc-400">Preço do Alojamento Web + Servidor RapiCloud:</span>
             <span className="text-sm font-black text-white bg-indigo-500/20 border border-indigo-500/30 px-3 py-1 rounded-full">
               88€ / ano
             </span>

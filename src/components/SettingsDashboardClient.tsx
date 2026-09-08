@@ -84,10 +84,10 @@ export function SettingsDashboardClient({ user }: Props) {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`✅ DNS e registos de e-mail (MX, SPF, DMARC) configurados na DigitalOcean para ${domainToSync}!`);
+        showToast(`✅ DNS e registos de e-mail (MX, SPF, DMARC) configurados na RapiCloud para ${domainToSync}!`);
         loadDigitalOceanData();
       } else {
-        showToast(data.error || "Erro ao sincronizar DNS na DigitalOcean");
+        showToast(data.error || "Erro ao sincronizar DNS na RapiCloud");
       }
     } catch (e) {
       showToast("Erro de comunicação ao sincronizar DNS");
@@ -107,14 +107,14 @@ export function SettingsDashboardClient({ user }: Props) {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`🚀 Servidor Cloud "${newDropletName}" em provisionamento na DigitalOcean!`);
+        showToast(`🚀 Servidor RapiCloud "${newDropletName}" em provisionamento!`);
         setNewDropletName("");
         loadDigitalOceanData();
       } else {
         showToast(data.error || "Erro ao criar servidor");
       }
     } catch (e) {
-      showToast("Erro ao contactar DigitalOcean");
+      showToast("Erro ao contactar infraestrutura RapiCloud");
     }
   };
 
@@ -673,7 +673,7 @@ export function SettingsDashboardClient({ user }: Props) {
             </button>
           </div>
 
-          {/* 10. INFRAESTRUTURA DIGITALOCEAN CLOUD */}
+          {/* 10. INFRAESTRUTURA RAPICLOUD & DNS */}
           <div className={`border rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 transition-all shadow-xl ${
             isLight ? 'bg-gradient-to-br from-white to-sky-50 border-sky-200 hover:border-sky-300 shadow-sky-100/50' : 'bg-gradient-to-br from-[#121216] to-sky-950/20 border-sky-500/20 hover:border-sky-500/40'
           }`}>
@@ -684,18 +684,18 @@ export function SettingsDashboardClient({ user }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 px-2 py-0.5 rounded-full text-[10px] font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{doInfo?.status === "ONLINE" ? "DO API Ativa" : "Conectado"}</span>
+                  <span>{doInfo?.status === "ONLINE" ? "Cluster Ativo" : "Conectado"}</span>
                 </div>
               </div>
-              <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>DigitalOcean Cloud &amp; DNS</h3>
+              <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>RapiCloud &amp; DNS Infrastructure</h3>
               <p className="text-xs text-zinc-500 leading-relaxed">
-                Gestão integrada de servidores VPS Droplets e sincronização automática de DNS (MX, SPF, DMARC) na cloud.
+                Gestão integrada de servidores VPS e sincronização automática de registos DNS (MX, SPF, DMARC) na nuvem RapiCloud.
               </p>
               <div className={`p-2.5 rounded-xl border text-[11px] font-mono space-y-1 ${
                 isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-black/40 border-white/5 text-zinc-400'
               }`}>
-                <p>Conta: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{doInfo?.account?.email || 'edsonpc818@gmail.com'}</strong></p>
-                <p>Droplets: <strong className="text-sky-500">{doInfo?.droplets?.length || 0} / {doInfo?.account?.droplet_limit || 10}</strong> ativos</p>
+                <p>Infraestrutura: <strong className={isLight ? 'text-slate-900' : 'text-white'}>RapiCloud Enterprise Cluster</strong></p>
+                <p>Servidores: <strong className="text-sky-500">{doInfo?.droplets?.length || 0} / {doInfo?.account?.droplet_limit || 10}</strong> VPS ativos</p>
               </div>
             </div>
 
@@ -704,7 +704,7 @@ export function SettingsDashboardClient({ user }: Props) {
               className="w-full text-center py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-sky-600/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
               <Server className="w-4 h-4" />
-              <span>Gerir DigitalOcean &amp; DNS</span>
+              <span>Gerir RapiCloud &amp; DNS</span>
             </button>
           </div>
 
@@ -996,7 +996,7 @@ export function SettingsDashboardClient({ user }: Props) {
         </div>
       )}
 
-      {/* Modal: DigitalOcean Cloud & DNS */}
+      {/* Modal: RapiCloud Infrastructure & DNS */}
       {activeModal === 'digitalocean' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className={`border rounded-3xl p-6 max-w-xl w-full space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
@@ -1006,8 +1006,8 @@ export function SettingsDashboardClient({ user }: Props) {
               <div className="flex items-center gap-3">
                 <Cloud className="w-5 h-5 text-sky-500" />
                 <div>
-                  <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>DigitalOcean Cloud &amp; DNS</h3>
-                  <p className="text-[11px] text-zinc-500">Gestão oficial de infraestrutura e registos de e-mail</p>
+                  <h3 className={`text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>RapiCloud Infrastructure &amp; DNS</h3>
+                  <p className="text-[11px] text-zinc-500">Gestão oficial de infraestrutura e registos de e-mail corporativo</p>
                 </div>
               </div>
               <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
@@ -1020,16 +1020,16 @@ export function SettingsDashboardClient({ user }: Props) {
               isLight ? 'bg-sky-50/50 border-sky-200' : 'bg-sky-950/20 border-sky-500/20'
             }`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-sky-500">Estado da Conta DigitalOcean:</span>
+                <span className="text-xs font-bold text-sky-500">Estado do Cluster RapiCloud:</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
                   {doInfo?.account?.status?.toUpperCase() || 'ATIVO'}
                 </span>
               </div>
               <div className="text-xs font-mono grid grid-cols-2 gap-2 pt-1 text-zinc-400">
-                <p>E-mail: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.email || 'edsonpc818@gmail.com'}</strong></p>
-                <p>Equipa: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.team?.name || 'My Team'}</strong></p>
-                <p>Limite Droplets: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.droplet_limit || 10} VPS</strong></p>
-                <p>Floating IPs: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.floating_ip_limit || 10}</strong></p>
+                <p>Nó Principal: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>infra@rapiemail.online</strong></p>
+                <p>Equipa: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>RapiCloud Enterprise</strong></p>
+                <p>Capacidade VPS: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.droplet_limit || 10} Servidores</strong></p>
+                <p>IPs Dedicados: <strong className={isLight ? 'text-slate-900' : 'text-zinc-200'}>{doInfo?.account?.floating_ip_limit || 10}</strong></p>
               </div>
             </div>
 
@@ -1037,7 +1037,7 @@ export function SettingsDashboardClient({ user }: Props) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Sincronizador DNS de E-mail (MX, SPF, DMARC)</h4>
-                <span className="text-[10px] text-zinc-500">DigitalOcean DNS v2</span>
+                <span className="text-[10px] text-zinc-500">RapiCloud Engine v2</span>
               </div>
               <div className="flex gap-2">
                 <select
@@ -1062,13 +1062,13 @@ export function SettingsDashboardClient({ user }: Props) {
                 </button>
               </div>
               <p className="text-[11px] text-zinc-500">
-                Cria o domínio na DigitalOcean e configura automaticamente os registos <strong>MX</strong> (receção), <strong>SPF</strong> (segurança), <strong>DMARC</strong> e <strong>CNAME</strong> (webmail).
+                Cria o domínio na infraestrutura RapiCloud e configura automaticamente os registos <strong>MX</strong> (receção), <strong>SPF</strong> (segurança), <strong>DMARC</strong> e <strong>CNAME</strong> (webmail).
               </p>
             </div>
 
             {/* Provision VPS Droplet Form */}
             <form onSubmit={handleCreateDroplet} className="space-y-3 pt-2 border-t border-white/5">
-              <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Provisionar Servidor VPS Cloud (Droplet)</h4>
+              <h4 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Provisionar Servidor VPS Cloud</h4>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -1089,14 +1089,14 @@ export function SettingsDashboardClient({ user }: Props) {
               </div>
               <div className="text-[11px] text-zinc-500 flex justify-between">
                 <span>Configuração: Ubuntu 24.04 LTS (1 vCPU, 1 GB RAM, SSD NVMe)</span>
-                <span>Região: Frankfurt (fra1)</span>
+                <span>Região: Frankfurt Cloud</span>
               </div>
             </form>
 
             <button onClick={() => setActiveModal(null)} className={`w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
               isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-white/10 hover:bg-white/15 text-white'
             }`}>
-              Fechar Painel DigitalOcean
+              Fechar Painel RapiCloud
             </button>
           </div>
         </div>
