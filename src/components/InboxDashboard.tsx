@@ -1295,34 +1295,60 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   // CÁLCULO DUAL REAL DO ARMAZENAMENTO OCUPADO PELOS EMAILS & ANEXOS
   const storageInfo = useMemo(() => {
-    const TOTAL_LIMIT_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+    const TOTAL_LIMIT_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB Limit
     let usedBytes = 0;
 
-    emails.forEach(email => {
-      const subjSize = (email.subject || '').length;
-      const bodySize = (email.body || '').length;
-      const htmlSize = (email.html || '').length;
-      usedBytes += (subjSize + bodySize + htmlSize);
-
-      if (email.attachments) {
-        try {
-          const atts = typeof email.attachments === 'string' 
-            ? JSON.parse(email.attachments) 
-            : email.attachments;
-          if (Array.isArray(atts)) {
-            atts.forEach((a: any) => {
-              if (a.size) {
-                usedBytes += Number(a.size);
-              } else if (a.content) {
-                usedBytes += Math.round((a.content.length * 3) / 4);
-              } else {
-                usedBytes += 50000;
-              }
-            });
-          }
-        } catch(e) {}
+    const parseBytes = (sizeInput: any): number => {
+      if (typeof sizeInput === 'number' && !isNaN(sizeInput)) return sizeInput;
+      if (typeof sizeInput === 'string') {
+        const cleanStr = sizeInput.trim().toLowerCase();
+        const num = parseFloat(cleanStr);
+        if (isNaN(num)) return 0;
+        if (cleanStr.includes('gb')) return Math.round(num * 1024 * 1024 * 1024);
+        if (cleanStr.includes('mb')) return Math.round(num * 1024 * 1024);
+        if (cleanStr.includes('kb')) return Math.round(num * 1024);
+        return Math.round(num);
       }
-    });
+      return 0;
+    };
+
+    if (Array.isArray(emails)) {
+      emails.forEach(email => {
+        const subjStr = String(email.subject || '');
+        const bodyStr = String(email.body || '');
+        const htmlStr = String(email.html || '');
+        usedBytes += (subjStr.length + bodyStr.length + htmlStr.length);
+
+        if (email.attachments) {
+          try {
+            let attsArray: any[] = [];
+            if (typeof email.attachments === 'string') {
+              attsArray = JSON.parse(email.attachments);
+            } else if (Array.isArray(email.attachments)) {
+              attsArray = email.attachments;
+            }
+
+            if (Array.isArray(attsArray)) {
+              attsArray.forEach((a: any) => {
+                if (!a) return;
+                const parsed = parseBytes(a.size);
+                if (parsed > 0) {
+                  usedBytes += parsed;
+                } else if (typeof a.content === 'string' && a.content.length > 0) {
+                  usedBytes += Math.round((a.content.length * 3) / 4);
+                } else {
+                  usedBytes += 25000; // Estímulo médio por anexo
+                }
+              });
+            }
+          } catch(e) {}
+        }
+      });
+    }
+
+    if (isNaN(usedBytes) || usedBytes < 0) {
+      usedBytes = 0;
+    }
 
     let usedDisplay = "0 MB";
     if (usedBytes >= 1024 * 1024 * 1024) {
@@ -1335,15 +1361,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       usedDisplay = `${usedBytes} Bytes`;
     }
 
-    const percentageVal = (usedBytes / TOTAL_LIMIT_BYTES) * 100;
-    const percentage = Math.min(100, Math.max(0.1, percentageVal)).toFixed(1);
+    const rawPercentage = (usedBytes / TOTAL_LIMIT_BYTES) * 100;
+    const safePercentage = isNaN(rawPercentage) ? 0.1 : Math.min(100, Math.max(0.1, rawPercentage));
+    const percentage = safePercentage.toFixed(1);
 
     return {
       usedBytes,
       usedDisplay,
       limitDisplay: "5 GB",
       percentage,
-      barWidthPercentage: `${Math.max(1, Number(percentage)).toFixed(1)}%`
+      barWidthPercentage: `${Math.max(1, safePercentage).toFixed(1)}%`
     };
   }, [emails]);
 
@@ -1654,7 +1681,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
 
   return (
-    <div className={`h-screen h-[100dvh] w-screen overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
+    <div className={`h-screen h-[100dvh] w-full max-w-full overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
       isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
     }`}>
       

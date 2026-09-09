@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="pt"
       className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased light`}
     >
-      <body className="h-screen w-screen overflow-hidden flex flex-col m-0 p-0">{children}</body>
+      <body className="h-screen w-full max-w-full overflow-hidden flex flex-col m-0 p-0 box-border">{children}</body>
     </html>
   );
 }
