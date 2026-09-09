@@ -131,33 +131,19 @@ body.light .glass-panel {
 .email-rich-container {
   color-scheme: light !important;
   background-color: #ffffff !important;
+  color: #202124 !important;
 }
 
 .email-rich-html {
   font-family: inherit;
   line-height: 1.7;
-  color: #111827 !important;
+  color: #202124;
   background-color: transparent;
 }
 
-.email-rich-html p,
-.email-rich-html div,
-.email-rich-html td,
-.email-rich-html th,
-.email-rich-html span,
-.email-rich-html li,
-.email-rich-html font,
-.email-rich-html h1,
-.email-rich-html h2,
-.email-rich-html h3,
-.email-rich-html h4 {
-  color: #111827 !important;
-}
-
 .email-rich-html a {
-  color: #1a73e8 !important;
-  text-decoration: underline !important;
-  font-weight: 600;
+  color: #1a73e8;
+  text-decoration: underline;
 }
 
 .email-rich-html img {

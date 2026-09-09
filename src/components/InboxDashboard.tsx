@@ -627,9 +627,9 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
     return (
       <div className="space-y-4 select-text cursor-text w-full max-w-full">
         {/* Conteúdo Principal do E-mail (Mensagem Nova) */}
-        <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white text-zinc-900 border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text">
+        <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text">
           <div 
-            className="email-rich-html text-sm md:text-[15px] leading-relaxed text-zinc-900 select-text cursor-text"
+            className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] select-text cursor-text"
             dangerouslySetInnerHTML={{ __html: mainHtml }}
           />
         </div>
@@ -651,7 +651,7 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
           {showQuoted && (
             <div className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.05] animate-in fade-in duration-150 select-text">
               <div 
-                className="email-rich-html text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 select-text"
+                className="email-rich-html text-sm leading-relaxed text-[#202124] select-text"
                 dangerouslySetInnerHTML={{ __html: quotedHtml }}
               />
             </div>
@@ -663,9 +663,9 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
 
   // Se não tem bloco de citação separado, exibe o HTML normalmente
   return (
-    <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white text-zinc-900 border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text w-full max-w-full">
+    <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text w-full max-w-full">
       <div 
-        className="email-rich-html text-sm md:text-[15px] leading-relaxed text-zinc-900 select-text cursor-text"
+        className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] select-text cursor-text"
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
     </div>
