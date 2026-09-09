@@ -625,12 +625,14 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
     const quotedHtml = htmlContent.substring(splitIndex).trim();
 
     return (
-      <div className="space-y-4 select-text cursor-text">
+      <div className="space-y-4 select-text cursor-text w-full max-w-full">
         {/* Conteúdo Principal do E-mail (Mensagem Nova) */}
-        <div 
-          className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
-          dangerouslySetInnerHTML={{ __html: mainHtml }}
-        />
+        <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white text-zinc-900 border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text">
+          <div 
+            className="email-rich-html text-sm md:text-[15px] leading-relaxed text-zinc-900 select-text cursor-text"
+            dangerouslySetInnerHTML={{ __html: mainHtml }}
+          />
+        </div>
 
         {/* Histórico Anterior Formatado Estilo Gmail com Botão (...) */}
         <div className="pt-2 select-none">
@@ -647,9 +649,9 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
           </button>
 
           {showQuoted && (
-            <div className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/[0.02] animate-in fade-in duration-150 select-text">
+            <div className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.05] animate-in fade-in duration-150 select-text">
               <div 
-                className="email-rich-html text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 select-text"
+                className="email-rich-html text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 select-text"
                 dangerouslySetInnerHTML={{ __html: quotedHtml }}
               />
             </div>
@@ -661,10 +663,12 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
 
   // Se não tem bloco de citação separado, exibe o HTML normalmente
   return (
-    <div 
-      className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] dark:text-[#E8EAED] select-text cursor-text"
-      dangerouslySetInnerHTML={{ __html: htmlContent }}
-    />
+    <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white text-zinc-900 border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text w-full max-w-full">
+      <div 
+        className="email-rich-html text-sm md:text-[15px] leading-relaxed text-zinc-900 select-text cursor-text"
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+    </div>
   );
 }
 
@@ -2219,7 +2223,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                 </div>
 
                 {/* Área de Leitura (Com Seleção Livre de Texto e Padding Inferior Generoso para Mobile) */}
-                <div className="flex-1 overflow-y-auto p-4 pb-36 md:p-8 md:pb-24 space-y-5 md:space-y-6 max-w-4xl select-text overscroll-contain">
+                <div className="flex-1 overflow-y-auto p-4 pb-36 md:p-6 md:pb-24 space-y-5 md:space-y-6 w-full max-w-full select-text overscroll-contain">
                   
                   {/* Subject Header com Badge de Anexos */}
                   <div className="flex items-center gap-3 flex-wrap">
