@@ -17,7 +17,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#1A73E8",
+  themeColor: "#07090E",
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "RapiEmail",
   }
 };
@@ -39,9 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="pt"
-      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased light`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased bg-[#07090E]`}
     >
-      <body className="h-screen w-full max-w-full overflow-hidden flex flex-col m-0 p-0 box-border">{children}</body>
+      <body className="h-screen w-full max-w-full overflow-hidden flex flex-col m-0 p-0 box-border bg-[#07090E] text-[#F4F4F6]">{children}</body>
     </html>
   );
 }

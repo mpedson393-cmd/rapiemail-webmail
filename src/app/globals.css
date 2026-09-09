@@ -23,6 +23,7 @@ html, body {
   height: 100%;
   max-width: 100vw;
   overflow: hidden;
+  background-color: #07090E;
 }
 
 body {
@@ -40,7 +41,8 @@ html.light, body.light, .light-theme {
   --foreground: #111827;
 }
 
-body.light {
+html.light, body.light {
+  background-color: #FFFFFF !important;
   background: #FFFFFF !important;
   color: #111827 !important;
   background-image: none !important;

@@ -1005,7 +1005,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   const prevEmailCountRef = useRef<number>(initialEmails.length);
-  const [isLight, setIsLight] = useState<boolean>(true);
+  const [isLight, setIsLight] = useState<boolean>(false);
 
   // 1. Atualizar Badges no Título da Aba dinamicamente (ex: (3) RapiEmail — Webmail Corporativo)
   useEffect(() => {
@@ -1040,14 +1040,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   // 3. Inicializar Service Worker, Tema e Sincronização Automática de Push
   useEffect(() => {
     const saved = localStorage.getItem('rapi_theme');
-    if (saved === 'dark') {
-      setIsLight(false);
-      document.documentElement.classList.remove('light');
-      document.body.classList.remove('light');
-    } else {
+    if (saved === 'light') {
       setIsLight(true);
       document.documentElement.classList.add('light');
       document.body.classList.add('light');
+    } else {
+      setIsLight(false);
+      document.documentElement.classList.remove('light');
+      document.body.classList.remove('light');
     }
 
     // Registar Service Worker PWA no telemóvel e desktop
