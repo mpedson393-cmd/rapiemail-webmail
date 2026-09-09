@@ -12,25 +12,36 @@
   --color-foreground: var(--foreground);
 }
 
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  overflow: hidden;
+}
+
 body {
-  background: #06070B;
+  background: #07090E;
   color: #F4F4F6;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Light Mode: Ultra-Clean, High-Contrast Google/Apple Business Webmail */
 html.light, body.light, .light-theme {
-  --background: #F6F8FC;
+  --background: #FFFFFF;
   --foreground: #111827;
 }
 
 body.light {
-  background: #F6F8FC !important;
+  background: #FFFFFF !important;
   color: #111827 !important;
   background-image: none !important;
 }
