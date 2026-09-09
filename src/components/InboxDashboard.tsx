@@ -1293,6 +1293,60 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     return extractVerificationCode(selectedEmail.subject, selectedEmail.body);
   }, [selectedEmail]);
 
+  // CÁLCULO DUAL REAL DO ARMAZENAMENTO OCUPADO PELOS EMAILS & ANEXOS
+  const storageInfo = useMemo(() => {
+    const TOTAL_LIMIT_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+    let usedBytes = 0;
+
+    emails.forEach(email => {
+      const subjSize = (email.subject || '').length;
+      const bodySize = (email.body || '').length;
+      const htmlSize = (email.html || '').length;
+      usedBytes += (subjSize + bodySize + htmlSize);
+
+      if (email.attachments) {
+        try {
+          const atts = typeof email.attachments === 'string' 
+            ? JSON.parse(email.attachments) 
+            : email.attachments;
+          if (Array.isArray(atts)) {
+            atts.forEach((a: any) => {
+              if (a.size) {
+                usedBytes += Number(a.size);
+              } else if (a.content) {
+                usedBytes += Math.round((a.content.length * 3) / 4);
+              } else {
+                usedBytes += 50000;
+              }
+            });
+          }
+        } catch(e) {}
+      }
+    });
+
+    let usedDisplay = "0 MB";
+    if (usedBytes >= 1024 * 1024 * 1024) {
+      usedDisplay = `${(usedBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    } else if (usedBytes >= 1024 * 1024) {
+      usedDisplay = `${(usedBytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else if (usedBytes >= 1024) {
+      usedDisplay = `${(usedBytes / 1024).toFixed(0)} KB`;
+    } else {
+      usedDisplay = `${usedBytes} Bytes`;
+    }
+
+    const percentageVal = (usedBytes / TOTAL_LIMIT_BYTES) * 100;
+    const percentage = Math.min(100, Math.max(0.1, percentageVal)).toFixed(1);
+
+    return {
+      usedBytes,
+      usedDisplay,
+      limitDisplay: "5 GB",
+      percentage,
+      barWidthPercentage: `${Math.max(1, Number(percentage)).toFixed(1)}%`
+    };
+  }, [emails]);
+
   const handleSelectFolder = (folderId: string) => {
     if (folderId === 'AGENT') {
       setIsAiDrawerOpen(true);
@@ -1799,7 +1853,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               })}
             </nav>
 
-            <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+            {/* Indicador de Armazenamento em Tempo Real no Telemóvel */}
+            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
+              <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                <span>Armazenamento</span>
+                <span className="text-[10px] text-zinc-400 font-mono">{storageInfo.percentage}%</span>
+              </div>
+              <div className="w-full h-1 bg-zinc-200 dark:bg-white/10 rounded-full overflow-hidden mb-1">
+                <div className="h-full bg-[#1A73E8] rounded-full transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
+              </div>
+              <span className="text-[10px] text-zinc-500 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
+            </div>
+
+            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
               <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
             </div>
           </div>
@@ -1875,14 +1941,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               })}
             </nav>
 
+            {/* Indicador de Armazenamento em Tempo Real no Desktop */}
             <div className={`p-3 border-t text-xs shrink-0 ${isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-black/20'}`}>
               <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-[#202124] dark:text-zinc-300">
                 <span>Armazenamento</span>
+                <span className="text-[10px] text-zinc-400 font-mono">{storageInfo.percentage}%</span>
               </div>
               <div className="w-full h-1 bg-[#E5E7EB] dark:bg-white/10 rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-[#1A73E8] rounded-full w-[2%]"></div>
+                <div className="h-full bg-[#1A73E8] rounded-full transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
               </div>
-              <span className="text-[10px] text-zinc-500 block">5 MB de 5 GB (0.1%)</span>
+              <span className="text-[10px] text-zinc-500 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
             </div>
 
             <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
