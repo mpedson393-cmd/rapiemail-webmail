@@ -1681,9 +1681,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const activeBodyText = selectedEmail ? (isShowingTranslation ? (currentTranslation?.text || selectedEmail.body) : selectedEmail.body) : "";
 
   return (
-    <div className={`h-screen h-[100dvh] w-full max-w-full overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
-      isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
-    }`}>
+    <div 
+      className={`h-full min-h-[100dvh] w-full min-w-full overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
+        isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
+      }`}
+      style={{ backgroundColor: isLight ? "#FFFFFF" : "#07090E" }}
+    >
       
       {/* Toast Notification */}
       {toastMessage && (
