@@ -148,6 +148,9 @@ body.light .glass-panel {
   color-scheme: light !important;
   background-color: #ffffff !important;
   color: #202124 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .email-rich-html {
@@ -155,6 +158,9 @@ body.light .glass-panel {
   line-height: 1.7;
   color: #202124;
   background-color: transparent;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
 }
 
 .email-rich-html a {
@@ -163,15 +169,27 @@ body.light .glass-panel {
 }
 
 .email-rich-html img {
-  max-width: 100%;
-  height: auto;
+  max-width: 100% !important;
+  height: auto !important;
   border-radius: 8px;
   display: inline-block;
 }
 
 .email-rich-html table {
-  max-width: 100%;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   border-collapse: collapse;
+}
+
+.email-rich-html table table {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.email-rich-html center {
+  width: 100% !important;
+  margin: 0 auto !important;
 }
 
 .email-rich-html p {
