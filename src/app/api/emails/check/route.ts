@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const email = session.user.email;
 
-    // Procurar os últimos 50 e-mails do utilizador (enviados e recebidos)
+    // Procurar todos os e-mails do utilizador (enviados e recebidos) sem limite artificial
     const dbEmails = await prisma.email.findMany({
       where: {
         OR: [
@@ -25,8 +25,7 @@ export async function GET(req: Request) {
       },
       orderBy: {
         createdAt: 'desc'
-      },
-      take: 50
+      }
     });
 
     const formatted = dbEmails.map(e => ({
