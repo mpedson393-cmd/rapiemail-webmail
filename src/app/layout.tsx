@@ -17,7 +17,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#07090E",
+  themeColor: "#060911",
   viewportFit: "cover",
 };
 
@@ -40,12 +40,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="pt"
-      className={`${geistSans.variable} ${geistMono.variable} h-full w-full m-0 p-0 overflow-hidden antialiased bg-[#07090E]`}
-      style={{ backgroundColor: "#07090E" }}
+      className={`${geistSans.variable} ${geistMono.variable} h-full w-full m-0 p-0 overflow-hidden antialiased`}
+      style={{ background: "radial-gradient(circle at 15% 15%, #0d1527 0%, #060911 100%)", backgroundColor: "#060911" }}
     >
       <body 
-        className="h-full min-h-[100dvh] w-full min-w-full overflow-hidden flex flex-col m-0 p-0 box-border bg-[#07090E] text-[#F4F4F6]"
-        style={{ backgroundColor: "#07090E" }}
+        className="h-full min-h-[100dvh] w-full min-w-full overflow-hidden flex flex-col m-0 p-0 box-border text-[#F4F4F6]"
+        style={{ background: "radial-gradient(circle at 15% 15%, #0d1527 0%, #060911 100%)", backgroundColor: "#060911" }}
       >
         {children}
       </body>

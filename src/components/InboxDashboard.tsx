@@ -597,6 +597,7 @@ function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
 // Renderizador Inteligente de E-mails HTML com Detetor e Colapso de Histórico (Estilo Gmail)
 function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
   const [showQuoted, setShowQuoted] = useState(false);
+  const [isDarkCanvas, setIsDarkCanvas] = useState(false);
 
   // Detetar marcadores de citação do Gmail, Outlook, Apple Mail e Webmail
   const quoteMarkers = [
@@ -620,16 +621,54 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
     }
   }
 
+  const renderCanvasToggle = () => (
+    <div className="w-full flex items-center justify-end mb-3 select-none">
+      <button
+        type="button"
+        onClick={() => setIsDarkCanvas(!isDarkCanvas)}
+        className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border ${
+          isDarkCanvas 
+            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+            : 'bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/10 hover:bg-zinc-200'
+        }`}
+        title="Alternar entre Tela Limpa Branca e Modo de Leitura Escura de Alto Contraste"
+      >
+        {isDarkCanvas ? (
+          <>
+            <Sun className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Leitura Escura Ativa</span>
+          </>
+        ) : (
+          <>
+            <Moon className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+            <span>Alternar Leitura Escura</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+
   if (splitIndex !== -1 && splitIndex > 0) {
     const mainHtml = htmlContent.substring(0, splitIndex).trim();
     const quotedHtml = htmlContent.substring(splitIndex).trim();
 
     return (
       <div className="space-y-4 select-text cursor-text w-full max-w-full">
+        {renderCanvasToggle()}
+
         {/* Conteúdo Principal do E-mail (Mensagem Nova) */}
-        <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center">
+        <div 
+          className={`email-rich-container rapimoney-reader-card rounded-[14px] p-4 md:p-6 shadow-2xl overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center transition-all duration-200 ${
+            isDarkCanvas 
+              ? '!bg-[#0D1322] !text-[#E2E8F0] border-white/15' 
+              : 'bg-white text-[#202124] border-zinc-200 dark:border-white/20'
+          }`}
+          style={isDarkCanvas ? { backgroundColor: "#0D1322", color: "#E2E8F0" } : undefined}
+        >
           <div 
-            className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] select-text cursor-text w-full max-w-full mx-auto"
+            className={`email-rich-html text-sm md:text-[15px] leading-relaxed select-text cursor-text w-full max-w-full mx-auto ${
+              isDarkCanvas ? '!text-[#E2E8F0]' : 'text-[#202124]'
+            }`}
             dangerouslySetInnerHTML={{ __html: mainHtml }}
           />
         </div>
@@ -663,11 +702,23 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
 
   // Se não tem bloco de citação separado, exibe o HTML normalmente
   return (
-    <div className="email-rich-container rounded-2xl p-4 md:p-6 bg-white border border-zinc-200 dark:border-white/20 shadow-sm overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center">
+    <div className="w-full max-w-full space-y-2">
+      {renderCanvasToggle()}
       <div 
-        className="email-rich-html text-sm md:text-[15px] leading-relaxed text-[#202124] select-text cursor-text w-full max-w-full mx-auto"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
+        className={`email-rich-container rapimoney-reader-card rounded-[14px] p-4 md:p-6 shadow-2xl overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center transition-all duration-200 ${
+          isDarkCanvas 
+            ? '!bg-[#0D1322] !text-[#E2E8F0] border-white/15' 
+            : 'bg-white text-[#202124] border-zinc-200 dark:border-white/20'
+        }`}
+        style={isDarkCanvas ? { backgroundColor: "#0D1322", color: "#E2E8F0" } : undefined}
+      >
+        <div 
+          className={`email-rich-html text-sm md:text-[15px] leading-relaxed select-text cursor-text w-full max-w-full mx-auto ${
+            isDarkCanvas ? '!text-[#E2E8F0]' : 'text-[#202124]'
+          }`}
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+      </div>
     </div>
   );
 }
@@ -1683,9 +1734,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   return (
     <div 
       className={`h-full min-h-[100dvh] w-full min-w-full overflow-hidden flex flex-col font-sans transition-colors duration-150 ${
-        isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'bg-[#07090E] text-[#E8EAED]'
+        isLight ? 'bg-[#FFFFFF] text-[#202124]' : 'rapimoney-bg text-[#E8EAED]'
       }`}
-      style={{ backgroundColor: isLight ? "#FFFFFF" : "#07090E" }}
+      style={{ background: isLight ? "#FFFFFF" : "radial-gradient(circle at 15% 15%, #0d1527 0%, #060911 100%)", backgroundColor: isLight ? "#FFFFFF" : "#060911" }}
     >
       
       {/* Toast Notification */}
@@ -1698,7 +1749,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
       {/* TOP HEADER */}
       <header className={`h-14 border-b flex items-center justify-between px-3 md:px-5 z-20 shrink-0 transition-colors select-none ${
-        isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
+        isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'rapimoney-header'
       }`}>
         
         {/* Brand & Menu Hamburguer Mobile */}
@@ -1711,7 +1762,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           </button>
 
           <Link href="/inbox" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-[#1A73E8] flex items-center justify-center text-white shadow-sm font-bold text-xs md:text-sm">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-[0_2px_10px_rgba(16,185,129,0.4)] font-bold text-xs md:text-sm">
               <Mail className="w-3.5 h-3.5 md:w-4 md:h-4" />
             </div>
             <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-[#202124]' : 'text-white'}`}>
@@ -1726,7 +1777,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               title="Correio"
               className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'mail'
-                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  ? 'bg-emerald-500/15 text-emerald-400 font-bold'
                   : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
@@ -1737,7 +1788,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               title="Calendário"
               className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'calendar'
-                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  ? 'bg-emerald-500/15 text-emerald-400 font-bold'
                   : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
@@ -1748,7 +1799,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               title="Contactos"
               className={`p-2 rounded-lg transition-colors ${
                 activeTab === 'contacts'
-                  ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                  ? 'bg-emerald-500/15 text-emerald-400 font-bold'
                   : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
               }`}
             >
@@ -1766,9 +1817,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Pesquisar correio"
-              className={`w-full text-xs pl-8 md:pl-10 pr-3 py-1.5 md:py-2 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#1A73E8] transition-all ${
+              className={`w-full text-xs pl-8 md:pl-10 pr-3 py-1.5 md:py-2 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#10B981] transition-all ${
                 isLight 
-                  ? 'bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#1A73E8] text-[#202124] placeholder-[#5F6368]' 
+                  ? 'bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#10B981] text-[#202124] placeholder-[#5F6368]' 
                   : 'bg-white/5 border-white/10 text-white placeholder-zinc-500'
               }`}
             />
@@ -1795,7 +1846,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isRefreshing ? 'animate-spin text-[#1A73E8]' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
           </button>
 
           <button 
@@ -1828,10 +1879,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       {/* MOBILE DRAWER MENU */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden bg-black/60 backdrop-blur-xs select-none">
-          <div className="w-72 bg-white dark:bg-[#0E111A] h-full flex flex-col p-4 shadow-2xl animate-in slide-in-from-left duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="w-72 bg-white dark:bg-[#0D1527] h-full flex flex-col p-4 shadow-2xl animate-in slide-in-from-left duration-200 border-r border-white/10">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#1A73E8] text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-emerald-500 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
                   <Mail className="w-4 h-4" />
                 </div>
                 <span className="font-bold text-sm">RapiEmail</span>
@@ -1847,7 +1898,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   setIsMobileMenuOpen(false); 
                   setComposeConfig({ isOpen: true, initialTo: '', initialSubject: '', initialBody: '' }); 
                 }}
-                className="w-full py-2.5 bg-[#1A73E8] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm"
+                className="rapi-compose-btn w-full py-2.5 text-white font-bold text-xs rounded-[12px] flex items-center justify-center gap-2 shadow-md cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 <span>Escrever Email</span>
@@ -1863,20 +1914,22 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <button
                     key={f.id}
                     onClick={() => handleSelectFolder(f.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold ${
-                      isActive ? 'bg-[#E8F0FE] text-[#1967D2]' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                    className={`w-full flex items-center justify-between px-3 py-2.5 text-xs transition-all ${
+                      isActive 
+                        ? 'rapimoney-sidebar-active' 
+                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
+                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-400' : isActive ? 'text-[#10B981]' : ''}`} />
                       <span>{f.label}</span>
                     </div>
                     {isAgent ? (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                         DO AI
                       </span>
                     ) : f.count > 0 ? (
-                      <span className="text-[10px] font-bold text-[#1A73E8]">{f.count}</span>
+                      <span className={isActive ? 'rapimoney-badge text-xs' : 'text-[10px] font-bold text-[#10B981]'}>{f.count}</span>
                     ) : null}
                   </button>
                 );
@@ -1884,18 +1937,18 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </nav>
 
             {/* Indicador de Armazenamento em Tempo Real no Telemóvel */}
-            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 text-xs shrink-0">
+            <div className="p-3 border-t border-zinc-200 dark:border-white/10 text-xs shrink-0">
               <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
                 <span>Armazenamento</span>
-                <span className="text-[10px] text-zinc-400 font-mono">{storageInfo.percentage}%</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">{storageInfo.percentage}%</span>
               </div>
-              <div className="w-full h-1 bg-zinc-200 dark:bg-white/10 rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-[#1A73E8] rounded-full transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
+              <div className="w-full rapimoney-storage-track overflow-hidden mb-1">
+                <div className="h-full rapimoney-storage-fill transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
               </div>
-              <span className="text-[10px] text-zinc-500 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
+              <span className="text-[10px] text-zinc-400 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
             </div>
 
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="pt-2 border-t border-zinc-200 dark:border-white/10">
               <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
             </div>
           </div>
@@ -1922,13 +1975,13 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           
           {/* COLUMN 1: LEFT SIDEBAR DESKTOP */}
           <aside className={`hidden md:flex w-[210px] border-r flex-col shrink-0 h-full overflow-hidden transition-colors select-none ${
-            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#07090E] border-white/[0.08]'
+            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'rapimoney-panel'
           }`}>
             
             <div className="p-3">
               <button 
                 onClick={() => setComposeConfig({ isOpen: true, initialTo: '', initialSubject: '', initialBody: '' })}
-                className="w-full flex items-center justify-center gap-2 bg-[#1A73E8] hover:bg-[#1557B0] active:scale-[0.98] text-white py-2.5 px-4 rounded-full font-bold text-xs shadow-sm transition-all cursor-pointer"
+                className="rapi-compose-btn w-full flex items-center justify-center gap-2 text-white py-2.5 px-4 rounded-[12px] font-bold text-xs shadow-md transition-all duration-250 cursor-pointer"
               >
                 <span>Escrever</span>
               </button>
@@ -1943,26 +1996,26 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <button
                     key={folder.id}
                     onClick={() => handleSelectFolder(folder.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-r-full text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-all ${
                       isActive 
                         ? isLight 
                           ? 'bg-[#E8F0FE] text-[#1967D2] font-bold' 
-                          : 'bg-white/10 text-white font-bold'
+                          : 'rapimoney-sidebar-active'
                         : isLight 
                           ? 'text-[#202124] hover:bg-[#F1F3F4]' 
-                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                          : 'text-zinc-400 hover:text-white rapimoney-email-card-hover rounded-r-xl'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-600 dark:text-indigo-400' : isActive ? 'text-[#1A73E8]' : isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
+                      <Icon className={`w-4 h-4 ${isAgent ? 'text-indigo-400' : isActive ? 'text-[#10B981]' : isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
                       <span>{folder.label}</span>
                     </div>
                     {isAgent ? (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                         DO AI
                       </span>
                     ) : folder.count > 0 ? (
-                      <span className={`text-[11px] font-bold ${isActive ? 'text-[#1A73E8]' : 'text-[#5F6368]'}`}>
+                      <span className={isActive ? 'rapimoney-badge text-xs' : 'text-[11px] font-bold text-zinc-400'}>
                         {folder.count}
                       </span>
                     ) : null}
@@ -1972,15 +2025,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             </nav>
 
             {/* Indicador de Armazenamento em Tempo Real no Desktop */}
-            <div className={`p-3 border-t text-xs shrink-0 ${isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.08] bg-black/20'}`}>
+            <div className={`p-3 border-t text-xs shrink-0 ${isLight ? 'border-[#E5E7EB] bg-[#FFFFFF]' : 'border-white/[0.07] bg-black/20'}`}>
               <div className="flex items-center justify-between mb-1 text-[11px] font-semibold text-[#202124] dark:text-zinc-300">
                 <span>Armazenamento</span>
-                <span className="text-[10px] text-zinc-400 font-mono">{storageInfo.percentage}%</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">{storageInfo.percentage}%</span>
               </div>
-              <div className="w-full h-1 bg-[#E5E7EB] dark:bg-white/10 rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-[#1A73E8] rounded-full transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
+              <div className="w-full rapimoney-storage-track overflow-hidden mb-1">
+                <div className="h-full rapimoney-storage-fill transition-all duration-300" style={{ width: storageInfo.barWidthPercentage }}></div>
               </div>
-              <span className="text-[10px] text-zinc-500 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
+              <span className="text-[10px] text-zinc-400 block">{storageInfo.usedDisplay} de {storageInfo.limitDisplay} ({storageInfo.percentage}%)</span>
             </div>
 
             <UserProfileFooter initials={user.initials} name={user.name} email={user.email} />
@@ -1990,15 +2043,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           <section className={`${
             mobileView === 'detail' ? 'hidden md:flex' : 'flex'
           } w-full md:w-[340px] lg:w-[380px] border-r flex-col shrink-0 h-full overflow-hidden transition-colors select-none ${
-            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#0A0D14] border-white/[0.08]'
+            isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'rapimoney-panel'
           }`}>
             
             <div className={`h-11 px-4 border-b flex items-center justify-between text-xs font-semibold shrink-0 ${
-              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.08] text-zinc-400 bg-white/[0.02]'
+              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.07] text-zinc-400 bg-white/[0.02]'
             }`}>
               <div className="flex items-center gap-2">
                 <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
-                <span className="text-[11px] text-zinc-400 font-normal">({filteredEmails.length})</span>
+                <span className="text-[11px] text-emerald-400 font-bold font-mono">({filteredEmails.length})</span>
               </div>
               {selectedFolder === 'TRASH' && filteredEmails.length > 0 ? (
                 <button 
@@ -2012,10 +2065,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.06]">
+            <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7EB] dark:divide-white/[0.04]">
               {filteredEmails.length === 0 ? (
                 <div className="p-8 text-center text-zinc-400 text-xs">
-                  <Inbox className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <Inbox className="w-8 h-8 mx-auto mb-2 opacity-40 text-emerald-400" />
                   <span>Sem mensagens nesta pasta.</span>
                 </div>
               ) : (
@@ -2034,20 +2087,20 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3 transition-colors cursor-pointer ${
+                      className={`group relative p-3 cursor-pointer ${
                         isSelected 
-                          ? isLight ? 'bg-[#E8F0FE]' : 'bg-white/10'
+                          ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
                           : isUnread
-                            ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] hover:bg-white/[0.08]'
-                            : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent hover:bg-white/[0.03]'
+                            ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
+                            : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
                       }`}
                     >
                       {isSelected && (
-                        <div className="hidden md:block absolute left-0 top-0 bottom-0 w-1 bg-[#1A73E8]"></div>
+                        <div className="hidden md:block absolute left-0 top-0 bottom-0 w-[3px] bg-[#10B981] rounded-l-md"></div>
                       )}
 
                       {isUnread && (
-                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#1A73E8] shadow-sm"></div>
+                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full rapimoney-unread-dot"></div>
                       )}
 
                       <div className="flex items-start gap-2.5 pl-1.5">
@@ -2073,14 +2126,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               {/* Ícone de Anexo Clip na Lista */}
                               {hasAttachment && (
                                 <span title={`${emailAttachments.length} ${emailAttachments.length === 1 ? 'Anexo' : 'Anexos'} anexado(s)`}>
-                                  <Paperclip className="w-3.5 h-3.5 text-[#1A73E8] dark:text-[#8AB4F8] shrink-0" />
+                                  <Paperclip className="w-3.5 h-3.5 text-[#10B981] dark:text-emerald-400 shrink-0" />
                                 </span>
                               )}
 
                               {isSent && (
                                 email.isOpened ? (
                                   <span title={`✅ Lido pelo destinatário em ${email.openedAt ? new Date(email.openedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : ''} (${email.openCount || 1}x no ${email.userAgent || 'dispositivo'})`}>
-                                    <CheckCheck className="w-3.5 h-3.5 text-[#1A73E8] dark:text-[#8AB4F8]" />
+                                    <CheckCheck className="w-3.5 h-3.5 text-[#10B981] dark:text-emerald-400" />
                                   </span>
                                 ) : (
                                   <span title="Enviado e entregue (Aguardando leitura)">
@@ -2092,7 +2145,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                                 suppressHydrationWarning
                                 title={new Date(email.createdAt).toLocaleString('pt-PT')}
                                 className={`text-[10px] font-mono ${
-                                  isUnread ? 'font-bold text-[#1A73E8]' : 'text-zinc-400'
+                                  isUnread ? 'font-bold text-[#10B981]' : 'text-zinc-400'
                                 }`}
                               >
                                 {dateDisplay}
@@ -2400,21 +2453,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </div>
 
                   {/* 🤖 BARRA DO AGENTE EXECUTIVO RAPIAI (AÇÕES DIRETAS NO EMAIL) */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-3.5 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-blue-50/90 dark:from-[#121424] dark:via-[#17132A] dark:to-[#0F1626] border border-indigo-200/80 dark:border-indigo-500/25 shadow-xs select-none animate-in fade-in duration-150">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-3.5 rapimoney-ai-banner shadow-xs select-none animate-in fade-in duration-150">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
                         <Bot className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-extrabold text-[#202124] dark:text-white tracking-tight">
+                          <span className="text-xs font-extrabold text-white tracking-tight">
                             Agente Executivo IA
                           </span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 uppercase">
+                          <span className="rapimoney-ai-badge text-[9px] uppercase">
                             DO & RapiAI Engine
                           </span>
                         </div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block truncate">
+                        <span className="text-[11px] text-zinc-300 block truncate">
                           Automação de respostas, síntese & agendamento inteligente
                         </span>
                       </div>
@@ -2425,9 +2478,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         onClick={() => handleAiSmartReply(selectedEmail, 'professional')}
                         disabled={isGeneratingSmartReply}
                         title="Gerar Resposta Rápida Executiva com IA"
-                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 rapimoney-ai-btn text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
                       >
-                        <Sparkles className={`w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ${isGeneratingSmartReply ? 'animate-spin' : ''}`} />
+                        <Sparkles className={`w-3.5 h-3.5 text-white ${isGeneratingSmartReply ? 'animate-spin' : ''}`} />
                         <span>{isGeneratingSmartReply ? 'A gerar...' : 'Resposta Rápida IA'}</span>
                       </button>
 
@@ -2435,27 +2488,27 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         onClick={() => handleAiSummarizeEmail(selectedEmail)}
                         disabled={isSummarizing}
                         title="Gerar Resumo Executivo e Lista de Tarefas"
-                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
                       >
-                        <ListTodo className={`w-3.5 h-3.5 text-purple-600 dark:text-purple-400 ${isSummarizing ? 'animate-spin' : ''}`} />
+                        <ListTodo className={`w-3.5 h-3.5 text-emerald-400 ${isSummarizing ? 'animate-spin' : ''}`} />
                         <span>{isSummarizing ? 'A resumir...' : 'Resumo & Tarefas'}</span>
                       </button>
 
                       <button
                         onClick={() => handleAiScheduleMeeting(selectedEmail)}
                         title="Detetar e Agendar Reunião no Calendário"
-                        className="px-3 py-1.5 bg-white dark:bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
                       >
-                        <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <Calendar className="w-3.5 h-3.5 text-blue-400" />
                         <span className="hidden sm:inline">Agendar Reunião</span>
                       </button>
 
                       <button
                         onClick={() => setIsAiDrawerOpen(true)}
                         title="Abrir Chat com o Agente Executivo"
-                        className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                        className="px-3 py-1.5 rapimoney-ai-btn text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
                       >
-                        <Bot className="w-3.5 h-3.5" />
+                        <Bot className="w-3.5 h-3.5 text-white" />
                         <span>Perguntar ao Agente</span>
                       </button>
                     </div>
