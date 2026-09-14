@@ -55,6 +55,14 @@ export async function POST(req: Request) {
     const fromEmail = session.user.email;
     const fromName = session.user.name || "RapiEmail User";
 
+    // Procurar utilizador remetente na base de dados para obter a foto de perfil oficial (avatarUrl)
+    const senderUser = await prisma.user.findFirst({
+      where: { email: { equals: fromEmail, mode: 'insensitive' } },
+      select: { id: true, avatarUrl: true, firstName: true, lastName: true }
+    });
+
+    const userAvatarUrl = senderUser?.avatarUrl || null;
+
     // Gerar ID único de Rastreamento (Tracking ID)
     const trackingId = crypto.randomUUID();
     
@@ -62,10 +70,41 @@ export async function POST(req: Request) {
     const baseUrl = process.env.NEXTAUTH_URL || "https://rapiemail.online";
     const trackingPixelUrl = `${baseUrl}/api/track/open/${trackingId}`;
 
-    // Montar HTML com o Pixel Invisível de Rastreamento
+    // Montar Bloco de Assinatura Oficial com Foto Real do Remetente (compatível com Gmail, Outlook, Apple Mail e Web)
+    const avatarImgHtml = userAvatarUrl ? `
+      <td style="vertical-align: top; padding-right: 14px; width: 56px;">
+        <img src="${userAvatarUrl}" alt="${fromName}" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid #10B981; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
+      </td>
+    ` : `
+      <td style="vertical-align: top; padding-right: 14px; width: 56px;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #10B981, #059669); color: #ffffff; font-weight: bold; font-size: 18px; line-height: 50px; text-align: center; display: inline-block;">
+          ${(fromName.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || 'RE').toUpperCase()}
+        </div>
+      </td>
+    `;
+
+    const executiveSignatureHtml = `
+      <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #e5e7eb; max-width: 540px;">
+        <table cellpadding="0" cellspacing="0" border="0" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <tr>
+            ${avatarImgHtml}
+            <td style="vertical-align: middle;">
+              <div style="font-size: 15px; font-weight: 700; color: #111827; letter-spacing: -0.2px;">${fromName}</div>
+              <div style="font-size: 12px; color: #10B981; font-weight: 600; margin-top: 1px;">RapiEmail Certified Sovereign Mail</div>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                <a href="mailto:${fromEmail}" style="color: #4b5563; text-decoration: none;">${fromEmail}</a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+
+    // Montar HTML Final com Conteúdo, Assinatura Executiva com Foto e Pixel Invisível de Rastreamento
     const htmlBody = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222;">
-        <p style="margin: 0; white-space: pre-wrap;">${body.replace(/\n/g, '<br/>')}</p>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
+        <div style="margin: 0; white-space: pre-wrap;">${body.replace(/\n/g, '<br/>')}</div>
+        ${executiveSignatureHtml}
         <br/>
         <!-- RapiEmail Stealth Tracking Pixel -->
         <img src="${trackingPixelUrl}" alt="" width="1" height="1" style="display:block !important; width:1px; height:1px; border:0; outline:0; opacity:0.01;" />
@@ -137,6 +176,7 @@ export async function POST(req: Request) {
           to: toList.join(', '),
           subject: subject,
           body: body,
+          html: htmlBody,
           folder: "SENT",
           read: true,
           userId: user.id,
@@ -161,6 +201,7 @@ export async function POST(req: Request) {
             to: recipient,
             subject: subject,
             body: body,
+            html: htmlBody,
             folder: "INBOX",
             read: false,
             userId: recipientUser.id,
