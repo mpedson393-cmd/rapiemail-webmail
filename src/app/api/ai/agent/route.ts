@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { generateAiCompletion } from "@/lib/ai";
 
 interface SenderInfo {
   name: string;
@@ -516,37 +517,23 @@ async function generateInteractiveChatResponse(params: {
   const { sender, isContractOrNDA, contractDetails, imageAttachments, isProductOrPhotoInquiry, cleanBody } = analysis;
   const promptLower = prompt.toLowerCase();
 
-  // Tentativa com Google Gemini se houver chave e serviço disponível
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (geminiApiKey && !geminiApiKey.includes("leaked")) {
-    try {
-      const emailContext = `Contexto do E-mail Atual:\nRemetente: ${from}\nAssunto: ${subject}\nConteúdo: ${body || html}\nAnexos de Imagens: ${imageAttachments.map(i => i.filename).join(', ')}`;
-      const systemInstruction = `És o Assistente Executivo e de Visão Multimodal da RapiEmail. Analisas fotografias de produtos, minutas, faturas e rediges respostas executivas impecáveis em português de Portugal.`;
+  // Tentar geração via motor Multi-Provider IA (Groq Ultra-Fast / Gemini / NVIDIA NIM)
+  try {
+    const emailContext = `Contexto do E-mail Atual:\nRemetente: ${from}\nAssunto: ${subject}\nConteúdo: ${body || html}\nAnexos de Imagens: ${imageAttachments.map(i => i.filename).join(', ')}`;
+    const systemInstruction = `És o Assistente Executivo e de Visão Multimodal da RapiEmail. Analisas fotografias de produtos, minutas, faturas e rediges respostas executivas impecáveis em português de Portugal.`;
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemInstruction}\n\n${emailContext}\n\nInstrução do Utilizador:\n${prompt}` }]
-            }
-          ],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
-        })
-      });
+    const aiRes = await generateAiCompletion({
+      prompt: `${emailContext}\n\nInstrução do Utilizador:\n${prompt}`,
+      systemInstruction,
+      temperature: 0.7,
+      maxTokens: 1200
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (generated && generated.trim()) {
-          return generated.trim();
-        }
-      }
-    } catch (e) {
-      console.warn("Gemini chat fallback to contextual engine:", e);
+    if (aiRes && aiRes.trim()) {
+      return aiRes.trim();
     }
+  } catch (e) {
+    console.warn("AI engine fallback to contextual engine:", e);
   }
 
   // Motor Contextual RapiAI para Fotografias de Produtos

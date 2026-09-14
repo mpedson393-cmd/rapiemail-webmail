@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { generateAiCompletion } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
@@ -7,8 +8,6 @@ export async function POST(req: Request) {
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json({ error: "Prompt inválido." }, { status: 400 });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
 
     const systemInstruction = mode === "summary"
       ? `És a RapiAI, um assistente executivo de e-mail. Analisa o e-mail fornecido e cria um resumo executivo muito claro em 3 pontos-chave e uma recomendação final de ação em português.`
@@ -19,53 +18,12 @@ Regras Obrigatórias de Resposta:
 3. Em "body", coloca o texto completo do e-mail em português impecável com parágrafos bem formatados (usa \\n para quebras de linha).
 4. NÃO incluas formatação markdown como \`\`\`json no início ou no fim. Devolve APENAS o JSON puro.`;
 
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `${systemInstruction}\n\nInstrução do Utilizador:\n${prompt}`
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1000,
-      }
-    };
-
-    // Modelos Ativos no Google AI Studio (gemini-2.0-flash -> gemini-1.5-flash)
-    const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
-    let aiResponseText = "";
-
-    for (const model of models) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (aiResponseText) break;
-        } else {
-          const errText = await res.text();
-          console.warn(`Model ${model} returned HTTP ${res.status}:`, errText);
-        }
-      } catch (e) {
-        console.warn(`Model ${model} fetch failed:`, e);
-      }
-    }
+    let aiResponseText = await generateAiCompletion({
+      prompt,
+      systemInstruction,
+      temperature: 0.7,
+      maxTokens: 1000
+    }) || "";
 
     if (!aiResponseText) {
       // Fallback Inteligente e Contextual RapiAI
