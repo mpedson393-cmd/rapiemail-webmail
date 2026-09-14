@@ -1,5 +1,5 @@
 // Unified Multi-Provider AI Engine for RapiEmail
-// Providers: Groq API (Ultra-Fast), NVIDIA NIM API, Google Gemini API
+// Priorities: 1. NVIDIA NIM GPU API -> 2. Groq Ultra-Fast API -> 3. Google Gemini API
 
 export interface AiCompletionOptions {
   prompt: string;
@@ -11,7 +11,62 @@ export interface AiCompletionOptions {
 export async function generateAiCompletion(options: AiCompletionOptions): Promise<string | null> {
   const { prompt, systemInstruction, temperature = 0.7, maxTokens = 1000 } = options;
 
-  // 1. Tentar Groq API (Inferência ultra-rápida em milissegundos)
+  // 1. PRIORIDADE #1: NVIDIA NIM GPU API (Execução Nativa da API NVIDIA)
+  const nvidiaKey = process.env.NVIDIA_API_KEY;
+  if (nvidiaKey) {
+    const nvidiaModels = [
+      "nvidia/llama-3.1-nemotron-70b-instruct",
+      "meta/llama-3.1-405b-instruct",
+      "deepseek-ai/deepseek-r1",
+      "mistralai/mistral-large-2-instruct",
+      "microsoft/phi-3-medium-128k-instruct",
+      "google/gemma-2-27b-it"
+    ];
+
+    const messages = [];
+    if (systemInstruction) {
+      messages.push({ role: "system", content: systemInstruction });
+    }
+    messages.push({ role: "user", content: prompt });
+
+    for (const model of nvidiaModels) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${nvidiaKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature,
+            max_tokens: maxTokens
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          let content = data?.choices?.[0]?.message?.content;
+          if (content) {
+            content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+            console.log(`[RapiAI] 🟢 Resposta gerada com SUCESSO NATIVO via NVIDIA NIM API (${model})`);
+            return content;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[RapiAI] Tentativa NVIDIA (${model}):`, err.message);
+      }
+    }
+  }
+
+  // 2. PRIORIDADE #2: Groq Ultra-Fast LPU API (Latência Ultra-Baixa < 300ms)
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     try {
@@ -44,21 +99,18 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
       if (res.ok) {
         const data = await res.json();
         let content = data?.choices?.[0]?.message?.content || "";
-        // Remover blocos <think> do modelo Qwen se existirem
         content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
         if (content) {
-          console.log("[RapiAI] Resposta gerada com sucesso via Groq Ultra-Fast API.");
+          console.log("[RapiAI] 🟢 Resposta gerada com sucesso via Groq Ultra-Fast API.");
           return content;
         }
-      } else {
-        console.warn("[RapiAI] Groq API respondeu com status:", res.status);
       }
     } catch (err: any) {
-      console.warn("[RapiAI] Aviso no Groq API:", err.message);
+      console.warn("[RapiAI] Groq API fallback:", err.message);
     }
   }
 
-  // 2. Tentar Google Gemini API (Modelos Gemini Flash)
+  // 3. PRIORIDADE #3: Google Gemini API (Modelos Gemini Flash)
   const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
   if (geminiKey) {
     const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
@@ -85,56 +137,13 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
           const data = await res.json();
           const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (content) {
-            console.log(`[RapiAI] Resposta gerada com sucesso via Gemini (${model}).`);
+            console.log(`[RapiAI] 🟢 Resposta gerada com sucesso via Gemini (${model}).`);
             return content;
           }
         }
       } catch (e: any) {
         console.warn(`[RapiAI] Falha no Gemini (${model}):`, e.message);
       }
-    }
-  }
-
-  // 3. Tentar NVIDIA NIM API (Aceleração GPU)
-  const nvidiaKey = process.env.NVIDIA_API_KEY;
-  if (nvidiaKey) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-      const messages = [];
-      if (systemInstruction) {
-        messages.push({ role: "system", content: systemInstruction });
-      }
-      messages.push({ role: "user", content: prompt });
-
-      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${nvidiaKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "deepseek-ai/deepseek-v4-flash-0731",
-          messages,
-          temperature,
-          max_tokens: maxTokens
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) {
-          console.log("[RapiAI] Resposta gerada com sucesso via NVIDIA NIM GPU API.");
-          return content;
-        }
-      }
-    } catch (err: any) {
-      console.warn("[RapiAI] Aviso na NVIDIA NIM API:", err.message);
     }
   }
 
