@@ -22,17 +22,30 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "RapiEmail — Webmail Corporativo & Sovereign Suite",
-  description: "Webmail corporativo de alta performance com inteligência artificial, sincronização instantânea e segurança de ponta a ponta.",
+  metadataBase: new URL("https://rapiemail.online"),
+  title: "RapiEmail — Webmail Corporativo & IA Executiva",
+  description: "Webmail corporativo de alta performance com inteligência artificial soberana, sincronização instantânea e segurança de ponta a ponta.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/favicon.ico",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" }
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "RapiEmail",
+  },
+  openGraph: {
+    title: "RapiEmail — Webmail Corporativo & IA Executiva",
+    description: "Plataforma de Webmail corporativo de luxo com automação por inteligência artificial.",
+    url: "https://rapiemail.online",
+    siteName: "RapiEmail",
+    images: [{ url: "/icon.svg" }],
+    type: "website",
   }
 };
 

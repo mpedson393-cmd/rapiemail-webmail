@@ -1762,9 +1762,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           </button>
 
           <Link href="/inbox" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-[0_2px_10px_rgba(16,185,129,0.4)] font-bold text-xs md:text-sm">
-              <Mail className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </div>
+            <img src="/icon.svg" alt="RapiEmail Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-xl shadow-[0_2px_12px_rgba(16,185,129,0.35)] object-contain transition-transform group-hover:scale-105" />
             <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-[#202124]' : 'text-white'}`}>
               RapiEmail
             </span>
