@@ -47,13 +47,13 @@ Regras Obrigatórias:
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, mode: "summary" })
+        body: JSON.stringify({ prompt, mode: "html_site" })
       });
       const data = await res.json();
       
-      let html = data.summary || "";
+      let html = data.html || data.summary || "";
       if (html.includes("```html")) {
-        html = html.replace(/```html/g, "").replace(/```/g, "").trim();
+        html = html.replace(/```html/gi, "").replace(/```/g, "").trim();
       }
 
       // If AI returns markdown, wrap it in a beautiful clean HTML template

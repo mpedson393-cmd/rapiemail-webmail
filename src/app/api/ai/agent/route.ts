@@ -536,6 +536,24 @@ async function generateInteractiveChatResponse(params: {
     console.warn("AI engine fallback to contextual engine:", e);
   }
 
+  // Deteção de Intenção para Criação de Website / Landing Page com IA
+  const isSiteCreationRequest = 
+    promptLower.includes("criar site") || 
+    promptLower.includes("fazer site") || 
+    promptLower.includes("construir site") || 
+    promptLower.includes("criar website") || 
+    promptLower.includes("fazer website") || 
+    promptLower.includes("criar landing page") || 
+    promptLower.includes("construir website") || 
+    promptLower.includes("criar pagina") || 
+    promptLower.includes("criar página") || 
+    promptLower.includes("site builder") ||
+    promptLower.includes("site para");
+
+  if (isSiteCreationRequest) {
+    return `🌐 **Criador de Websites com IA (RapiSiteBuilder):**\n\nCom o nosso motor de Inteligência Artificial integrado, podes desenhar e publicar um website profissional completo em segundos!\n\n**O que a RapiAI faz automaticamente:**\n1. **Design Executivo:** Gera uma landing page moderna em HTML5 e Tailwind CSS com visual corporativo escuro ou claro.\n2. **Secções Completas:** Cria cabeçalho responsivo, hero section com botão de ação (CTA), catálogo de serviços/produtos, secção "Sobre Nós" e formulário de contactos.\n3. **Publicação com 1 Clique:** Podes alojar diretamente na infraestrutura RapiCloud com o teu domínio próprio por apenas 88€/ano.\n\n👉 *Podes abrir agora a ferramenta clicando no botão **"🌐 Criar Site com IA"** na barra lateral à esquerda ou na opção rápida abaixo.*`;
+  }
+
   // Motor Contextual RapiAI para Fotografias de Produtos
   if (isProductOrPhotoInquiry || imageAttachments.length > 0) {
     const imgList = imageAttachments.map(i => i.filename || "Foto do Produto").join(', ') || "Fotos de Produtos";

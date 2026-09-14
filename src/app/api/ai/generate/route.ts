@@ -9,7 +9,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Prompt inválido." }, { status: 400 });
     }
 
-    const systemInstruction = mode === "summary"
+    const systemInstruction = mode === "html_site"
+      ? `És um Engenheiro de Software Fullstack e Designer Web de Elite da RapiCloud / RapiAI. O utilizador fornecerá o nome de uma empresa, ramo de atividade e serviços.
+Regras Obrigatórias de Resposta:
+1. Deves gerar APENAS o código HTML5 completo, responsivo e semântico (com Tailwind CSS via CDN <script src="https://cdn.tailwindcss.com"></script>).
+2. Inclui cabeçalho sticky elegante, hero section chamativo com botões de chamada para ação (CTA), secção de serviços/produtos com cartões e gradientes premium, sobre nós, secção de contacto e rodapé.
+3. Não incluas nenhum texto ou explicação fora do código HTML. Retorna estritamente o código a começar em <!DOCTYPE html> e a terminar em </html>.`
+      : mode === "summary"
       ? `És a RapiAI, um assistente executivo de e-mail. Analisa o e-mail fornecido e cria um resumo executivo muito claro em 3 pontos-chave e uma recomendação final de ação em português.`
       : `És a RapiAI, o assistente de Inteligência Artificial mais avançado de e-mail corporativo. O utilizador fornecerá uma instrução para escrever um e-mail.
 Regras Obrigatórias de Resposta:
@@ -22,7 +28,7 @@ Regras Obrigatórias de Resposta:
       prompt,
       systemInstruction,
       temperature: 0.7,
-      maxTokens: 1000
+      maxTokens: mode === "html_site" ? 3500 : 1000
     }) || "";
 
     if (!aiResponseText) {
@@ -46,6 +52,12 @@ Regras Obrigatórias de Resposta:
         subject: fallbackSubject,
         body: fallbackBody
       });
+    }
+
+    // Se for no modo html_site, devolve o HTML direto
+    if (mode === "html_site") {
+      let html = aiResponseText.replace(/```html/gi, "").replace(/```/g, "").trim();
+      return NextResponse.json({ html, summary: html });
     }
 
     // Se for no modo resumo, devolve o texto direto
