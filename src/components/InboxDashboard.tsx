@@ -1762,7 +1762,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           </button>
 
           <Link href="/inbox" className="flex items-center gap-2 group">
-            <img src="/icon.svg" alt="RapiEmail Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-xl shadow-[0_2px_12px_rgba(16,185,129,0.35)] object-contain transition-transform group-hover:scale-105" />
+            <img src="/icon.svg" alt="RapiEmail Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-xl shadow-[0_2px_12px_rgba(59,130,246,0.35)] object-contain transition-transform group-hover:scale-105" />
             <span className={`font-bold text-sm tracking-tight ${isLight ? 'text-[#202124]' : 'text-white'}`}>
               RapiEmail
             </span>
@@ -2371,8 +2371,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   </div>
                 </div>
 
-                {/* Área de Leitura (Com Seleção Livre de Texto e Padding Inferior Generoso para Mobile) */}
-                <div className="flex-1 overflow-y-auto p-4 pb-36 md:p-6 md:pb-24 space-y-5 md:space-y-6 w-full max-w-full select-text overscroll-contain">
+                {/* Área de Leitura (Centralizada no ecrã real no PC, sem cortes nem desvios à direita) */}
+                <div className="flex-1 overflow-y-auto p-4 pb-36 md:p-8 md:pb-24 w-full select-text overscroll-contain">
+                  <div className="max-w-5xl mx-auto w-full space-y-5 md:space-y-6">
                   
                   {/* Subject Header com Badge de Anexos */}
                   <div className="flex items-center gap-3 flex-wrap">
@@ -2970,6 +2971,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   {/* Espaçador Seguro Inferior para Mobile & Android Navigation Bar */}
                   <div className="h-20 md:h-8 shrink-0" aria-hidden="true" />
 
+                  </div>
                 </div>
               </div>
             ) : (

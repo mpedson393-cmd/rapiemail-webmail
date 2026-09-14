@@ -21,8 +21,10 @@ export default async function SettingsPage() {
     .toUpperCase();
 
   return (
-    <SettingsDashboardClient 
-      user={{ name, email, initials }}
-    />
+    <div className="h-full min-h-screen w-full overflow-y-auto overscroll-contain">
+      <SettingsDashboardClient 
+        user={{ name, email, initials }}
+      />
+    </div>
   );
 }

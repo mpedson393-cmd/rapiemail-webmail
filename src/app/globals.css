@@ -16,7 +16,7 @@
   box-sizing: border-box;
 }
 
-html, body, #__next, main {
+html, body, #__next {
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
@@ -24,7 +24,6 @@ html, body, #__next, main {
   max-width: 100% !important;
   height: 100% !important;
   min-height: 100dvh !important;
-  overflow: hidden !important;
   background: radial-gradient(circle at 15% 15%, #0d1527 0%, #060911 100%) !important;
   background-color: #060911 !important;
   box-sizing: border-box !important;
@@ -151,6 +150,8 @@ body.light .glass-panel {
   color: #202124 !important;
   width: 100% !important;
   max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   box-sizing: border-box !important;
 }
 
@@ -161,7 +162,8 @@ body.light .glass-panel {
   background-color: transparent;
   width: 100% !important;
   max-width: 100% !important;
-  margin: 0 auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 .email-rich-html a {
