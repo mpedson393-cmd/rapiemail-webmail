@@ -55,13 +55,22 @@ export async function POST(req: Request) {
     const fromEmail = session.user.email;
     const fromName = session.user.name || "RapiEmail User";
 
-    // Procurar utilizador remetente na base de dados para obter a foto de perfil oficial (avatarUrl)
-    const senderUser = await prisma.user.findFirst({
-      where: { email: { equals: fromEmail, mode: 'insensitive' } },
-      select: { id: true, avatarUrl: true, firstName: true, lastName: true }
-    });
+    // Procurar utilizador remetente na base de dados de forma segura com fallback
+    let userAvatarUrl: string | null = null;
+    let senderUser: any = null;
+    try {
+      senderUser = await prisma.user.findFirst({
+        where: { email: { equals: fromEmail, mode: 'insensitive' } },
+        select: { id: true, avatarUrl: true, firstName: true, lastName: true }
+      });
+      userAvatarUrl = senderUser?.avatarUrl || null;
+    } catch (dbErr) {
+      console.warn("[Send Route DB User Warning]:", dbErr);
+    }
 
-    const userAvatarUrl = senderUser?.avatarUrl || null;
+    // Se o avatar for um base64 gigante (data:image/...), não injetar inline no HTML para não ultrapassar os limites de payload do Resend (100KB)
+    const isCleanAvatarUrl = userAvatarUrl && (userAvatarUrl.startsWith('http://') || userAvatarUrl.startsWith('https://') || (userAvatarUrl.startsWith('data:image/') && userAvatarUrl.length < 50000));
+    const safeAvatarUrl = isCleanAvatarUrl ? userAvatarUrl : null;
 
     // Gerar ID único de Rastreamento (Tracking ID)
     const trackingId = crypto.randomUUID();
@@ -71,9 +80,9 @@ export async function POST(req: Request) {
     const trackingPixelUrl = `${baseUrl}/api/track/open/${trackingId}`;
 
     // Montar Bloco de Assinatura Oficial com Foto Real do Remetente (compatível com Gmail, Outlook, Apple Mail e Web)
-    const avatarImgHtml = userAvatarUrl ? `
+    const avatarImgHtml = safeAvatarUrl ? `
       <td style="vertical-align: top; padding-right: 14px; width: 56px;">
-        <img src="${userAvatarUrl}" alt="${fromName}" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid #10B981; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
+        <img src="${safeAvatarUrl}" alt="${fromName}" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid #10B981; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
       </td>
     ` : `
       <td style="vertical-align: top; padding-right: 14px; width: 56px;">
@@ -234,7 +243,10 @@ export async function POST(req: Request) {
     });
 
   } catch (error: any) {
-    console.error("Internal Server Error:", error);
-    return NextResponse.json({ error: "Erro interno do servidor ao enviar e-mail real." }, { status: 500 });
+    console.error("Internal Server Error in /api/emails/send:", error);
+    const detail = error?.message || String(error);
+    return NextResponse.json({ 
+      error: `Erro ao enviar e-mail: ${detail}` 
+    }, { status: 500 });
   }
 }
