@@ -11,7 +11,7 @@ import {
   Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
   Sparkles, Copy, KeyRound, Globe2, RotateCcw, Video, ExternalLink, 
   HelpCircle, CalendarCheck2, Download, FileSpreadsheet, FileArchive, DownloadCloud,
-  Bot, Zap, ListTodo, Wand2, Brain, MessageSquare, Share2
+  Bot, Zap, ListTodo, Wand2, Brain, MessageSquare, Share2, CheckSquare, Square
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -800,6 +800,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1682,6 +1683,62 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
+  // Alternar Seleção de um E-mail Individual (Checkbox / Checkmark no Avatar)
+  const toggleSelectEmail = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedEmailIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Selecionar / Desmarcar Todos os E-mails Visíveis na Pasta
+  const toggleSelectAll = (allEmailIds: string[]) => {
+    if (selectedEmailIds.size === allEmailIds.length && allEmailIds.length > 0) {
+      setSelectedEmailIds(new Set());
+    } else {
+      setSelectedEmailIds(new Set(allEmailIds));
+    }
+  };
+
+  // Limpar Toda a Seleção
+  const clearSelection = () => {
+    setSelectedEmailIds(new Set());
+  };
+
+  // Eliminar E-mails Selecionados em Lote
+  const handleDeleteSelectedEmails = async () => {
+    if (selectedEmailIds.size === 0) return;
+    const idsToDelete = Array.from(selectedEmailIds);
+    const isAlreadyInTrash = selectedFolder === 'TRASH';
+
+    if (isAlreadyInTrash) {
+      setEmails(prev => prev.filter(e => !selectedEmailIds.has(e.id)));
+      setToastMessage(`${idsToDelete.length} mensagem(ns) eliminada(s) definitivamente.`);
+    } else {
+      setEmails(prev => prev.map(e => selectedEmailIds.has(e.id) ? { ...e, folder: 'TRASH' } : e));
+      setToastMessage(`${idsToDelete.length} mensagem(ns) movida(s) para o Lixo.`);
+    }
+    setTimeout(() => setToastMessage(null), 3000);
+    clearSelection();
+
+    try {
+      await Promise.all(idsToDelete.map(id => 
+        fetch('/api/emails/trash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            id, 
+            action: isAlreadyInTrash ? 'PERMANENT_DELETE' : 'MOVE_TO_TRASH', 
+            folder: 'TRASH' 
+          })
+        })
+      ));
+    } catch (e) {}
+  };
+
   // Função para Traduzir E-mail para a Língua Selecionada com DeepL AI / Gemini (com Persistência Total e Alternância Rápida)
   const handleTranslateEmail = async (targetLangCode?: string, isAuto: boolean = false, forceRefresh: boolean = false) => {
     if (!selectedEmail) return;
@@ -2154,62 +2211,90 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'rapimoney-panel'
           }`}>
             
-            {/* Cabeçalho da Lista / Barra de Ações Instantâneas quando um e-mail é selecionado */}
+            {/* Cabeçalho da Lista / Barra de Seleção Nativa Estilo Gmail (quando há e-mails marcados com a 'achinha') */}
             <div className={`h-11 px-3 sm:px-4 border-b flex items-center justify-between text-xs font-semibold shrink-0 transition-colors ${
-              selectedEmail 
-                ? isLight ? 'bg-indigo-50/90 border-indigo-100 text-indigo-950' : 'bg-indigo-950/30 border-indigo-500/20 text-indigo-200' 
+              selectedEmailIds.size > 0
+                ? isLight ? 'bg-indigo-50/95 border-indigo-200 text-indigo-950 shadow-xs' : 'bg-[#131622] border-indigo-500/30 text-indigo-100 shadow-xs' 
                 : isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.07] text-zinc-400 bg-white/[0.02]'
             }`}>
-              {selectedEmail ? (
-                <div className="flex items-center justify-between w-full gap-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0"></span>
-                    <span className="text-[11px] font-bold truncate max-w-[85px] sm:max-w-[110px]">
-                      {parseSenderDetails(selectedEmail.from).name.split(' ')[0]}
+              {selectedEmailIds.size > 0 ? (
+                <div className="flex items-center justify-between w-full gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Botão de Fechar/Cancelar Seleção (Seta Voltar) */}
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      title="Cancelar seleção"
+                      className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Contador de Itens Selecionados */}
+                    <span className="text-xs font-bold text-indigo-400 font-mono">
+                      {selectedEmailIds.size}
                     </span>
+
+                    {/* Selecionar Todos */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectAll(filteredEmails.map(e => e.id))}
+                      className="hidden sm:inline text-[11px] font-medium text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer ml-1"
+                    >
+                      {selectedEmailIds.size === filteredEmails.length ? "Desmarcar todos" : "Selecionar tudo"}
+                    </button>
                   </div>
 
                   {/* 4 Ações Rápidas Ultra Nativas: Responder, Agendar, Eliminar, Partilhar */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* 1. Responder */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReply();
-                      }}
-                      title="Responder ao e-mail"
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-600 dark:text-indigo-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
-                    >
-                      <Reply className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Responder</span>
-                    </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* 1. Responder (se apenas 1 selecionado) */}
+                    {selectedEmailIds.size === 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const target = emails.find(em => selectedEmailIds.has(em.id));
+                          if (target) {
+                            setSelectedEmailId(target.id);
+                            handleReply();
+                          }
+                        }}
+                        title="Responder ao e-mail"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Reply className="w-3.5 h-3.5" />
+                        <span className="hidden xs:inline">Responder</span>
+                      </button>
+                    )}
 
-                    {/* 2. Agendar Resposta */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleScheduleReply(selectedEmail);
-                      }}
-                      title="Agendar envio / resposta"
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
-                    >
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="hidden sm:inline">Agendar</span>
-                    </button>
+                    {/* 2. Agendar Resposta (se 1 selecionado) */}
+                    {selectedEmailIds.size === 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const target = emails.find(em => selectedEmailIds.has(em.id));
+                          if (target) handleScheduleReply(target);
+                        }}
+                        title="Agendar resposta"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="hidden xs:inline">Agendar</span>
+                      </button>
+                    )}
 
-                    {/* 3. Eliminar */}
+                    {/* 3. Eliminar (Funciona com 1 ou múltiplos selecionados) */}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteEmail();
+                        handleDeleteSelectedEmails();
                       }}
-                      title={selectedEmail.folder === 'TRASH' ? "Eliminar definitivamente" : "Mover para o Lixo"}
-                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/15 transition-all active:scale-95 cursor-pointer"
+                      title={selectedFolder === 'TRASH' ? "Eliminar definitivamente" : "Mover para o Lixo"}
+                      className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all active:scale-95 cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
 
                     {/* 4. Partilhar */}
@@ -2217,12 +2302,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleShareEmail(selectedEmail);
+                        const firstId = Array.from(selectedEmailIds)[0];
+                        const target = emails.find(em => em.id === firstId);
+                        if (target) handleShareEmail(target);
                       }}
-                      title="Partilhar conteúdo do e-mail"
-                      className="p-1.5 rounded-lg text-indigo-500 dark:text-indigo-300 hover:bg-indigo-500/15 transition-all active:scale-95 cursor-pointer"
+                      title="Partilhar conteúdo"
+                      className="p-1.5 rounded-lg text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/20 transition-all active:scale-95 cursor-pointer"
                     >
-                      <Share2 className="w-3.5 h-3.5" />
+                      <Share2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -2255,6 +2342,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
               ) : (
                 filteredEmails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
+                  const isChecked = selectedEmailIds.has(email.id);
                   const isStarred = starredIds.has(email.id);
                   const isSent = email.folder === 'SENT' || email.from === user.email;
                   const senderDetails = parseSenderDetails(isSent ? email.to : email.from);
@@ -2267,31 +2355,55 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   return (
                     <div
                       key={email.id}
-                      onClick={() => handleSelectEmail(email.id)}
-                      className={`group relative p-3 cursor-pointer ${
-                        isSelected 
-                          ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
-                          : isUnread
-                            ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
-                            : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
+                      onClick={() => {
+                        if (selectedEmailIds.size > 0) {
+                          toggleSelectEmail(email.id);
+                        } else {
+                          handleSelectEmail(email.id);
+                        }
+                      }}
+                      className={`group relative p-3 cursor-pointer select-none transition-colors ${
+                        isChecked
+                          ? isLight ? 'bg-indigo-50/80 border-l-4 border-indigo-500' : 'bg-indigo-950/25 border-l-4 border-indigo-500'
+                          : isSelected 
+                            ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
+                            : isUnread
+                              ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
+                              : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
                       }`}
                     >
-                      {isSelected && (
+                      {isSelected && !isChecked && (
                         <div className="hidden md:block absolute left-0 top-0 bottom-0 w-[3px] bg-[#10B981] rounded-l-md"></div>
                       )}
 
-                      {isUnread && (
+                      {isUnread && !isChecked && (
                         <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full rapimoney-unread-dot"></div>
                       )}
 
                       <div className="flex items-start gap-2.5 pl-1.5">
-                        {/* Avatar Inteligente */}
-                        <div className="mt-0.5 shrink-0">
-                          <SmartAvatar 
-                            from={isSent ? email.to : email.from} 
-                            customAvatarUrl={isSent ? avatarUrl : (extractLinkedInAvatarFromHtml(email.html) || null)}
-                            size="sm" 
-                          />
+                        {/* Avatar com Checkmark / Achinha de Seleção Nativa */}
+                        <div 
+                          className="mt-0.5 shrink-0 relative cursor-pointer group/avatar"
+                          onClick={(e) => toggleSelectEmail(email.id, e)}
+                          title={isChecked ? "Desmarcar e-mail" : "Selecionar e-mail"}
+                        >
+                          {isChecked ? (
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md animate-in zoom-in-75 duration-150">
+                              <Check className="w-4 h-4 stroke-[3]" />
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <SmartAvatar 
+                                from={isSent ? email.to : email.from} 
+                                customAvatarUrl={isSent ? avatarUrl : (extractLinkedInAvatarFromHtml(email.html) || null)}
+                                size="sm" 
+                              />
+                              {/* Hover check circle on desktop */}
+                              <div className="hidden md:group-hover/avatar:flex absolute inset-0 bg-blue-600/80 rounded-full items-center justify-center text-white transition-opacity">
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
