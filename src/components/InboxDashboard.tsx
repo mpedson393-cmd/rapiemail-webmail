@@ -801,6 +801,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [mounted, setMounted] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+  const [sortOption, setSortOption] = useState<'NEWEST' | 'OLDEST' | 'UNREAD' | 'STARRED' | 'ATTACHMENTS'>('NEWEST');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressTriggeredRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -1170,6 +1173,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     });
   }, [emails]);
 
+  // Fechar menu suspenso de ordenação ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+    if (isSortMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSortMenuOpen]);
+
   // 4. Abrir e-mail específico se passado por parâmetro na URL (?id=...) e Suporte Nativo a Botão de Voltar Instantâneo (PopState & Hardware Back)
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1340,7 +1358,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   ], [emails, starredIds]);
 
   const filteredEmails = useMemo(() => {
-    return emails.filter(email => {
+    let result = emails.filter(email => {
       let matchFolder = email.folder === selectedFolder;
       if (selectedFolder === 'STARRED') {
         matchFolder = starredIds.has(email.id) && email.folder !== 'TRASH';
@@ -1351,7 +1369,32 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         email.body.toLowerCase().includes(searchQuery.toLowerCase());
       return matchFolder && matchSearch;
     });
-  }, [emails, selectedFolder, searchQuery, starredIds]);
+
+    // Filtros Rápidos & Ordenação
+    if (sortOption === 'OLDEST') {
+      result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else if (sortOption === 'UNREAD') {
+      result = [...result].sort((a, b) => {
+        if (!a.read && b.read) return -1;
+        if (a.read && !b.read) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    } else if (sortOption === 'STARRED') {
+      result = result.filter(e => starredIds.has(e.id));
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortOption === 'ATTACHMENTS') {
+      result = result.filter(e => {
+        const atts = extractAttachmentsFromEmail(e);
+        return atts.length > 0;
+      });
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else {
+      // NEWEST (Padrão)
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    return result;
+  }, [emails, selectedFolder, searchQuery, starredIds, sortOption]);
 
   const selectedEmail = useMemo(() => {
     return emails.find(e => e.id === selectedEmailId) || filteredEmails[0] || null;
@@ -2378,7 +2421,138 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       Esvaziar Lixo
                     </button>
                   ) : (
-                    <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
+                    <div className="relative" ref={sortMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 hover:text-indigo-400 dark:hover:text-indigo-300 transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-white/5 active:scale-95"
+                        title="Filtrar e ordenar conversas"
+                      >
+                        <span>
+                          {sortOption === 'NEWEST' && 'Mais recentes'}
+                          {sortOption === 'OLDEST' && 'Mais antigas'}
+                          {sortOption === 'UNREAD' && 'Não lidas primeiro'}
+                          {sortOption === 'STARRED' && 'Com estrela'}
+                          {sortOption === 'ATTACHMENTS' && 'Com anexos'}
+                        </span>
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isSortMenuOpen ? 'rotate-180 text-indigo-400' : ''}`} />
+                      </button>
+
+                      {/* Dropdown Menu Suspenso */}
+                      {isSortMenuOpen && (
+                        <div className={`absolute right-0 top-full mt-1.5 w-48 rounded-xl shadow-2xl border py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 ${
+                          isLight 
+                            ? 'bg-white border-zinc-200 text-zinc-800' 
+                            : 'bg-[#11141F] border-white/10 text-zinc-200 shadow-[0_10px_30px_rgba(0,0,0,0.5)]'
+                        }`}>
+                          <div className="px-3 py-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                            Ordenar e Filtrar
+                          </div>
+
+                          {/* 1. Mais recentes primeiro */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortOption('NEWEST');
+                              setIsSortMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors cursor-pointer ${
+                              sortOption === 'NEWEST'
+                                ? isLight ? 'bg-indigo-50 text-indigo-600 font-bold' : 'bg-indigo-600/20 text-indigo-300 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                              Mais recentes
+                            </span>
+                            {sortOption === 'NEWEST' && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[2.5]" />}
+                          </button>
+
+                          {/* 2. Mais antigas primeiro */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortOption('OLDEST');
+                              setIsSortMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors cursor-pointer ${
+                              sortOption === 'OLDEST'
+                                ? isLight ? 'bg-indigo-50 text-indigo-600 font-bold' : 'bg-indigo-600/20 text-indigo-300 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                              Mais antigas
+                            </span>
+                            {sortOption === 'OLDEST' && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[2.5]" />}
+                          </button>
+
+                          <div className="h-px bg-zinc-200 dark:bg-white/10 my-1"></div>
+
+                          {/* 3. Não lidas primeiro */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortOption('UNREAD');
+                              setIsSortMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors cursor-pointer ${
+                              sortOption === 'UNREAD'
+                                ? isLight ? 'bg-indigo-50 text-indigo-600 font-bold' : 'bg-indigo-600/20 text-indigo-300 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                              Não lidas primeiro
+                            </span>
+                            {sortOption === 'UNREAD' && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[2.5]" />}
+                          </button>
+
+                          {/* 4. Com estrela */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortOption('STARRED');
+                              setIsSortMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors cursor-pointer ${
+                              sortOption === 'STARRED'
+                                ? isLight ? 'bg-indigo-50 text-indigo-600 font-bold' : 'bg-indigo-600/20 text-indigo-300 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                              Com estrela
+                            </span>
+                            {sortOption === 'STARRED' && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[2.5]" />}
+                          </button>
+
+                          {/* 5. Com anexos */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortOption('ATTACHMENTS');
+                              setIsSortMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors cursor-pointer ${
+                              sortOption === 'ATTACHMENTS'
+                                ? isLight ? 'bg-indigo-50 text-indigo-600 font-bold' : 'bg-indigo-600/20 text-indigo-300 font-bold'
+                                : 'hover:bg-zinc-100 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Paperclip className="w-3.5 h-3.5 text-blue-400" />
+                              Com anexos
+                            </span>
+                            {sortOption === 'ATTACHMENTS' && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[2.5]" />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </>
               )}
