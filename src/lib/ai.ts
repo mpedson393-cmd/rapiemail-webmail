@@ -1,15 +1,23 @@
 // Unified Multi-Provider AI Engine for RapiEmail
 // Priorities: 1. NVIDIA NIM GPU API -> 2. Groq Ultra-Fast API -> 3. Google Gemini API
 
+export interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+  image?: string; // base64 or url
+}
+
 export interface AiCompletionOptions {
-  prompt: string;
+  prompt?: string;
+  messages?: ChatMessage[];
   systemInstruction?: string;
   temperature?: number;
   maxTokens?: number;
+  images?: string[]; // base64 or urls
 }
 
 export async function generateAiCompletion(options: AiCompletionOptions): Promise<string | null> {
-  const { prompt, systemInstruction, temperature = 0.7, maxTokens = 1000 } = options;
+  const { prompt, messages: inputMessages, systemInstruction, temperature = 0.7, maxTokens = 1200, images = [] } = options;
 
   // 1. PRIORIDADE #1: NVIDIA NIM GPU API (Execução Nativa da API NVIDIA)
   const nvidiaKey = process.env.NVIDIA_API_KEY;
@@ -23,11 +31,17 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
       "google/gemma-2-27b-it"
     ];
 
-    const messages = [];
+    const messages: Array<{ role: string; content: any }> = [];
     if (systemInstruction) {
       messages.push({ role: "system", content: systemInstruction });
     }
-    messages.push({ role: "user", content: prompt });
+    if (inputMessages && inputMessages.length > 0) {
+      inputMessages.forEach(m => {
+        messages.push({ role: m.role, content: m.content });
+      });
+    } else if (prompt) {
+      messages.push({ role: "user", content: prompt });
+    }
 
     for (const model of nvidiaModels) {
       try {
@@ -73,11 +87,17 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      const messages = [];
+      const groqMessages: Array<{ role: string; content: string }> = [];
       if (systemInstruction) {
-        messages.push({ role: "system", content: systemInstruction });
+        groqMessages.push({ role: "system", content: systemInstruction });
       }
-      messages.push({ role: "user", content: prompt });
+      if (inputMessages && inputMessages.length > 0) {
+        inputMessages.forEach(m => {
+          groqMessages.push({ role: m.role, content: m.content });
+        });
+      } else if (prompt) {
+        groqMessages.push({ role: "user", content: prompt });
+      }
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -87,7 +107,7 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
         },
         body: JSON.stringify({
           model: "qwen/qwen3.6-27b",
-          messages,
+          messages: groqMessages,
           temperature,
           max_tokens: maxTokens
         }),
@@ -110,24 +130,68 @@ export async function generateAiCompletion(options: AiCompletionOptions): Promis
     }
   }
 
-  // 3. PRIORIDADE #3: Google Gemini API (Modelos Gemini Flash)
+  // 3. PRIORIDADE #3: Google Gemini API (Modelos Gemini Flash com Visão Multimodal Real)
   const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
   if (geminiKey) {
     const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
-    const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+
+    // Montar contents para Gemini
+    const contents: Array<{ role: string; parts: Array<any> }> = [];
+
+    if (inputMessages && inputMessages.length > 0) {
+      inputMessages.forEach(m => {
+        const parts: Array<any> = [{ text: m.content }];
+        if (m.image && m.image.startsWith("data:")) {
+          const match = m.image.match(/^data:(.*?);base64,(.*)$/);
+          if (match) {
+            parts.push({
+              inline_data: {
+                mime_type: match[1],
+                data: match[2]
+              }
+            });
+          }
+        }
+        contents.push({
+          role: m.role === "assistant" ? "model" : "user",
+          parts
+        });
+      });
+    } else {
+      const userParts: Array<any> = [{ text: prompt || "" }];
+      images.forEach(img => {
+        if (img.startsWith("data:")) {
+          const match = img.match(/^data:(.*?);base64,(.*)$/);
+          if (match) {
+            userParts.push({
+              inline_data: {
+                mime_type: match[1],
+                data: match[2]
+              }
+            });
+          }
+        }
+      });
+      contents.push({ role: "user", parts: userParts });
+    }
 
     for (const model of models) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const bodyPayload: any = {
+          contents,
+          generationConfig: { temperature, maxOutputTokens: maxTokens }
+        };
+        if (systemInstruction) {
+          bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
+        }
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-            generationConfig: { temperature, maxOutputTokens: maxTokens }
-          }),
+          body: JSON.stringify(bodyPayload),
           signal: controller.signal
         });
 

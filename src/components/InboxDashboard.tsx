@@ -18,6 +18,7 @@ import { ComposeModal } from './ComposeModal';
 import { RapiSiteBuilderModal } from './RapiSiteBuilderModal';
 import { CalendarView } from './CalendarView';
 import { ContactsView } from './ContactsView';
+import { AgentChatView } from './AgentChatView';
 import { SmartAvatar } from './SmartAvatar';
 import { parseSenderDetails, extractLinkedInAvatarFromHtml, extractLinkedInProfileUrl, setCachedAvatar } from '@/lib/avatar';
 
@@ -780,7 +781,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(initialEmails[0]?.id || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState(currentFolder || 'INBOX');
-  const [activeTab, setActiveTab] = useState<'mail' | 'calendar' | 'contacts'>('mail');
+  const [activeTab, setActiveTab] = useState<'mail' | 'calendar' | 'contacts' | 'agent'>('mail');
   
   // Estado do Modal de Composição com Suporte Completo a Responder/Reencaminhar/Agendar
   const [composeConfig, setComposeConfig] = useState<{
@@ -1518,9 +1519,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   const handleSelectFolder = (folderId: string) => {
     if (folderId === 'AGENT') {
-      setIsAiDrawerOpen(true);
+      setActiveTab('agent');
+      setIsMobileMenuOpen(false);
       return;
     }
+    setActiveTab('mail');
     setSelectedFolder(folderId);
     setIsMobileMenuOpen(false);
     let inFolder = emails.filter(e => e.folder === folderId);
@@ -2138,6 +2141,18 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             >
               <Users className="w-4 h-4" />
             </button>
+            <button
+              onClick={() => setActiveTab('agent')}
+              title="Agente IA & Assistente"
+              className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${
+                activeTab === 'agent'
+                  ? 'bg-indigo-600/20 text-indigo-400 font-bold border border-indigo-500/30'
+                  : isLight ? 'text-[#5F6368] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <Bot className="w-4 h-4 text-indigo-400" />
+              <span className="hidden lg:inline text-xs font-semibold">Agente IA</span>
+            </button>
           </div>
         </div>
 
@@ -2328,6 +2343,23 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       {activeTab === 'contacts' && (
         <main className="flex-1 overflow-y-auto">
           <ContactsView user={user} />
+        </main>
+      )}
+
+      {/* VIEW: AGENTE IA (PROFESSIONAL CHATGPT-STYLE MULTI-CHAT & VISION & SITE GENERATOR) */}
+      {activeTab === 'agent' && (
+        <main className="flex-1 flex overflow-hidden min-h-0">
+          <AgentChatView 
+            user={user} 
+            selectedEmail={selectedEmail}
+            onOpenEmail={(emailId) => {
+              setActiveTab('mail');
+              setSelectedEmailId(emailId);
+              setMobileView('detail');
+            }}
+            onOpenSiteBuilder={() => setIsSiteBuilderOpen(true)}
+            onBackToMail={() => setActiveTab('mail')}
+          />
         </main>
       )}
 
@@ -3046,10 +3078,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       <span className="hidden md:inline">{isSummarizing ? 'A resumir...' : 'Resumo IA'}</span>
                     </button>
 
-                    {/* Botão Agente Executivo Chat Drawer */}
+                    {/* Botão Agente Executivo Chat */}
                     <button
-                      onClick={() => setIsAiDrawerOpen(true)}
-                      title="Abrir Assistente Executivo RapiAI"
+                      onClick={() => setActiveTab('agent')}
+                      title="Abrir Agente Executivo RapiAI"
                       className="px-2.5 py-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white font-bold text-[11px] rounded-lg flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
                     >
                       <Bot className="w-3.5 h-3.5" />
@@ -3201,7 +3233,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                       </button>
 
                       <button
-                        onClick={() => setIsAiDrawerOpen(true)}
+                        onClick={() => setActiveTab('agent')}
                         title="Abrir Chat com o Agente Executivo"
                         className="px-3 py-1.5 rapimoney-ai-btn text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
                       >

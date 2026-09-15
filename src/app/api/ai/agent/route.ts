@@ -502,9 +502,11 @@ function generateSmartReply(params: {
   };
 }
 
-// Chat Interativo com o Agente IA (Baseado no Contexto Completo do E-mail Aberto e Fotos)
+// Chat Interativo com o Agente IA (Baseado no Contexto Completo do E-mail Aberto, Fotos e Histórico)
 async function generateInteractiveChatResponse(params: {
   prompt: string;
+  messages?: Array<{ role: "system" | "user" | "assistant"; content: string; image?: string }>;
+  images?: string[];
   subject?: string;
   body?: string;
   html?: string;
@@ -512,21 +514,32 @@ async function generateInteractiveChatResponse(params: {
   userName?: string;
   attachments?: AttachmentItem[];
 }): Promise<string> {
-  const { prompt = "", subject = "", body = "", html = "", from = "", userName = "Edson | Rapi Money", attachments = [] } = params;
+  const { prompt = "", messages: inputMessages, images = [], subject = "", body = "", html = "", from = "", userName = "Edson | Rapi Money", attachments = [] } = params;
   const analysis = analyzeConversation({ subject, body, html, from, attachments });
   const { sender, isContractOrNDA, contractDetails, imageAttachments, isProductOrPhotoInquiry, cleanBody } = analysis;
   const promptLower = prompt.toLowerCase();
 
-  // Tentar geração via motor Multi-Provider IA (Groq Ultra-Fast / Gemini / NVIDIA NIM)
+  // Tentar geração via motor Multi-Provider IA (NVIDIA NIM -> Groq Ultra-Fast -> Google Gemini Vision)
   try {
-    const emailContext = `Contexto do E-mail Atual:\nRemetente: ${from}\nAssunto: ${subject}\nConteúdo: ${body || html}\nAnexos de Imagens: ${imageAttachments.map(i => i.filename).join(', ')}`;
-    const systemInstruction = `És o Assistente Executivo e de Visão Multimodal da RapiEmail. Analisas fotografias de produtos, minutas, faturas e rediges respostas executivas impecáveis em português de Portugal.`;
+    const emailContext = subject || body || from 
+      ? `\n\n[CONTEXTO DO E-MAIL ATUALMENTE ABERTO]:\nRemetente: ${from}\nAssunto: ${subject}\nConteúdo Principal: ${body || html}\nAnexos Detectados: ${imageAttachments.map(i => i.filename).join(', ') || 'Nenhum'}`
+      : "";
+
+    const systemInstruction = `És o Agente Executivo e Assistente de Inteligência Artificial da RapiEmail (desenvolvido para empresas modernas). 
+Tu possuis capacidades multimodais completas:
+1. Podes ler e analisar todo o conteúdo de e-mails, contratos, faturas, NDAs e documentos recebidos.
+2. Analisas com precisão fotografias, imagens de produtos, recibos e documentos enviados pelo utilizador.
+3. Possuis uma ferramenta nativa integrada de criação de Websites ("RapiSiteBuilder") que permite gerar páginas HTML5/Tailwind completas para negócios e empresas.
+4. Esclareces qualquer dúvida sobre a plataforma RapiEmail (configuração de domínio próprio DNS: registos MX, SPF, DKIM, DMARC; assinaturas com fotografia; envio agendado; atalhos e pesquisa avançada).
+Responde sempre de forma executiva, profissional, clara e cortês em português de Portugal.${emailContext}`;
 
     const aiRes = await generateAiCompletion({
-      prompt: `${emailContext}\n\nInstrução do Utilizador:\n${prompt}`,
+      prompt: prompt || "Olá",
+      messages: inputMessages,
+      images,
       systemInstruction,
       temperature: 0.7,
-      maxTokens: 1200
+      maxTokens: 1500
     });
 
     if (aiRes && aiRes.trim()) {
@@ -555,15 +568,15 @@ async function generateInteractiveChatResponse(params: {
   }
 
   // Motor Contextual RapiAI para Fotografias de Produtos
-  if (isProductOrPhotoInquiry || imageAttachments.length > 0) {
+  if (isProductOrPhotoInquiry || imageAttachments.length > 0 || images.length > 0) {
     const imgList = imageAttachments.map(i => i.filename || "Foto do Produto").join(', ') || "Fotos de Produtos";
     
     if (promptLower.includes("proposta") || promptLower.includes("cotação") || promptLower.includes("orçamento") || promptLower.includes("preço")) {
-      return `Aqui está a Proposta Comercial sugerida com base nas fotografias anexadas (${imgList}):\n\nEstimado(a) ${sender.name},\n\nNa sequência da receção das fotografias e especificações dos produtos anexados à sua comunicação, apresentamos a nossa estrutura de cotação executiva:\n\n• **Itens em Análise:** ${imgList}\n• **Condições de Volume:** Cotação por escalões B2B competitivos\n• **Prazo de Expedição Estimado:** 3 a 5 dias úteis após validação\n• **Garantia & Conformidade:** Certificação e inspeção pré-embarque garantida\n\nFicamos à disposição para ajustarmos as quantidades e formalizarmos a respetiva nota de encomenda.\n\nCom os melhores cumprimentos,\n${userName}`;
+      return `Aqui está a Proposta Comercial sugerida com base nas fotografias analisadas (${imgList}):\n\nEstimado(a) ${sender.name},\n\nNa sequência da receção das fotografias e especificações dos produtos anexados à sua comunicação, apresentamos a nossa estrutura de cotação executiva:\n\n• **Itens em Análise:** ${imgList}\n• **Condições de Volume:** Cotação por escalões B2B competitivos\n• **Prazo de Expedição Estimado:** 3 a 5 dias úteis após validação\n• **Garantia & Conformidade:** Certificação e inspeção pré-embarque garantida\n\nFicamos à disposição para ajustarmos as quantidades e formalizarmos a respetiva nota de encomenda.\n\nCom os melhores cumprimentos,\n${userName}`;
     }
 
     if (promptLower.includes("resum") || promptLower.includes("foto") || promptLower.includes("analis") || promptLower.includes("produto")) {
-      return `📸 **Análise Visual dos Produtos Anexados:**\n\n• **Fotografias Detetadas:** ${imgList}\n• **Finalidade:** Apresentação de catálogo e solicitação de cotação/interesse comercial.\n• **Próximos Passos Recomendados:**\n  1. Confirmar especificações de materiais e quantidades pretendidas.\n  2. Enviar preçário por escalões e prazos de entrega.\n  3. Agendar demonstração física ou envio de amostras.\n\n💡 *Deseja que eu redija a proposta comercial para enviar diretamente ao remetente?*`;
+      return `📸 **Análise Visual dos Produtos e Imagens:**\n\n• **Fotografias Detetadas:** ${imgList}\n• **Finalidade:** Apresentação de catálogo e solicitação de cotação/interesse comercial.\n• **Próximos Passos Recomendados:**\n  1. Confirmar especificações de materiais e quantidades pretendidas.\n  2. Enviar preçário por escalões e prazos de entrega.\n  3. Agendar demonstração física ou envio de amostras.\n\n💡 *Deseja que eu redija a proposta comercial para enviar diretamente ao remetente?*`;
     }
   }
 
@@ -604,6 +617,8 @@ export async function POST(req: Request) {
     const { 
       mode, 
       prompt, 
+      messages,
+      images,
       subject = "", 
       body = "", 
       html = "", 
@@ -652,9 +667,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // 4. MODO GERAL / CHAT INTERATIVO NO DRAWER
+    // 4. MODO GERAL / CHAT INTERATIVO NO DRAWER OU CHATVIEW COMPLETO
     const replyText = await generateInteractiveChatResponse({
       prompt: prompt || "",
+      messages,
+      images,
       subject,
       body,
       html,
@@ -670,4 +687,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || "Erro no processamento do agente de IA" }, { status: 500 });
   }
 }
+
 
