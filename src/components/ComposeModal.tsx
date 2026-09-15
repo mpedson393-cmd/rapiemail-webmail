@@ -4,7 +4,7 @@ import {
   X, Minus, Maximize2, Paperclip, Image as ImageIcon, Smile, 
   Send, Sparkles, Loader2, Bold, Italic, Underline, Strikethrough, 
   Link as LinkIcon, Code, ChevronDown, Lock, Clock, FileText, Check,
-  Calendar, Eye
+  Calendar, Eye, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 
 interface Props {
@@ -80,6 +80,49 @@ export function ComposeModal({
 
   // D: Modo Confidencial State
   const [isConfidential, setIsConfidential] = useState(false);
+
+  // E: ZeroBounce Deliverability & Validation State
+  const [zbStatus, setZbStatus] = useState<{
+    validating: boolean;
+    status?: 'valid' | 'invalid' | 'catch-all' | 'unknown' | 'spamtrap' | 'abuse' | 'do_not_mail';
+    subStatus?: string;
+    didYouMean?: string;
+    message?: string;
+  }>({ validating: false });
+
+  // Validação em tempo real do destinatário via ZeroBounce
+  React.useEffect(() => {
+    if (!to || !to.includes('@') || !to.includes('.')) {
+      setZbStatus({ validating: false });
+      return;
+    }
+    const cleanTo = to.trim().toLowerCase();
+    const timeoutId = setTimeout(async () => {
+      setZbStatus({ validating: true });
+      try {
+        const res = await fetch("/api/zerobounce/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanTo })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setZbStatus({
+            validating: false,
+            status: data.status,
+            subStatus: data.subStatus,
+            didYouMean: data.didYouMean
+          });
+        } else {
+          setZbStatus({ validating: false });
+        }
+      } catch (err) {
+        setZbStatus({ validating: false });
+      }
+    }, 800);
+
+    return () => clearTimeout(timeoutId);
+  }, [to]);
 
   if (!isOpen) return null;
 
@@ -253,10 +296,10 @@ export function ComposeModal({
             </div>
           </div>
 
-          {/* Para: Input */}
+          {/* Para: Input com Validador em Tempo Real ZeroBounce */}
           <div className="px-6 py-2.5 border-b border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <span className="text-zinc-500 font-medium w-14">Para:</span>
+            <div className="flex items-center gap-3 flex-1 min-w-0 mr-2">
+              <span className="text-zinc-500 font-medium w-14 shrink-0">Para:</span>
               <input 
                 type="email" 
                 value={to}
@@ -264,8 +307,51 @@ export function ComposeModal({
                 className="flex-1 bg-transparent border-none text-xs text-white focus:outline-none placeholder-zinc-600" 
                 placeholder="destinatario@empresa.com"
               />
+
+              {/* ZeroBounce Status Indicator */}
+              {zbStatus.validating ? (
+                <span className="flex items-center gap-1 text-[10px] text-zinc-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 shrink-0 animate-pulse">
+                  <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                  <span>A validar...</span>
+                </span>
+              ) : zbStatus.status === 'valid' ? (
+                <span 
+                  title={`Validado via ZeroBounce: E-mail ativo e seguro para entrega (${zbStatus.subStatus || 'valid'})`}
+                  className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0 font-medium"
+                >
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span>Verificado (ZeroBounce)</span>
+                </span>
+              ) : (zbStatus.status === 'invalid' || zbStatus.status === 'spamtrap') ? (
+                <span 
+                  title={`Atenção ZeroBounce: Endereço inválido ou arriscado (${zbStatus.subStatus || zbStatus.status})`}
+                  className="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shrink-0 font-medium"
+                >
+                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                  <span>Inválido / Risco</span>
+                </span>
+              ) : zbStatus.status === 'catch-all' ? (
+                <span 
+                  title="ZeroBounce: Servidor aceita todos os e-mails (Catch-All)"
+                  className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 shrink-0 font-medium"
+                >
+                  <Check className="w-3 h-3 text-amber-400" />
+                  <span>Catch-All</span>
+                </span>
+              ) : null}
+
+              {/* Sugestão Did You Mean da ZeroBounce */}
+              {zbStatus.didYouMean && (
+                <button
+                  type="button"
+                  onClick={() => setTo(zbStatus.didYouMean!)}
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300 underline font-medium shrink-0 ml-1 cursor-pointer"
+                >
+                  Quis dizer {zbStatus.didYouMean}?
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono shrink-0">
               <button onClick={() => setShowCc(!showCc)} className="hover:text-indigo-400 transition-colors">Cc</button>
               <span>/</span>
               <button onClick={() => setShowCc(!showCc)} className="hover:text-indigo-400 transition-colors">Bcc</button>
