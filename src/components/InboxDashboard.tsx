@@ -1164,7 +1164,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     });
   }, [emails]);
 
-  // 4. Abrir e-mail específico se passado por parâmetro na URL (?id=...)
+  // 4. Abrir e-mail específico se passado por parâmetro na URL (?id=...) e Suporte Nativo a Botão de Voltar Instantâneo (PopState & Hardware Back)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -1173,6 +1173,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
         setSelectedEmailId(targetEmailId);
         setMobileView('detail');
       }
+
+      // Escuta o botão físico/gesto de voltar do Android e do navegador
+      const handlePopState = (event: PopStateEvent) => {
+        if (event.state && event.state.view === 'detail' && event.state.emailId) {
+          setSelectedEmailId(event.state.emailId);
+          setMobileView('detail');
+        } else {
+          setMobileView('list');
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
     }
   }, []);
 
@@ -1443,6 +1456,10 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     setSelectedEmailId(id);
     setMobileView('detail');
     setEmails(prev => prev.map(e => e.id === id ? { ...e, read: true } : e));
+
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ view: 'detail', emailId: id }, '', `/inbox?id=${id}`);
+    }
 
     try {
       await fetch('/api/emails/read', {
@@ -2291,8 +2308,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                 }`}>
                   <div className="flex items-center gap-3 md:gap-4 text-[#5F6368] dark:text-zinc-400">
                     <button 
-                      onClick={() => setMobileView('list')}
-                      className="md:hidden flex items-center gap-1 text-[#1A73E8] font-bold text-xs px-2 py-1 rounded-lg bg-[#E8F0FE] -ml-2"
+                      type="button"
+                      onClick={() => {
+                        setMobileView('list');
+                        if (typeof window !== 'undefined') {
+                          window.history.replaceState({ view: 'list' }, '', '/inbox');
+                        }
+                      }}
+                      className="md:hidden flex items-center gap-1 text-[#1A73E8] font-bold text-xs px-2.5 py-1.5 rounded-lg bg-[#E8F0FE] active:scale-95 transition-transform -ml-2 cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       <span>Voltar</span>
