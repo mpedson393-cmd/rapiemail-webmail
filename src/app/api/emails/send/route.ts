@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { validateEmailWithZeroBounce } from "@/lib/zerobounce";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
 
@@ -50,6 +51,26 @@ export async function POST(req: Request) {
 
     if (toList.length === 0) {
       return NextResponse.json({ error: "Insira pelo menos um destinatário válido." }, { status: 400 });
+    }
+
+    // 🛡️ Proteção Prévia de Entregabilidade com ZeroBounce
+    // Verifica o destinatário principal antes de disparar o envio para prevenir bounces e proteger a reputação do domínio
+    const primaryRecipient = toList[0];
+    if (primaryRecipient && primaryRecipient.includes('@')) {
+      try {
+        const zbCheck = await validateEmailWithZeroBounce(primaryRecipient);
+        if (zbCheck) {
+          if (zbCheck.status === 'invalid' || zbCheck.status === 'spamtrap' || zbCheck.status === 'abuse') {
+            const suggestion = zbCheck.did_you_mean ? ` Quis dizer "${zbCheck.did_you_mean}"?` : "";
+            return NextResponse.json({ 
+              error: `O endereço "${primaryRecipient}" foi identificado como inexistente ou arriscado pela ZeroBounce (${zbCheck.sub_status || zbCheck.status}).${suggestion} O envio foi bloqueado para proteger a reputação do seu domínio.`
+            }, { status: 422 });
+          }
+          console.log(`[ZeroBounce Pre-Send Guard] Destinatário "${primaryRecipient}" verificado com sucesso (${zbCheck.status}/${zbCheck.sub_status}).`);
+        }
+      } catch (zbErr) {
+        console.warn("[ZeroBounce Pre-Send Guard Warning]:", zbErr);
+      }
     }
 
     const fromEmail = session.user.email;
