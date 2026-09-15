@@ -14,6 +14,7 @@ interface Props {
   initialTo?: string;
   initialSubject?: string;
   initialBody?: string;
+  initialScheduleMode?: boolean;
 }
 
 interface AttachmentFile {
@@ -24,7 +25,15 @@ interface AttachmentFile {
   content?: string;
 }
 
-export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initialSubject = "", initialBody = "" }: Props) {
+export function ComposeModal({ 
+  isOpen, 
+  onClose, 
+  userEmail, 
+  initialTo = "", 
+  initialSubject = "", 
+  initialBody = "",
+  initialScheduleMode = false
+}: Props) {
   const fromEmail = userEmail || "edson@rapimoneyit.online";
 
   const [to, setTo] = useState(initialTo);
@@ -40,9 +49,10 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
       if (initialTo !== undefined) setTo(initialTo);
       if (initialSubject !== undefined) setSubject(initialSubject);
       if (initialBody !== undefined) setBody(initialBody);
+      if (initialScheduleMode) setShowDatePickerModal(true);
       setError("");
     }
-  }, [isOpen, initialTo, initialSubject, initialBody]);
+  }, [isOpen, initialTo, initialSubject, initialBody, initialScheduleMode]);
   
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");

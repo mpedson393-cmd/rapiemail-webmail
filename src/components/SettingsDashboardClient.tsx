@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Shield, Sparkles, Sliders, Filter, Repeat, 
   MessageSquare, FileSignature, Smartphone, Globe, Users, 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function SettingsDashboardClient({ user }: Props) {
+  const router = useRouter();
   // State for toggles and interactive elements
   const [displayName, setDisplayName] = useState(user.name);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -263,15 +265,24 @@ export function SettingsDashboardClient({ user }: Props) {
         isLight ? 'bg-white/85 border-slate-200 shadow-sm' : 'bg-[#0e0e11]/85 border-white/5'
       }`}>
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <Link 
-            href="/inbox" 
-            className={`flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl transition-all shrink-0 ${
+          <button 
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  router.push('/inbox');
+                }
+              }
+            }} 
+            className={`flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-xl transition-all shrink-0 cursor-pointer active:scale-95 ${
               isLight ? 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200' : 'text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10'
             }`}
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden xs:inline">Voltar</span>
-          </Link>
+          </button>
           <div className={`h-4 w-px ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
           <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-zinc-500 truncate">
             <span>Email</span>

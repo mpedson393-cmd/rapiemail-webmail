@@ -11,7 +11,7 @@ import {
   Forward, Ban, Code2, ArrowLeft, Menu, Plus, BellRing, Languages,
   Sparkles, Copy, KeyRound, Globe2, RotateCcw, Video, ExternalLink, 
   HelpCircle, CalendarCheck2, Download, FileSpreadsheet, FileArchive, DownloadCloud,
-  Bot, Zap, ListTodo, Wand2, Brain, MessageSquare
+  Bot, Zap, ListTodo, Wand2, Brain, MessageSquare, Share2
 } from 'lucide-react';
 import { UserProfileFooter } from './UserProfileFooter';
 import { ComposeModal } from './ComposeModal';
@@ -782,17 +782,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [selectedFolder, setSelectedFolder] = useState(currentFolder || 'INBOX');
   const [activeTab, setActiveTab] = useState<'mail' | 'calendar' | 'contacts'>('mail');
   
-  // Estado do Modal de Composição com Suporte Completo a Responder/Reencaminhar
+  // Estado do Modal de Composição com Suporte Completo a Responder/Reencaminhar/Agendar
   const [composeConfig, setComposeConfig] = useState<{
     isOpen: boolean;
     initialTo: string;
     initialSubject: string;
     initialBody: string;
+    initialScheduleMode?: boolean;
   }>({
     isOpen: false,
     initialTo: '',
     initialSubject: '',
-    initialBody: ''
+    initialBody: '',
+    initialScheduleMode: false
   });
 
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
@@ -1624,6 +1626,62 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     });
   };
 
+  // Agendar Resposta Direta
+  const handleScheduleReply = (targetEmail?: EmailItem | null) => {
+    const emailToUse = targetEmail || selectedEmail;
+    if (!emailToUse) return;
+    const sender = parseSenderDetails(emailToUse.from);
+    const cleanFrom = sender.email || emailToUse.from.replace(/[<>]/g, '').trim();
+    const cleanSubject = emailToUse.subject.toLowerCase().startsWith('re:') 
+      ? emailToUse.subject 
+      : `Re: ${emailToUse.subject}`;
+    const dateFormatted = new Date(emailToUse.createdAt).toLocaleString('pt-PT');
+    const quotedBody = `\n\n\n---------- Mensagem original ----------\nDe: ${emailToUse.from}\nData: ${dateFormatted}\nAssunto: ${emailToUse.subject}\nPara: ${emailToUse.to}\n\n${cleanPlainTextBody(emailToUse.body)}`;
+
+    setComposeConfig({
+      isOpen: true,
+      initialTo: cleanFrom,
+      initialSubject: cleanSubject,
+      initialBody: quotedBody,
+      initialScheduleMode: true
+    });
+  };
+
+  // Partilhar E-mail via Web Share API ou Copiar para Área de Transferência
+  const handleShareEmail = async (targetEmail?: EmailItem | null) => {
+    const emailToUse = targetEmail || selectedEmail;
+    if (!emailToUse) return;
+
+    const shareData = {
+      title: emailToUse.subject || "E-mail Corporativo RapiEmail",
+      text: `De: ${emailToUse.from}\nAssunto: ${emailToUse.subject}\n\n${cleanSnippetText(emailToUse.body)}`,
+      url: typeof window !== 'undefined' ? `${window.location.origin}/inbox?id=${emailToUse.id}` : undefined
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        setToastMessage("↗️ Partilhado com sucesso!");
+        setTimeout(() => setToastMessage(null), 3000);
+        return;
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: copiar texto/link para área de transferência
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${shareData.title}\n\n${shareData.text}`);
+        setToastMessage("📋 Conteúdo do e-mail copiado para a área de transferência!");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (e) {
+      setToastMessage("Erro ao copiar e-mail.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
   // Função para Traduzir E-mail para a Língua Selecionada com DeepL AI / Gemini (com Persistência Total e Alternância Rápida)
   const handleTranslateEmail = async (targetLangCode?: string, isAuto: boolean = false, forceRefresh: boolean = false) => {
     if (!selectedEmail) return;
@@ -2096,22 +2154,95 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'rapimoney-panel'
           }`}>
             
-            <div className={`h-11 px-4 border-b flex items-center justify-between text-xs font-semibold shrink-0 ${
-              isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.07] text-zinc-400 bg-white/[0.02]'
+            {/* Cabeçalho da Lista / Barra de Ações Instantâneas quando um e-mail é selecionado */}
+            <div className={`h-11 px-3 sm:px-4 border-b flex items-center justify-between text-xs font-semibold shrink-0 transition-colors ${
+              selectedEmail 
+                ? isLight ? 'bg-indigo-50/90 border-indigo-100 text-indigo-950' : 'bg-indigo-950/30 border-indigo-500/20 text-indigo-200' 
+                : isLight ? 'border-[#E5E7EB] text-[#5F6368] bg-[#FFFFFF]' : 'border-white/[0.07] text-zinc-400 bg-white/[0.02]'
             }`}>
-              <div className="flex items-center gap-2">
-                <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
-                <span className="text-[11px] text-emerald-400 font-bold font-mono">({filteredEmails.length})</span>
-              </div>
-              {selectedFolder === 'TRASH' && filteredEmails.length > 0 ? (
-                <button 
-                  onClick={handleEmptyTrash}
-                  className="text-[11px] text-red-500 hover:text-red-600 font-bold cursor-pointer"
-                >
-                  Esvaziar Lixo
-                </button>
+              {selectedEmail ? (
+                <div className="flex items-center justify-between w-full gap-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0"></span>
+                    <span className="text-[11px] font-bold truncate max-w-[85px] sm:max-w-[110px]">
+                      {parseSenderDetails(selectedEmail.from).name.split(' ')[0]}
+                    </span>
+                  </div>
+
+                  {/* 4 Ações Rápidas Ultra Nativas: Responder, Agendar, Eliminar, Partilhar */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* 1. Responder */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReply();
+                      }}
+                      title="Responder ao e-mail"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-600 dark:text-indigo-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Reply className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Responder</span>
+                    </button>
+
+                    {/* 2. Agendar Resposta */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleScheduleReply(selectedEmail);
+                      }}
+                      title="Agendar envio / resposta"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 font-bold text-[11px] transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="hidden sm:inline">Agendar</span>
+                    </button>
+
+                    {/* 3. Eliminar */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteEmail();
+                      }}
+                      title={selectedEmail.folder === 'TRASH' ? "Eliminar definitivamente" : "Mover para o Lixo"}
+                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/15 transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* 4. Partilhar */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareEmail(selectedEmail);
+                      }}
+                      title="Partilhar conteúdo do e-mail"
+                      className="p-1.5 rounded-lg text-indigo-500 dark:text-indigo-300 hover:bg-indigo-500/15 transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
+                <>
+                  <div className="flex items-center gap-2">
+                    <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
+                    <span className="text-[11px] text-emerald-400 font-bold font-mono">({filteredEmails.length})</span>
+                  </div>
+                  {selectedFolder === 'TRASH' && filteredEmails.length > 0 ? (
+                    <button 
+                      onClick={handleEmptyTrash}
+                      className="text-[11px] text-red-500 hover:text-red-600 font-bold cursor-pointer"
+                    >
+                      Esvaziar Lixo
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-zinc-400 font-normal">Mais recentes</span>
+                  )}
+                </>
               )}
             </div>
 
@@ -2328,8 +2459,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <button onClick={handleReplyAll} title="Responder a todos" className="hidden sm:flex hover:text-[#1A73E8] items-center gap-1 transition-colors">
                       <ReplyAll className="w-4 h-4" />
                     </button>
+                    <button onClick={() => handleScheduleReply(selectedEmail)} title="Agendar Resposta" className="hover:text-amber-500 flex items-center gap-1 transition-colors cursor-pointer">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      <span className="hidden lg:inline text-xs text-amber-600 dark:text-amber-400 font-semibold">Agendar</span>
+                    </button>
                     <button onClick={handleForward} title="Reencaminhar" className="hover:text-[#1A73E8] flex items-center gap-1 transition-colors">
                       <Forward className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleShareEmail(selectedEmail)} title="Partilhar e-mail" className="hover:text-indigo-500 flex items-center gap-1 transition-colors cursor-pointer">
+                      <Share2 className="w-4 h-4 text-indigo-500" />
                     </button>
                     <div className="w-px h-4 bg-[#E5E7EB] dark:bg-white/10 mx-1"></div>
                     <button onClick={(e) => toggleStar(selectedEmail.id, e)} title="Com estrela (Favoritos)" className="hover:text-amber-400 transition-colors cursor-pointer">
@@ -3046,11 +3184,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       {composeConfig.isOpen && (
         <ComposeModal 
           isOpen={composeConfig.isOpen} 
-          onClose={() => setComposeConfig({ isOpen: false, initialTo: '', initialSubject: '', initialBody: '' })} 
+          onClose={() => setComposeConfig({ isOpen: false, initialTo: '', initialSubject: '', initialBody: '', initialScheduleMode: false })} 
           userEmail={user.email}
           initialTo={composeConfig.initialTo}
           initialSubject={composeConfig.initialSubject}
           initialBody={composeConfig.initialBody}
+          initialScheduleMode={composeConfig.initialScheduleMode}
         />
       )}
 
