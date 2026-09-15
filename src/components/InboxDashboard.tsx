@@ -808,7 +808,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressTriggeredRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState<{ id: string; offset: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1832,70 +1831,22 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       curX = e.clientX;
       curY = e.clientY;
     }
-    const deltaX = curX - touchStartPosRef.current.x;
+    const deltaX = Math.abs(curX - touchStartPosRef.current.x);
     const deltaY = Math.abs(curY - touchStartPosRef.current.y);
 
-    // Se o usuário rolou/deslizou verticalmente mais do que horizontalmente, deixa fazer scroll na lista
-    if (deltaY > 15 && Math.abs(deltaX) < 15) {
+    // Se o usuário movimentou o dedo mais de 10px em qualquer direção, cancela o long-press
+    if (deltaY > 10 || deltaX > 10) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
       }
-      return;
-    }
-
-    // Se começou a deslizar horizontalmente mais de 10px, cancela o long-press e atualiza swipe visual
-    if (Math.abs(deltaX) > 10) {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-      // Limita o arrasto visual entre -120px e 120px para sensação ultra tátil
-      const boundedOffset = Math.max(-120, Math.min(120, deltaX));
-      setSwipeOffset({ id, offset: boundedOffset });
     }
   };
 
-  const handleItemTouchEnd = (id: string) => {
+  const handleItemTouchEnd = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
-    }
-    if (swipeOffset && swipeOffset.id === id) {
-      // Se deslizou para a direita mais de 75px: Arquivar
-      if (swipeOffset.offset > 75) {
-        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-          try { navigator.vibrate(30); } catch (_) {}
-        }
-        handleArchiveEmail(id);
-      } 
-      // Se deslizou para a esquerda mais de 75px: Eliminar / Mover para o Lixo
-      else if (swipeOffset.offset < -75) {
-        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-          try { navigator.vibrate(30); } catch (_) {}
-        }
-        const isAlreadyInTrash = selectedFolder === 'TRASH';
-        if (isAlreadyInTrash) {
-          setEmails(prev => prev.filter(e => e.id !== id));
-          setToastMessage("Mensagem eliminada definitivamente.");
-        } else {
-          setEmails(prev => prev.map(e => e.id === id ? { ...e, folder: 'TRASH' } : e));
-          setToastMessage("🗑️ Mensagem movida para o Lixo.");
-        }
-        setTimeout(() => setToastMessage(null), 3000);
-        try {
-          fetch('/api/emails/trash', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id, 
-              action: isAlreadyInTrash ? 'PERMANENT_DELETE' : 'MOVE_TO_TRASH', 
-              folder: 'TRASH' 
-            })
-          });
-        } catch (_) {}
-      }
-      setSwipeOffset(null);
     }
     touchStartPosRef.current = null;
   };
@@ -2728,71 +2679,43 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   const emailAttachments = extractAttachmentsFromEmail(email);
                   const hasAttachment = emailAttachments.length > 0;
 
-                  const currentSwipe = swipeOffset && swipeOffset.id === email.id ? swipeOffset.offset : 0;
                   return (
                     <div
                       key={email.id}
-                      className="relative overflow-hidden"
+                      onTouchStart={(e) => handleItemTouchStart(email.id, e)}
+                      onTouchMove={(e) => handleItemTouchMove(email.id, e)}
+                      onTouchEnd={handleItemTouchEnd}
+                      onTouchCancel={handleItemTouchEnd}
+                      onMouseDown={(e) => handleItemTouchStart(email.id, e)}
+                      onMouseMove={(e) => handleItemTouchMove(email.id, e)}
+                      onMouseUp={handleItemTouchEnd}
+                      onMouseLeave={handleItemTouchEnd}
+                      onContextMenu={(e) => {
+                        // Ao pressionar no telemóvel ou botão direito no rato, ativa seleção nativa
+                        e.preventDefault();
+                        toggleSelectEmail(email.id, e);
+                      }}
+                      onClick={() => {
+                        if (isLongPressTriggeredRef.current) {
+                          isLongPressTriggeredRef.current = false;
+                          return;
+                        }
+                        if (selectedEmailIds.size > 0) {
+                          toggleSelectEmail(email.id);
+                        } else {
+                          handleSelectEmail(email.id);
+                        }
+                      }}
+                      className={`group relative p-3 cursor-pointer select-none transition-colors ${
+                        isChecked
+                          ? isLight ? 'bg-indigo-50/80 border-l-4 border-indigo-500' : 'bg-indigo-950/25 border-l-4 border-indigo-500'
+                          : isSelected 
+                            ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
+                            : isUnread
+                              ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
+                              : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
+                      }`}
                     >
-                      {/* Fundo Revelado pelo Gesto de Swipe (Deslizar): Verde = Arquivar, Vermelho = Eliminar */}
-                      {currentSwipe !== 0 && (
-                        <div className={`absolute inset-0 flex items-center justify-between px-4 transition-colors ${
-                          currentSwipe > 0 ? 'bg-emerald-600/90 text-white' : 'bg-red-600/90 text-white justify-end'
-                        }`}>
-                          {currentSwipe > 0 ? (
-                            <div className="flex items-center gap-2 font-bold text-xs">
-                              <Archive className="w-5 h-5 animate-pulse" />
-                              <span>Arquivar</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 font-bold text-xs">
-                              <span>Mover para Lixo</span>
-                              <Trash2 className="w-5 h-5 animate-pulse" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div
-                        onTouchStart={(e) => handleItemTouchStart(email.id, e)}
-                        onTouchMove={(e) => handleItemTouchMove(email.id, e)}
-                        onTouchEnd={() => handleItemTouchEnd(email.id)}
-                        onTouchCancel={() => handleItemTouchEnd(email.id)}
-                        onMouseDown={(e) => handleItemTouchStart(email.id, e)}
-                        onMouseMove={(e) => handleItemTouchMove(email.id, e)}
-                        onMouseUp={() => handleItemTouchEnd(email.id)}
-                        onMouseLeave={() => handleItemTouchEnd(email.id)}
-                        onContextMenu={(e) => {
-                          // Ao pressionar no telemóvel ou botão direito no rato, ativa seleção nativa
-                          e.preventDefault();
-                          toggleSelectEmail(email.id, e);
-                        }}
-                        onClick={() => {
-                          if (isLongPressTriggeredRef.current) {
-                            isLongPressTriggeredRef.current = false;
-                            return;
-                          }
-                          if (currentSwipe !== 0) return;
-                          if (selectedEmailIds.size > 0) {
-                            toggleSelectEmail(email.id);
-                          } else {
-                            handleSelectEmail(email.id);
-                          }
-                        }}
-                        style={{
-                          transform: currentSwipe !== 0 ? `translateX(${currentSwipe}px)` : 'none',
-                          transition: currentSwipe === 0 ? 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
-                        }}
-                        className={`group relative p-3 cursor-pointer select-none transition-colors ${
-                          isChecked
-                            ? isLight ? 'bg-indigo-50/80 border-l-4 border-indigo-500' : 'bg-indigo-950/25 border-l-4 border-indigo-500'
-                            : isSelected 
-                              ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
-                              : isUnread
-                                ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
-                                : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
-                        }`}
-                      >
                         {isSelected && !isChecked && (
                           <div className="hidden md:block absolute left-0 top-0 bottom-0 w-[3px] bg-[#10B981] rounded-l-md"></div>
                         )}
@@ -2941,7 +2864,6 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         </div>
                       </div>
                     </div>
-                  </div>
                 );
               })
               )}
