@@ -801,6 +801,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [mounted, setMounted] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1683,15 +1686,63 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
-  // Alternar Seleção de um E-mail Individual (Checkbox / Checkmark no Avatar)
-  const toggleSelectEmail = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  // Alternar Seleção de um E-mail Individual (Checkbox / Checkmark no Avatar ou Pressão Longa)
+  const toggleSelectEmail = (id: string, e?: React.MouseEvent | React.TouchEvent) => {
+    if (e && 'stopPropagation' in e) e.stopPropagation();
     setSelectedEmailIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
+
+  // Gestos Nativos: Pressionar e Manter o Dedo em Cima de Uma Conversa (Long-press) para Selecionar
+  const handleItemTouchStart = (id: string, e: React.TouchEvent | React.MouseEvent) => {
+    isLongPressTriggeredRef.current = false;
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if ('clientX' in e) {
+      touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+    }
+
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      // Vibração tátil nativa no telemóvel/Android se suportada
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(40); } catch (_) {}
+      }
+      toggleSelectEmail(id);
+    }, 450); // 450ms: padrão nativo ultra confortável de long-press
+  };
+
+  const handleItemTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!touchStartPosRef.current || !longPressTimerRef.current) return;
+    let curX = 0;
+    let curY = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      curX = e.touches[0].clientX;
+      curY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      curX = e.clientX;
+      curY = e.clientY;
+    }
+    const diffX = Math.abs(curX - touchStartPosRef.current.x);
+    const diffY = Math.abs(curY - touchStartPosRef.current.y);
+    // Se o usuário rolou/deslizou a lista mais de 10px, cancela o long-press
+    if (diffX > 10 || diffY > 10) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleItemTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
   };
 
   // Selecionar / Desmarcar Todos os E-mails Visíveis na Pasta
@@ -2355,7 +2406,24 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   return (
                     <div
                       key={email.id}
+                      onTouchStart={(e) => handleItemTouchStart(email.id, e)}
+                      onTouchMove={handleItemTouchMove}
+                      onTouchEnd={handleItemTouchEnd}
+                      onTouchCancel={handleItemTouchEnd}
+                      onMouseDown={(e) => handleItemTouchStart(email.id, e)}
+                      onMouseMove={handleItemTouchMove}
+                      onMouseUp={handleItemTouchEnd}
+                      onMouseLeave={handleItemTouchEnd}
+                      onContextMenu={(e) => {
+                        // Ao pressionar no telemóvel ou botão direito no rato, ativa seleção nativa
+                        e.preventDefault();
+                        toggleSelectEmail(email.id, e);
+                      }}
                       onClick={() => {
+                        if (isLongPressTriggeredRef.current) {
+                          isLongPressTriggeredRef.current = false;
+                          return;
+                        }
                         if (selectedEmailIds.size > 0) {
                           toggleSelectEmail(email.id);
                         } else {
