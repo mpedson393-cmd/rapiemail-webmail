@@ -204,7 +204,7 @@ export function ComposeModal({ isOpen, onClose, userEmail, initialTo = "", initi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
       
-      {/* Large Centered Modal Box (Matching Private Email / Superhuman design) */}
+      {/* Large Centered Modal Box (Executive Superhuman design) */}
       <div className="w-[750px] h-[700px] max-h-[92vh] bg-[#121215] rounded-3xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}

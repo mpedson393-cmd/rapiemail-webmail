@@ -167,7 +167,7 @@ export interface ParsedSenderInfo {
 }
 
 const PASTEL_COLORS = [
-  { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Google / Private Email
+  { bg: "bg-[#E8F0FE]", text: "text-[#1A73E8]" }, // Azul Royal RapiEmail
   { bg: "bg-[#E6F4EA]", text: "text-[#137333]" }, // Verde
   { bg: "bg-[#FEF7E0]", text: "text-[#B06000]" }, // Âmbar
   { bg: "bg-[#FCE8E6]", text: "text-[#C5221F]" }, // Vermelho

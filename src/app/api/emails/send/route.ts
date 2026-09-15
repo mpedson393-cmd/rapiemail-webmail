@@ -204,6 +204,8 @@ export async function POST(req: Request) {
       });
 
       if (recipientUser) {
+        // Gera um trackingId exclusivo ou deixa nulo para o inbox do destinatário para não violar a chave única @unique
+        const inboxTrackingId = crypto.randomUUID();
         const inboxEmail = await prisma.email.create({
           data: {
             from: sender,
@@ -214,7 +216,7 @@ export async function POST(req: Request) {
             folder: "INBOX",
             read: false,
             userId: recipientUser.id,
-            trackingId: trackingId,
+            trackingId: inboxTrackingId,
             isOpened: false,
             openCount: 0,
             attachments: (attachments && attachments.length > 0) ? attachments : undefined

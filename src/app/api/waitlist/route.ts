@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         subject: 'Bem-vindo à revolução do email B2B 🚀',
         html: `
           <h2>Obrigado por se juntar à nossa Waitlist!</h2>
-          <p>O seu provedor de email pode estar em baixo, mas o seu lugar no <b>Assassino do Private Email</b> está garantido.</p>
+          <p>O seu provedor de email pode estar em baixo, mas o seu lugar no <b>RapiEmail Soberano</b> está garantido.</p>
           <p>Avisaremos assim que tivermos as portas abertas para a migração do seu domínio.</p>
           <br/>
           <p>Cumprimentos,<br/>Equipa Fundadora</p>
