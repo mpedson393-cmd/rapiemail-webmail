@@ -807,6 +807,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressTriggeredRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<{ id: string; offset: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1363,10 +1364,38 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       if (selectedFolder === 'STARRED') {
         matchFolder = starredIds.has(email.id) && email.folder !== 'TRASH';
       }
-      const matchSearch = searchQuery === '' || 
-        email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        email.body.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Pesquisa Avançada com Operadores Inteligentes (from:, to:, subject:, has:attachment, is:unread, is:starred)
+      let matchSearch = true;
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.trim();
+        const lowerQuery = query.toLowerCase();
+
+        if (lowerQuery.startsWith('from:')) {
+          const term = lowerQuery.slice(5).trim();
+          matchSearch = email.from.toLowerCase().includes(term);
+        } else if (lowerQuery.startsWith('to:')) {
+          const term = lowerQuery.slice(3).trim();
+          matchSearch = email.to.toLowerCase().includes(term);
+        } else if (lowerQuery.startsWith('subject:') || lowerQuery.startsWith('assunto:')) {
+          const term = lowerQuery.split(':')[1]?.trim() || '';
+          matchSearch = email.subject.toLowerCase().includes(term);
+        } else if (lowerQuery === 'has:attachment' || lowerQuery === 'com:anexo' || lowerQuery === 'has:anexo') {
+          const atts = extractAttachmentsFromEmail(email);
+          matchSearch = atts.length > 0;
+        } else if (lowerQuery === 'is:unread' || lowerQuery === 'is:naolido') {
+          matchSearch = !email.read;
+        } else if (lowerQuery === 'is:starred' || lowerQuery === 'is:favorito') {
+          matchSearch = starredIds.has(email.id);
+        } else {
+          matchSearch = 
+            email.subject.toLowerCase().includes(lowerQuery) ||
+            email.from.toLowerCase().includes(lowerQuery) ||
+            email.to.toLowerCase().includes(lowerQuery) ||
+            email.body.toLowerCase().includes(lowerQuery);
+        }
+      }
+
       return matchFolder && matchSearch;
     });
 
@@ -1532,6 +1561,32 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     });
   };
 
+  // Som Sutil de Notificação Nativa (Sintetizado via Web Audio API, sem ficheiro externo pesado)
+  const playNotificationSound = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      // Dois tons elegantes suaves estilo Apple/Google (880Hz -> 1320Hz)
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (_) {}
+  };
+
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -1542,6 +1597,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
           const sorted = [...data.emails].sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
+          if (sorted.length > emails.length) {
+            playNotificationSound();
+          }
           setEmails(sorted);
           setToastMessage("Sincronizado!");
           setTimeout(() => setToastMessage(null), 2500);
@@ -1760,8 +1818,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }, 450); // 450ms: padrão nativo ultra confortável de long-press
   };
 
-  const handleItemTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!touchStartPosRef.current || !longPressTimerRef.current) return;
+  const handleItemTouchMove = (id: string, e: React.TouchEvent | React.MouseEvent) => {
+    if (!touchStartPosRef.current) return;
     let curX = 0;
     let curY = 0;
     if ('touches' in e && e.touches.length > 0) {
@@ -1771,19 +1829,70 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       curX = e.clientX;
       curY = e.clientY;
     }
-    const diffX = Math.abs(curX - touchStartPosRef.current.x);
-    const diffY = Math.abs(curY - touchStartPosRef.current.y);
-    // Se o usuário rolou/deslizou a lista mais de 10px, cancela o long-press
-    if (diffX > 10 || diffY > 10) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+    const deltaX = curX - touchStartPosRef.current.x;
+    const deltaY = Math.abs(curY - touchStartPosRef.current.y);
+
+    // Se o usuário rolou/deslizou verticalmente mais do que horizontalmente, deixa fazer scroll na lista
+    if (deltaY > 15 && Math.abs(deltaX) < 15) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Se começou a deslizar horizontalmente mais de 10px, cancela o long-press e atualiza swipe visual
+    if (Math.abs(deltaX) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      // Limita o arrasto visual entre -120px e 120px para sensação ultra tátil
+      const boundedOffset = Math.max(-120, Math.min(120, deltaX));
+      setSwipeOffset({ id, offset: boundedOffset });
     }
   };
 
-  const handleItemTouchEnd = () => {
+  const handleItemTouchEnd = (id: string) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+    if (swipeOffset && swipeOffset.id === id) {
+      // Se deslizou para a direita mais de 75px: Arquivar
+      if (swipeOffset.offset > 75) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(30); } catch (_) {}
+        }
+        handleArchiveEmail(id);
+      } 
+      // Se deslizou para a esquerda mais de 75px: Eliminar / Mover para o Lixo
+      else if (swipeOffset.offset < -75) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(30); } catch (_) {}
+        }
+        const isAlreadyInTrash = selectedFolder === 'TRASH';
+        if (isAlreadyInTrash) {
+          setEmails(prev => prev.filter(e => e.id !== id));
+          setToastMessage("Mensagem eliminada definitivamente.");
+        } else {
+          setEmails(prev => prev.map(e => e.id === id ? { ...e, folder: 'TRASH' } : e));
+          setToastMessage("🗑️ Mensagem movida para o Lixo.");
+        }
+        setTimeout(() => setToastMessage(null), 3000);
+        try {
+          fetch('/api/emails/trash', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id, 
+              action: isAlreadyInTrash ? 'PERMANENT_DELETE' : 'MOVE_TO_TRASH', 
+              folder: 'TRASH' 
+            })
+          });
+        } catch (_) {}
+      }
+      setSwipeOffset(null);
     }
     touchStartPosRef.current = null;
   };
@@ -2034,19 +2143,29 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
         {/* Global Search Bar */}
         <div className="flex-1 max-w-xl mx-2 md:mx-6">
-          <div className="relative">
+          <div className="relative flex items-center">
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 ${isLight ? 'text-[#5F6368]' : 'text-zinc-400'}`} />
             <input 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar correio"
-              className={`w-full text-xs pl-8 md:pl-10 pr-3 py-1.5 md:py-2 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#10B981] transition-all ${
+              placeholder="Pesquisar (ex: from:, has:anexo, is:naolido...)"
+              className={`w-full text-xs pl-8 md:pl-10 pr-8 py-1.5 md:py-2 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#10B981] transition-all ${
                 isLight 
                   ? 'bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#10B981] text-[#202124] placeholder-[#5F6368]' 
                   : 'bg-white/5 border-white/10 text-white placeholder-zinc-500'
               }`}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Limpar pesquisa"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -2577,52 +2696,80 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   const emailAttachments = extractAttachmentsFromEmail(email);
                   const hasAttachment = emailAttachments.length > 0;
 
+                  const currentSwipe = swipeOffset && swipeOffset.id === email.id ? swipeOffset.offset : 0;
                   return (
                     <div
                       key={email.id}
-                      onTouchStart={(e) => handleItemTouchStart(email.id, e)}
-                      onTouchMove={handleItemTouchMove}
-                      onTouchEnd={handleItemTouchEnd}
-                      onTouchCancel={handleItemTouchEnd}
-                      onMouseDown={(e) => handleItemTouchStart(email.id, e)}
-                      onMouseMove={handleItemTouchMove}
-                      onMouseUp={handleItemTouchEnd}
-                      onMouseLeave={handleItemTouchEnd}
-                      onContextMenu={(e) => {
-                        // Ao pressionar no telemóvel ou botão direito no rato, ativa seleção nativa
-                        e.preventDefault();
-                        toggleSelectEmail(email.id, e);
-                      }}
-                      onClick={() => {
-                        if (isLongPressTriggeredRef.current) {
-                          isLongPressTriggeredRef.current = false;
-                          return;
-                        }
-                        if (selectedEmailIds.size > 0) {
-                          toggleSelectEmail(email.id);
-                        } else {
-                          handleSelectEmail(email.id);
-                        }
-                      }}
-                      className={`group relative p-3 cursor-pointer select-none transition-colors ${
-                        isChecked
-                          ? isLight ? 'bg-indigo-50/80 border-l-4 border-indigo-500' : 'bg-indigo-950/25 border-l-4 border-indigo-500'
-                          : isSelected 
-                            ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
-                            : isUnread
-                              ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
-                              : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
-                      }`}
+                      className="relative overflow-hidden"
                     >
-                      {isSelected && !isChecked && (
-                        <div className="hidden md:block absolute left-0 top-0 bottom-0 w-[3px] bg-[#10B981] rounded-l-md"></div>
+                      {/* Fundo Revelado pelo Gesto de Swipe (Deslizar): Verde = Arquivar, Vermelho = Eliminar */}
+                      {currentSwipe !== 0 && (
+                        <div className={`absolute inset-0 flex items-center justify-between px-4 transition-colors ${
+                          currentSwipe > 0 ? 'bg-emerald-600/90 text-white' : 'bg-red-600/90 text-white justify-end'
+                        }`}>
+                          {currentSwipe > 0 ? (
+                            <div className="flex items-center gap-2 font-bold text-xs">
+                              <Archive className="w-5 h-5 animate-pulse" />
+                              <span>Arquivar</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 font-bold text-xs">
+                              <span>Mover para Lixo</span>
+                              <Trash2 className="w-5 h-5 animate-pulse" />
+                            </div>
+                          )}
+                        </div>
                       )}
 
-                      {isUnread && !isChecked && (
-                        <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full rapimoney-unread-dot"></div>
-                      )}
+                      <div
+                        onTouchStart={(e) => handleItemTouchStart(email.id, e)}
+                        onTouchMove={(e) => handleItemTouchMove(email.id, e)}
+                        onTouchEnd={() => handleItemTouchEnd(email.id)}
+                        onTouchCancel={() => handleItemTouchEnd(email.id)}
+                        onMouseDown={(e) => handleItemTouchStart(email.id, e)}
+                        onMouseMove={(e) => handleItemTouchMove(email.id, e)}
+                        onMouseUp={() => handleItemTouchEnd(email.id)}
+                        onMouseLeave={() => handleItemTouchEnd(email.id)}
+                        onContextMenu={(e) => {
+                          // Ao pressionar no telemóvel ou botão direito no rato, ativa seleção nativa
+                          e.preventDefault();
+                          toggleSelectEmail(email.id, e);
+                        }}
+                        onClick={() => {
+                          if (isLongPressTriggeredRef.current) {
+                            isLongPressTriggeredRef.current = false;
+                            return;
+                          }
+                          if (currentSwipe !== 0) return;
+                          if (selectedEmailIds.size > 0) {
+                            toggleSelectEmail(email.id);
+                          } else {
+                            handleSelectEmail(email.id);
+                          }
+                        }}
+                        style={{
+                          transform: currentSwipe !== 0 ? `translateX(${currentSwipe}px)` : 'none',
+                          transition: currentSwipe === 0 ? 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
+                        }}
+                        className={`group relative p-3 cursor-pointer select-none transition-colors ${
+                          isChecked
+                            ? isLight ? 'bg-indigo-50/80 border-l-4 border-indigo-500' : 'bg-indigo-950/25 border-l-4 border-indigo-500'
+                            : isSelected 
+                              ? isLight ? 'bg-[#E8F0FE]' : 'rapimoney-email-card-selected'
+                              : isUnread
+                                ? isLight ? 'bg-[#FFFFFF] hover:bg-[#F8F9FA]' : 'bg-white/[0.04] rapimoney-email-card-hover'
+                                : isLight ? 'bg-[#FAFAFA] hover:bg-[#F1F3F4]' : 'bg-transparent rapimoney-email-card-hover'
+                        }`}
+                      >
+                        {isSelected && !isChecked && (
+                          <div className="hidden md:block absolute left-0 top-0 bottom-0 w-[3px] bg-[#10B981] rounded-l-md"></div>
+                        )}
 
-                      <div className="flex items-start gap-2.5 pl-1.5">
+                        {isUnread && !isChecked && (
+                          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full rapimoney-unread-dot"></div>
+                        )}
+
+                        <div className="flex items-start gap-2.5 pl-1.5">
                         {/* Avatar com Checkmark / Achinha de Seleção Nativa */}
                         <div 
                           className="mt-0.5 shrink-0 relative cursor-pointer group/avatar"
@@ -2762,8 +2909,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                         </div>
                       </div>
                     </div>
-                  );
-                })
+                  </div>
+                );
+              })
               )}
             </div>
 
