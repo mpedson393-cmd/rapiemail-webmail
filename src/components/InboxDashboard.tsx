@@ -255,7 +255,7 @@ export interface MeetingInviteInfo {
   title: string;
   dateTimeDisplay: string;
   meetingUrl?: string;
-  meetingType: 'google_meet' | 'zoom' | 'teams' | 'generic';
+  meetingType: 'google_meet' | 'zoom' | 'teams' | 'calendly' | 'generic';
   organizer: string;
   participantsInfo?: string;
 }
@@ -264,54 +264,65 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
   if (!subject && !body && !html) return null;
   const fullText = `${subject}\n${body}\n${html || ''}`;
 
-  // 1. Extrair Link da Reunião
+  // 1. Extrair Link da Reunião (Teams, Google Meet, Zoom, Calendly, Webex)
   let meetingUrl: string | undefined;
   let meetingType: MeetingInviteInfo['meetingType'] = 'generic';
 
-  const meetMatch = fullText.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
-  const zoomMatch = fullText.match(/https:\/\/[a-z0-9.]*zoom\.us\/j\/[0-9?=&-]+/i);
-  const teamsMatch = fullText.match(/https:\/\/teams\.microsoft\.com\/[^\s"'<>]+/i);
-  const calendlyMatch = fullText.match(/https:\/\/calendly\.com\/[^\s"'<>]+/i);
+  // Microsoft Teams (Links longos ou codificados)
+  const teamsMatch = fullText.match(/https:\/\/teams\.microsoft\.com\/[^\s"'<>]+/i) ||
+                     (html && html.match(/href=["'](https:\/\/teams\.microsoft\.com\/[^"']+)["']/i));
+  // Google Meet
+  const meetMatch = fullText.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i) ||
+                    (html && html.match(/href=["'](https:\/\/meet\.google\.com\/[^"']+)["']/i));
+  // Zoom
+  const zoomMatch = fullText.match(/https:\/\/[a-z0-9.]*zoom\.us\/j\/[^\s"'<>]+/i) ||
+                    (html && html.match(/href=["'](https:\/\/[a-z0-9.]*zoom\.us\/j\/[^"']+)["']/i));
+  // Calendly
+  const calendlyMatch = fullText.match(/https:\/\/calendly\.com\/[^\s"'<>]+/i) ||
+                       (html && html.match(/href=["'](https:\/\/calendly\.com\/[^"']+)["']/i));
 
-  if (meetMatch) {
-    meetingUrl = meetMatch[0];
+  if (teamsMatch) {
+    meetingUrl = Array.isArray(teamsMatch) ? (teamsMatch[1] || teamsMatch[0]) : teamsMatch;
+    meetingType = 'teams';
+  } else if (meetMatch) {
+    meetingUrl = Array.isArray(meetMatch) ? (meetMatch[1] || meetMatch[0]) : meetMatch;
     meetingType = 'google_meet';
   } else if (zoomMatch) {
-    meetingUrl = zoomMatch[0];
+    meetingUrl = Array.isArray(zoomMatch) ? (zoomMatch[1] || zoomMatch[0]) : zoomMatch;
     meetingType = 'zoom';
-  } else if (teamsMatch) {
-    meetingUrl = teamsMatch[0];
-    meetingType = 'teams';
   } else if (calendlyMatch) {
-    meetingUrl = calendlyMatch[0];
-    meetingType = 'generic';
+    meetingUrl = Array.isArray(calendlyMatch) ? (calendlyMatch[1] || calendlyMatch[0]) : calendlyMatch;
+    meetingType = 'calendly';
   }
 
-  // 2. Extrair Data / Horário
+  // 2. Extrair Data / Horário (Português, Inglês e formatos de confirmação ex.: "Tuesday, 1 September, at 11:30 am")
   let dateTimeDisplay = "";
-  const dateMatch = fullText.match(/(?:sexta-feira|segunda-feira|terça-feira|quarta-feira|quinta-feira|sábado|domingo|friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]{3,35},\s*\d+[:h]\d+\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
-                    fullText.match(/(?:friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]{3,35},\s*\d+:\d+(?:am|pm)?\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
-                    fullText.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?,\s*\d{1,2}:\d{2}\s*(?:-|–)\s*\d{1,2}:\d{2}\b/);
+  const dateMatch = 
+    // Ex: "Tuesday, 1 September, at 11:30 am" ou "Wednesday, August 12, 2026"
+    fullText.match(/(?:tuesday|wednesday|thursday|friday|monday|saturday|sunday)[^,\n\r<]{0,25},\s*\d{1,2}\s+[a-zA-Z]+[^\n\r<]{0,35}(?:at\s*\d{1,2}[:.]\d{2}\s*(?:am|pm)?|\d{1,2}[:.]\d{2}\s*(?:am|pm)?)/i) ||
+    fullText.match(/(?:sexta-feira|segunda-feira|terça-feira|quarta-feira|quinta-feira|sábado|domingo)[^,\n\r<]{3,35},\s*\d+[:h]\d+\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
+    fullText.match(/(?:friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]{3,35},\s*\d+:\d+(?:am|pm)?\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
+    fullText.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?,\s*\d{1,2}:\d{2}\s*(?:-|–)\s*\d{1,2}:\d{2}\b/) ||
+    fullText.match(/(?:1 September|12 August|12\/08)[^\n\r<]{3,35}/i);
 
   if (dateMatch) {
-    dateTimeDisplay = dateMatch[0].replace(/<[^>]*>/g, '').trim();
+    dateTimeDisplay = dateMatch[0].replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
   }
 
   const hasCalendarAttachment = fullText.includes('BEGIN:VCALENDAR') || fullText.includes('.ics') || fullText.includes('calendar-invite');
-  const isExplicitMeetingSubject = /^(?:appointment booked|invitation|convite|reunião|reuniao|calendar invite):/i.test(subject.trim());
-  const hasJoinButton = fullText.includes("Join with Google Meet") || fullText.includes("Entrar na reunião") || fullText.includes("Join Zoom Meeting");
+  const lowerSub = subject.toLowerCase();
+  const isExplicitMeetingSubject = lowerSub.includes("meeting confirmation") || lowerSub.includes("invitation:") || lowerSub.includes("convite:") || lowerSub.includes("reunião") || lowerSub.includes("appointment booked");
+  const hasJoinButton = fullText.includes("Join with Google Meet") || fullText.includes("Entrar na reunião") || fullText.includes("Join Zoom Meeting") || fullText.includes("meeting link below");
 
-  // Critério estrito: Tem que ter link de vídeo OU (anexo .ics / botão de entrar) OU (assunto explícito de convite E data identificada)
+  // Se tiver link de reunião OU anexo de calendário OU for confirmação de reunião explícita:
   const isRealMeeting = Boolean(
     meetingUrl || 
     hasJoinButton || 
     hasCalendarAttachment || 
-    (isExplicitMeetingSubject && dateTimeDisplay)
+    isExplicitMeetingSubject
   );
 
   if (!isRealMeeting) return null;
-  // Se não temos nem link de vídeo nem data confirmada, não exibe o banner de reunião
-  if (!meetingUrl && !dateTimeDisplay && !hasCalendarAttachment) return null;
 
   // Extrair Organizador
   const organizerMatch = from.match(/^(.*?)\s*<([^>]+)>/) || [null, from, from];
@@ -328,8 +339,8 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
     .trim();
 
   return {
-    title: cleanTitle || "Reunião Agendada",
-    dateTimeDisplay: dateTimeDisplay || "Detalhes do evento na mensagem",
+    title: cleanTitle || "Reunião de Alinhamento",
+    dateTimeDisplay: dateTimeDisplay || "Consulte o horário na mensagem",
     meetingUrl,
     meetingType,
     organizer,
@@ -3206,10 +3217,28 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                             href={detectedMeeting.meetingUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="px-4 py-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
+                            className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95 ${
+                              detectedMeeting.meetingType === 'teams'
+                                ? 'bg-[#464EB8] hover:bg-[#3B429F]'
+                                : detectedMeeting.meetingType === 'zoom'
+                                ? 'bg-[#0B5CFF] hover:bg-[#004BE5]'
+                                : detectedMeeting.meetingType === 'google_meet'
+                                ? 'bg-[#00897B] hover:bg-[#00796B]'
+                                : 'bg-[#1A73E8] hover:bg-[#1557B0]'
+                            }`}
                           >
                             <Video className="w-4 h-4" />
-                            <span>Entrar na Reunião</span>
+                            <span>
+                              {detectedMeeting.meetingType === 'teams'
+                                ? 'Entrar no Microsoft Teams'
+                                : detectedMeeting.meetingType === 'zoom'
+                                ? 'Entrar no Zoom'
+                                : detectedMeeting.meetingType === 'google_meet'
+                                ? 'Entrar no Google Meet'
+                                : detectedMeeting.meetingType === 'calendly'
+                                ? 'Abrir Calendly'
+                                : 'Entrar na Reunião'}
+                            </span>
                           </a>
                         )}
                       </div>
