@@ -3776,15 +3776,30 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     } catch (_) {}
                   }
 
-                  // Extrair campos chave do ICS
-                  const summaryMatch = icsText.match(/SUMMARY[^:]*:(.*)/i);
-                  const dtStartMatch = icsText.match(/DTSTART[^:]*:([0-9TZ]+)/i);
-                  const dtEndMatch = icsText.match(/DTEND[^:]*:([0-9TZ]+)/i);
-                  const locationMatch = icsText.match(/LOCATION[^:]*:(.*)/i);
-                  const organizerMatch = icsText.match(/ORGANIZER[^:]*CN=([^;:\n\r]+)/i) || icsText.match(/ORGANIZER[^:]*mailto:([^\s\n\r]+)/i);
-                  const teamsUrlMatch = icsText.match(/(https:\/\/(?:teams\.microsoft\.com|meet\.google\.com|zoom\.us)[^\s"'\\<>]+)/i);
+                  // Unfold RFC5545 lines (remover quebras de linha com espaço/tab na linha seguinte)
+                  const unfolded = icsText.replace(/\r?\n[ \t]/g, '');
 
-                  // Formatar Data
+                  // Isolar o bloco principal do evento VEVENT para não confundir com VTIMEZONE
+                  const veventMatch = unfolded.match(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/i);
+                  const eventBlock = veventMatch ? veventMatch[1] : unfolded;
+
+                  // Extrair campos chave do evento real
+                  const summaryMatch = eventBlock.match(/SUMMARY[^:]*:(.*)/i) || unfolded.match(/SUMMARY[^:]*:(.*)/i);
+                  const dtStartMatch = eventBlock.match(/DTSTART[^:]*:([0-9TZ]+)/i);
+                  const dtEndMatch = eventBlock.match(/DTEND[^:]*:([0-9TZ]+)/i);
+                  const locationMatch = eventBlock.match(/LOCATION[^:]*:(.*)/i);
+                  const organizerMatch = eventBlock.match(/ORGANIZER[^:]*CN=([^;:\n\r]+)/i) || eventBlock.match(/ORGANIZER[^:]*mailto:([^\s\n\r]+)/i);
+                  
+                  // Links da Reunião (Teams, Google Meet, Zoom)
+                  const teamsUrlMatch = eventBlock.match(/(https:\/\/(?:teams\.microsoft\.com\/meet\/|teams\.microsoft\.com\/l\/meetup-join\/|meet\.google\.com\/|zoom\.us\/j\/)[^\s"'\\<>]+)/i) ||
+                                        unfolded.match(/(https:\/\/(?:teams\.microsoft\.com\/meet\/|teams\.microsoft\.com\/l\/meetup-join\/|meet\.google\.com\/|zoom\.us\/j\/)[^\s"'\\<>]+)/i) ||
+                                        (selectedEmail && selectedEmail.body.match(/(https:\/\/(?:teams\.microsoft\.com\/meet\/|teams\.microsoft\.com\/l\/meetup-join\/|meet\.google\.com\/|zoom\.us\/j\/)[^\s"'\\<>]+)/i));
+
+                  // ID e Senha da Reunião (se fornecidos no evento ou no e-mail)
+                  const idMatch = eventBlock.match(/Meeting ID[^:]*:\s*([0-9\s]+)/i) || (selectedEmail && selectedEmail.body.match(/Meeting ID[^:]*:\s*([0-9\s]+)/i));
+                  const passMatch = eventBlock.match(/Passcode[^:]*:\s*([a-zA-Z0-9]+)/i) || (selectedEmail && selectedEmail.body.match(/Passcode[^:]*:\s*([a-zA-Z0-9]+)/i));
+
+                  // Formatar Data e Hora Real Exata da Reunião
                   let displayDate = "";
                   if (dtStartMatch && dtStartMatch[1]) {
                     const raw = dtStartMatch[1];
@@ -3794,14 +3809,25 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     const h = raw.slice(9, 11);
                     const min = raw.slice(11, 13);
                     if (y && m && d) {
-                      displayDate = `${d}/${m}/${y}` + (h && min ? ` às ${h}:${min}` : '');
+                      // Data formatada com dia da semana amigável (ex: Sexta-feira, 18 de Setembro de 2026 às 12:15)
+                      try {
+                        const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h || '0'), parseInt(min || '0'));
+                        displayDate = dateObj.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                        if (h && min) {
+                          displayDate += ` às ${h}:${min}`;
+                        }
+                      } catch (_) {
+                        displayDate = `${d}/${m}/${y}` + (h && min ? ` às ${h}:${min}` : '');
+                      }
                     }
                   }
 
-                  const title = summaryMatch ? summaryMatch[1].trim() : previewAttachment.filename;
-                  const organizer = organizerMatch ? organizerMatch[1].trim() : "Organizador da Reunião";
-                  const location = locationMatch ? locationMatch[1].trim().replace(/\\,/g, ',') : "Online (Microsoft Teams / Conferência)";
-                  const meetingLink = teamsUrlMatch ? teamsUrlMatch[1].replace(/\\/g, '') : null;
+                  const title = summaryMatch ? summaryMatch[1].trim() : (selectedEmail?.subject || previewAttachment.filename);
+                  const organizer = organizerMatch ? organizerMatch[1].trim() : (selectedEmail ? parseSenderDetails(selectedEmail.from).name : "Organizador da Reunião");
+                  const location = locationMatch ? locationMatch[1].trim().replace(/\\,/g, ',') : "Online (Microsoft Teams)";
+                  const meetingLink = teamsUrlMatch ? (Array.isArray(teamsUrlMatch) ? teamsUrlMatch[0] : teamsUrlMatch).replace(/\\/g, '') : null;
+                  const meetingId = idMatch ? idMatch[1].trim() : null;
+                  const passcode = passMatch ? passMatch[1].trim() : null;
 
                   return (
                     <div className="max-w-lg w-full bg-white dark:bg-[#12151E] p-6 md:p-7 rounded-2xl border border-[#E5E7EB] dark:border-white/10 text-left shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
@@ -3839,6 +3865,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           <Video className="w-4 h-4 text-blue-500 shrink-0" />
                           <span><strong>Localização:</strong> {location}</span>
                         </div>
+                        {meetingId && (
+                          <div className="pt-2 border-t border-zinc-200/60 dark:border-white/5 flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-300">
+                            <span>ID da Reunião: <strong className="font-mono text-zinc-900 dark:text-white">{meetingId}</strong></span>
+                            {passcode && <span>Senha: <strong className="font-mono text-zinc-900 dark:text-white">{passcode}</strong></span>}
+                          </div>
+                        )}
                       </div>
 
                       {meetingLink && (
