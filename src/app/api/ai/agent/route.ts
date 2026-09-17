@@ -632,12 +632,84 @@ export async function POST(req: Request) {
 
     // 1. MODO RESUMO EXECUTIVO E TAREFAS
     if (mode === "summarize_and_tasks") {
+      try {
+        const emailContent = `Remetente: ${from}\nAssunto: ${subject}\nConteúdo:\n${body || html}`;
+        const aiPrompt = `Analisa este e-mail e gera um resumo executivo inteligente e lista de tarefas.\n\n${emailContent}`;
+        const aiSystem = `És o RapiAI Executive Intelligence Engine (nível Claude 3.5 Sonnet / GPT-4o).
+Regras Obrigatórias:
+Retorna APENAS um JSON válido (sem formatação markdown \`\`\`json) com as propriedades:
+{
+  "summary": "Resumo executivo de alto nível em 1 a 3 frases claras e objetivas",
+  "urgency": "LOW" ou "MEDIUM" ou "HIGH",
+  "sentiment": "positive" ou "neutral" ou "urgent",
+  "actionItems": ["Ação concreta 1", "Ação concreta 2", "Ação concreta 3"]
+}`;
+
+        const aiRes = await generateAiCompletion({
+          prompt: aiPrompt,
+          systemInstruction: aiSystem,
+          temperature: 0.3,
+          maxTokens: 1000
+        });
+
+        if (aiRes) {
+          const cleanJson = aiRes.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanJson);
+          if (parsed.summary && Array.isArray(parsed.actionItems)) {
+            return NextResponse.json({
+              summary: parsed.summary,
+              urgency: parsed.urgency || "MEDIUM",
+              sentiment: parsed.sentiment || "neutral",
+              actionItems: parsed.actionItems
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[RapiAI] Resumo via IA falhou, usando motor heurístico contextual:", err);
+      }
+
       const summaryResult = generateSmartSummaryAndTasks({ subject, body, html, from, attachments });
       return NextResponse.json(summaryResult);
     }
 
     // 2. MODO RESPOSTA INTELIGENTE CONTEXTUAL
     if (mode === "smart_reply") {
+      try {
+        const emailContent = `Remetente: ${from}\nAssunto: ${subject}\nConteúdo Original:\n${body || html}`;
+        const aiPrompt = `Gera uma resposta executiva completa para este e-mail recebido.\n\n${emailContent}`;
+        const aiSystem = `És o RapiAI Executive Intelligence Engine (nível Claude 3.5 Sonnet / GPT-4o).
+O utilizador (${userName}) deseja responder a este e-mail.
+Tom solicitado: ${tone || 'profissional'}.
+Instruções adicionais: ${customInstructions || 'Nenhuma, responde com a melhor cortesia corporativa e assertividade'}.
+
+Regras Obrigatórias:
+Retorna APENAS um JSON válido (sem formatação markdown \`\`\`json) com as propriedades:
+{
+  "subject": "Re: ${subject.replace(/^re:\s*/i, '')}",
+  "body": "Texto completo do e-mail com parágrafos bem estruturados usando quebras de linha \\n\\n e assinatura formal de ${userName}"
+}`;
+
+        const aiRes = await generateAiCompletion({
+          prompt: aiPrompt,
+          systemInstruction: aiSystem,
+          temperature: 0.6,
+          maxTokens: 1200
+        });
+
+        if (aiRes) {
+          const cleanJson = aiRes.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanJson);
+          if (parsed.body) {
+            return NextResponse.json({
+              subject: parsed.subject || `Re: ${subject}`,
+              body: parsed.body
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[RapiAI] Resposta via IA falhou, usando motor contextual:", err);
+      }
+
       const replyResult = generateSmartReply({
         subject,
         body,
@@ -653,6 +725,39 @@ export async function POST(req: Request) {
 
     // 3. MODO DETETAR E AGENDAR REUNIÃO
     if (mode === "extract_meeting") {
+      try {
+        const emailContent = `Assunto: ${subject}\nConteúdo:\n${body || html}`;
+        const aiPrompt = `Analisa este e-mail e verifica se existe uma reunião ou agendamento.\n\n${emailContent}`;
+        const aiSystem = `És o RapiAI Meeting Parser.
+Retorna APENAS um JSON válido com:
+{
+  "hasMeeting": boolean,
+  "title": "Título descritivo da reunião",
+  "proposedDate": "YYYY-MM-DD",
+  "proposedTime": "HH:MM",
+  "durationMinutes": 30 ou 60,
+  "location": "Microsoft Teams" ou "Google Meet" ou "Zoom" ou "Escritório",
+  "notes": "Tópicos da reunião"
+}`;
+
+        const aiRes = await generateAiCompletion({
+          prompt: aiPrompt,
+          systemInstruction: aiSystem,
+          temperature: 0.1,
+          maxTokens: 600
+        });
+
+        if (aiRes) {
+          const cleanJson = aiRes.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanJson);
+          if (typeof parsed.hasMeeting === 'boolean') {
+            return NextResponse.json(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("[RapiAI] Extração de reunião via IA falhou, usando fallback:", err);
+      }
+
       const lower = (subject + ' ' + body + ' ' + html).toLowerCase();
       const hasKeywords = lower.includes("reuniao") || lower.includes("reunião") || lower.includes("meeting") || lower.includes("call") || lower.includes("agenda");
 

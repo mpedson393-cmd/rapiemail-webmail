@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { generateAiCompletion } from "@/lib/ai";
 
 export const dynamic = 'force-dynamic';
 
@@ -89,10 +90,8 @@ export async function POST(req: Request) {
       console.warn("DeepL Translation Warning, fallback to Gemini AI:", deepLErr);
     }
 
-    // 2. Fallback Inteligente com Google Gemini AI (Preservando 100% da estrutura HTML e CSS)
-    const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyCpVLmwi5oDz94e2nvSAuhlQZul0XoHdSc";
-    
-    const prompt = `You are an expert translator. Translate the following email content into ${langName} (${target}).
+    // 2. Fallback Inteligente com RapiAI Multi-Provider Engine (Preservando 100% da estrutura HTML e CSS)
+    const prompt = `Translate the following email content into ${langName} (${target}).
 CRITICAL RULES:
 1. Preserve 100% of all HTML tags, attributes, inline styles (CSS), image URLs, table structures, buttons, and layouts intact.
 2. Only translate the human-readable text.
@@ -102,39 +101,30 @@ Email Subject: ${subject || ""}
 Email Body (HTML/Text):
 ${text}`;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      })
+    const aiRes = await generateAiCompletion({
+      prompt,
+      systemInstruction: "You are an expert multilingual translator for corporate enterprise email. Output pure JSON only.",
+      temperature: 0.2,
+      maxTokens: 2500
     });
 
-    if (geminiRes.ok) {
-      const geminiData = await geminiRes.json();
-      const rawJson = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawJson) {
-        try {
-          const parsed = JSON.parse(rawJson);
-          const gBody = parsed.translatedBody || text;
-          const isTruncatedHtml = isHtml && text.length > 300 && (!gBody.includes('<') || gBody.length < text.length * 0.25);
-          const safeBody = isTruncatedHtml ? text : gBody;
+    if (aiRes) {
+      try {
+        const cleanJson = aiRes.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(cleanJson);
+        const gBody = parsed.translatedBody || text;
+        const isTruncatedHtml = isHtml && text.length > 300 && (!gBody.includes('<') || gBody.length < text.length * 0.25);
+        const safeBody = isTruncatedHtml ? text : gBody;
 
-          return NextResponse.json({ 
-            translatedText: safeBody,
-            translatedSubject: parsed.translatedSubject || subject,
-            detectedSourceLang: "AUTO",
-            targetLang: target,
-            targetLangName: langName,
-            isHtml: !!isHtml && !isTruncatedHtml
-          });
-        } catch(e) {}
-      }
+        return NextResponse.json({ 
+          translatedText: safeBody,
+          translatedSubject: parsed.translatedSubject || subject,
+          detectedSourceLang: "AUTO",
+          targetLang: target,
+          targetLangName: langName,
+          isHtml: !!isHtml && !isTruncatedHtml
+        });
+      } catch(e) {}
     }
 
     return NextResponse.json({ 
