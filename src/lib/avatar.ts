@@ -438,39 +438,61 @@ export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
     return 'https://www.google.com/s2/favicons?domain=proton.me&sz=128';
   }
 
+  // 20. Go Compliance
+  if (
+    domain.includes('gocompliance') || 
+    name.includes('gocompliance') || 
+    name.includes('go compliance') ||
+    email.includes('gocompliance')
+  ) {
+    return '/api/avatar/cache?domain=gocompliance.co.uk';
+  }
+
   return null;
+}
+
+// Rastreamento em sessão de URLs falhadas para evitar retentativas desnecessárias
+const failedCandidateUrls = new Set<string>();
+
+export function markAvatarCandidateFailed(url?: string | null) {
+  if (url) failedCandidateUrls.add(url);
+}
+
+export function isAvatarCandidateFailed(url?: string | null): boolean {
+  return url ? failedCandidateUrls.has(url) : false;
 }
 
 // Obter Lista de URLs Candidatas para o Avatar em Ordem Inteligente de Prioridade
 export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl?: string | null): string[] {
-  const candidates: string[] = [];
+  const rawCandidates: string[] = [];
   const cacheKey = (customAvatarUrl || (sender.isCompanyService && sender.name && sender.name.toLowerCase() !== 'linkedin' ? `${sender.domain}_${sender.name.toLowerCase()}` : sender.email || sender.name)).trim().toLowerCase();
 
-  // 1. Avatar personalizado explícito (ex: foto extraída do HTML do email específico)
-  if (customAvatarUrl) {
-    candidates.push(customAvatarUrl);
-  }
-
-  // 2. Logótipo de Marca Conhecida (Google, Sinch, IONOS, Termii, Twilio, etc.)
-  const brandLogo = getKnownBrandLogo(sender);
-  if (brandLogo && !candidates.includes(brandLogo)) {
-    candidates.push(brandLogo);
-  }
-
-  // 3. Se já temos a foto guardada em Cache para esta pessoa / remetente
+  // 0. Se já temos a foto guardada em Cache para esta pessoa / remetente, esta é a PRIORIDADE MÁXIMA
   const cached = getCachedAvatar(cacheKey);
-  if (cached && !candidates.includes(cached)) {
-    candidates.push(cached);
+  if (cached && !isAvatarCandidateFailed(cached)) {
+    rawCandidates.push(cached);
+  }
+
+  // 1. Avatar personalizado explícito (ex: foto extraída do HTML do email específico)
+  if (customAvatarUrl && !isAvatarCandidateFailed(customAvatarUrl)) {
+    rawCandidates.push(customAvatarUrl);
+  }
+
+  // 2. Logótipo de Marca Conhecida (Google, Go Compliance, Sinch, IONOS, LinkedIn, etc.)
+  const brandLogo = getKnownBrandLogo(sender);
+  if (brandLogo && !rawCandidates.includes(brandLogo) && !isAvatarCandidateFailed(brandLogo)) {
+    rawCandidates.push(brandLogo);
   }
 
   const { email, domain, isCompanyService, isFreePersonalEmail } = sender;
 
-  // CASO 1: Contas de Serviço / Empresa (ex: Sinch, Twilio, IONOS, etc.)
+  // CASO 1: Contas de Serviço / Empresa (ex: Sinch, Twilio, IONOS, Go Compliance, etc.)
   if (isCompanyService && domain && !isFreePersonalEmail) {
-    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-    candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
-    candidates.push(`https://logo.clearbit.com/${domain}`);
-    return candidates;
+    rawCandidates.push(`/api/avatar/cache?domain=${encodeURIComponent(domain)}`);
+    rawCandidates.push(`https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${encodeURIComponent(domain)}&size=128`);
+    rawCandidates.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`);
+    rawCandidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
+    return rawCandidates.filter(u => !isAvatarCandidateFailed(u));
   }
 
   // CASO 2: Pessoas Individuais com Email Pessoal (ex: Gmail, Outlook, Hotmail, Yahoo, etc.)
@@ -480,38 +502,42 @@ export function getAvatarCandidateUrls(sender: ParsedSenderInfo, customAvatarUrl
 
       // Google Profile Picture (para contas @gmail.com ou Google Workspace)
       if (domain.includes('gmail') || domain.includes('google')) {
-        candidates.push(`https://profiles.google.com/s2/photos/profile/${encodeURIComponent(email)}?sz=128`);
-        candidates.push(`https://unavatar.io/google/${encodeURIComponent(email)}?fallback=false`);
+        rawCandidates.push(`https://profiles.google.com/s2/photos/profile/${encodeURIComponent(email)}?sz=128`);
+        rawCandidates.push(`https://unavatar.io/google/${encodeURIComponent(email)}?fallback=false`);
       }
 
       // Gravatar Oficial
-      candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+      rawCandidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
       // Unavatar Universal
-      candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
+      rawCandidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
       
       // Se não há foto pessoal, usa o logótipo oficial do provedor (Google, Microsoft, Yahoo, etc.)
-      if (brandLogo && !candidates.includes(brandLogo)) {
-        candidates.push(brandLogo);
+      if (brandLogo && !rawCandidates.includes(brandLogo)) {
+        rawCandidates.push(brandLogo);
       }
     }
-    return candidates;
+    return rawCandidates.filter(u => !isAvatarCandidateFailed(u));
   }
 
-  // CASO 3: Pessoas Individuais com Email Corporativo
+  // CASO 3: Pessoas Individuais com Email Corporativo (ex: ashraful@gocompliance.co.uk)
+  // Priorizar o logótipo da empresa para e-mails corporativos, pois é 99% mais provável que Gravatar
+  if (domain) {
+    rawCandidates.push(`/api/avatar/cache?domain=${encodeURIComponent(domain)}`);
+    rawCandidates.push(`https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${encodeURIComponent(domain)}&size=128`);
+    rawCandidates.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`);
+  }
+
   if (email) {
     const emailHash = md5(email.trim().toLowerCase());
-    candidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
-    candidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
+    rawCandidates.push(`https://www.gravatar.com/avatar/${emailHash}?d=404&s=128`);
+    rawCandidates.push(`https://unavatar.io/${encodeURIComponent(email)}?fallback=false`);
   }
 
-  // Logótipo da Empresa como fallback para e-mails corporativos
   if (domain) {
-    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-    candidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
-    candidates.push(`https://logo.clearbit.com/${domain}`);
+    rawCandidates.push(`https://unavatar.io/${encodeURIComponent(domain)}?fallback=false`);
   }
 
-  return candidates;
+  return rawCandidates.filter(u => !isAvatarCandidateFailed(u));
 }
 
 function isFreeEmailDomain(domain: string): boolean {

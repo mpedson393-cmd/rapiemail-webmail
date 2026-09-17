@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { parseSenderDetails, getAvatarCandidateUrls, getCachedAvatar, setCachedAvatar, ParsedSenderInfo } from '@/lib/avatar';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  parseSenderDetails, 
+  getAvatarCandidateUrls, 
+  getCachedAvatar, 
+  setCachedAvatar, 
+  markAvatarCandidateFailed,
+  ParsedSenderInfo 
+} from '@/lib/avatar';
 
 interface SmartAvatarProps {
   from: string;
@@ -27,40 +34,75 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
       : (sender.email || sender.name))
   ).trim().toLowerCase();
 
+  const cachedInitial = getCachedAvatar(cacheKey);
+
   const [candidates, setCandidates] = useState<string[]>(() => getAvatarCandidateUrls(sender, customAvatarUrl));
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(() => cachedInitial);
+  const [hasLoaded, setHasLoaded] = useState<boolean>(() => Boolean(cachedInitial));
 
-  // Resetar índice se o remetente mudar
+  // Rastrear se remetente mudou
+  const prevFromRef = useRef(from);
+  const prevCustomUrlRef = useRef(customAvatarUrl);
+
   useEffect(() => {
-    const nextCandidates = getAvatarCandidateUrls(sender, customAvatarUrl);
-    setCandidates(nextCandidates);
-    setCandidateIndex(0);
-    const cached = getCachedAvatar(cacheKey);
-    setHasLoaded(Boolean(cached));
-  }, [from, customAvatarUrl, cacheKey]);
+    if (prevFromRef.current !== from || prevCustomUrlRef.current !== customAvatarUrl) {
+      prevFromRef.current = from;
+      prevCustomUrlRef.current = customAvatarUrl;
+      const nextCandidates = getAvatarCandidateUrls(sender, customAvatarUrl);
+      setCandidates(nextCandidates);
+      setCandidateIndex(0);
+      const cached = getCachedAvatar(cacheKey);
+      if (cached) {
+        setLoadedUrl(cached);
+        setHasLoaded(true);
+      } else {
+        setLoadedUrl(null);
+        setHasLoaded(false);
+      }
+    }
+  }, [from, customAvatarUrl, cacheKey, sender]);
 
-  const currentUrl = candidateIndex < candidates.length ? candidates[candidateIndex] : null;
+  const currentCandidate = candidateIndex < candidates.length ? candidates[candidateIndex] : null;
   const sizeConfig = SIZE_MAP[size] || SIZE_MAP.sm;
 
-  const handleImageError = () => {
-    setCandidateIndex(prev => prev + 1);
-  };
+  // Carregamento e validação assíncrona em background usando window.Image
+  // Garante que NUNCA um ícone quebrado do navegador seja pintado no DOM
+  useEffect(() => {
+    if (hasLoaded || !currentCandidate || typeof window === 'undefined') return;
 
-  const handleImageLoad = () => {
-    setHasLoaded(true);
-    if (currentUrl) {
-      setCachedAvatar(cacheKey, currentUrl);
-    }
-  };
+    let isMounted = true;
+    const img = new Image();
 
-  // Se ainda houver candidatos para testar
-  if (currentUrl) {
-    const isLogo = currentUrl.includes('google.com/s2/favicons') || 
-                  currentUrl.includes('gstatic.com') || 
-                  currentUrl.includes('devicon') || 
-                  currentUrl.includes('logo.clearbit') || 
-                  currentUrl.includes('unavatar.io') ||
+    img.onload = () => {
+      if (!isMounted) return;
+      setLoadedUrl(currentCandidate);
+      setHasLoaded(true);
+      setCachedAvatar(cacheKey, currentCandidate);
+    };
+
+    img.onerror = () => {
+      if (!isMounted) return;
+      markAvatarCandidateFailed(currentCandidate);
+      setCandidateIndex(prev => prev + 1);
+    };
+
+    img.src = currentCandidate;
+
+    return () => {
+      isMounted = false;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [currentCandidate, hasLoaded, cacheKey]);
+
+  // Se a imagem já foi validada e carregada com sucesso
+  if (hasLoaded && loadedUrl) {
+    const isLogo = loadedUrl.includes('google.com/s2/favicons') || 
+                  loadedUrl.includes('gstatic.com') || 
+                  loadedUrl.includes('devicon') || 
+                  loadedUrl.includes('/api/avatar/cache') ||
+                  loadedUrl.includes('unavatar.io') ||
                   sender.isCompanyService;
 
     return (
@@ -69,31 +111,30 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
           isLogo ? 'bg-white text-zinc-800' : sender.color.bg
         } ${className}`}
       >
-        {/* Placeholder / Iniciais enquanto a imagem carrega */}
-        {!hasLoaded && (
-          <span className={`font-bold ${sender.color.text} absolute inset-0 flex items-center justify-center`}>
-            {sender.initial}
-          </span>
-        )}
-
         <img
-          key={currentUrl}
-          src={currentUrl}
+          src={loadedUrl}
           alt={sender.name}
-          onError={handleImageError}
-          onLoad={handleImageLoad}
           className={`${
             isLogo ? 'w-full h-full object-contain p-1' : 'w-full h-full object-cover'
-          } ${hasLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}
+          } animate-in fade-in duration-200`}
+          onError={(e) => {
+            // Se por algum motivo falhar no DOM, esconde imediatamente sem ícone quebrado
+            e.currentTarget.style.display = 'none';
+            markAvatarCandidateFailed(loadedUrl);
+            setHasLoaded(false);
+            setLoadedUrl(null);
+            setCandidateIndex(prev => prev + 1);
+          }}
         />
       </div>
     );
   }
 
-  // Fallback Elegante: Monograma estilizado com cores pastel Google
+  // Fallback Elegante: Monograma estilizado com cores pastel Google (exibido enquanto carrega ou se não houver foto)
   return (
     <div 
       className={`rounded-full overflow-hidden border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center shrink-0 shadow-xs font-bold select-none transition-all ${sizeConfig.box} ${sender.color.bg} ${sender.color.text} ${className}`}
+      title={sender.name}
     >
       <span>{sender.initial}</span>
     </div>
