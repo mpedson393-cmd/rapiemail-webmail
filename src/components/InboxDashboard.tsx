@@ -368,13 +368,20 @@ export function extractAttachmentsFromEmail(email?: EmailItem | null): EmailAtta
 
     list.forEach(att => {
       if (!att) return;
-      const name = att.filename || att.name || "documento";
+      let name = att.filename || att.name || "documento";
+      const contentType = (att.contentType || att.type || '').toLowerCase();
+      // Se o anexo for convite de calendário / meeting request e tiver nome genérico "anexo":
+      if (name === "anexo" || name === "documento") {
+        if (contentType.includes("calendar") || (att.content && att.content.includes("BEGIN:VCALENDAR"))) {
+          name = "convite-reuniao.ics";
+        }
+      }
       const key = `${name.toLowerCase()}_${att.url || att.content || ''}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
         result.push({
           filename: name,
-          contentType: att.contentType || att.type || 'application/octet-stream',
+          contentType: att.contentType || att.type || (name.endsWith('.ics') ? 'text/calendar' : 'application/octet-stream'),
           url: att.url,
           content: att.content,
           size: att.size || 'Anexo'
@@ -3539,11 +3546,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           const isXls = ['XLS', 'XLSX', 'CSV'].includes(ext);
                           const isImg = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF'].includes(ext);
                           const isZip = ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'].includes(ext);
+                          const isIcs = ext === 'ICS' || att.contentType?.includes('calendar');
 
                           let bgClass = "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/50";
                           let IconComponent = FileText;
 
-                          if (isPdf) {
+                          if (isIcs) {
+                            bgClass = "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50";
+                            IconComponent = Calendar;
+                          } else if (isPdf) {
                             bgClass = "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50";
                             IconComponent = FileText;
                           } else if (isDoc) {
@@ -3735,14 +3746,126 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                 <img 
                   src={previewAttachment.url || previewAttachment.content} 
                   alt={previewAttachment.filename} 
-                  className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-lg bg-white/40 p-2"
+                  className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-lg bg-white/40 p-2" 
                 />
               ) : (previewAttachment.url && (previewAttachment.url.endsWith('.pdf') || previewAttachment.contentType === 'application/pdf')) || (previewAttachment.content && previewAttachment.content.startsWith('data:application/pdf')) ? (
                 <iframe 
                   src={previewAttachment.url || previewAttachment.content} 
-                  className="w-full h-[70vh] rounded-lg border border-zinc-300 dark:border-white/10 shadow" 
+                  className="w-full h-[70vh] rounded-lg border border-zinc-300 dark:border-white/10 shadow bg-white" 
                   title={previewAttachment.filename}
                 />
+              ) : (previewAttachment.filename.toLowerCase().endsWith('.ics') || previewAttachment.contentType?.includes('calendar') || (previewAttachment.content && previewAttachment.content.includes('BEGIN:VCALENDAR'))) ? (
+                /* Pré-visualização Interativa e Executiva de Convite de Calendário (.ics / VCALENDAR) */
+                (() => {
+                  let icsText = "";
+                  try {
+                    if (previewAttachment.content) {
+                      if (previewAttachment.content.startsWith('data:')) {
+                        const b64 = previewAttachment.content.split(',')[1];
+                        if (typeof window !== 'undefined' && window.atob) {
+                          icsText = decodeURIComponent(escape(window.atob(b64)));
+                        }
+                      } else {
+                        icsText = previewAttachment.content;
+                      }
+                    }
+                  } catch (err) {
+                    try {
+                      const b64 = previewAttachment.content?.split(',')[1] || '';
+                      icsText = window.atob(b64);
+                    } catch (_) {}
+                  }
+
+                  // Extrair campos chave do ICS
+                  const summaryMatch = icsText.match(/SUMMARY[^:]*:(.*)/i);
+                  const dtStartMatch = icsText.match(/DTSTART[^:]*:([0-9TZ]+)/i);
+                  const dtEndMatch = icsText.match(/DTEND[^:]*:([0-9TZ]+)/i);
+                  const locationMatch = icsText.match(/LOCATION[^:]*:(.*)/i);
+                  const organizerMatch = icsText.match(/ORGANIZER[^:]*CN=([^;:\n\r]+)/i) || icsText.match(/ORGANIZER[^:]*mailto:([^\s\n\r]+)/i);
+                  const teamsUrlMatch = icsText.match(/(https:\/\/(?:teams\.microsoft\.com|meet\.google\.com|zoom\.us)[^\s"'\\<>]+)/i);
+
+                  // Formatar Data
+                  let displayDate = "";
+                  if (dtStartMatch && dtStartMatch[1]) {
+                    const raw = dtStartMatch[1];
+                    const y = raw.slice(0, 4);
+                    const m = raw.slice(4, 6);
+                    const d = raw.slice(6, 8);
+                    const h = raw.slice(9, 11);
+                    const min = raw.slice(11, 13);
+                    if (y && m && d) {
+                      displayDate = `${d}/${m}/${y}` + (h && min ? ` às ${h}:${min}` : '');
+                    }
+                  }
+
+                  const title = summaryMatch ? summaryMatch[1].trim() : previewAttachment.filename;
+                  const organizer = organizerMatch ? organizerMatch[1].trim() : "Organizador da Reunião";
+                  const location = locationMatch ? locationMatch[1].trim().replace(/\\,/g, ',') : "Online (Microsoft Teams / Conferência)";
+                  const meetingLink = teamsUrlMatch ? teamsUrlMatch[1].replace(/\\/g, '') : null;
+
+                  return (
+                    <div className="max-w-lg w-full bg-white dark:bg-[#12151E] p-6 md:p-7 rounded-2xl border border-[#E5E7EB] dark:border-white/10 text-left shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800/60 shadow-inner shrink-0">
+                            <Calendar className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                              Convite de Calendário Oficial
+                            </span>
+                            <h3 className="text-base font-bold text-zinc-900 dark:text-white leading-tight">
+                              {title}
+                            </h3>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          Confirmado
+                        </span>
+                      </div>
+
+                      <div className="space-y-3 bg-zinc-50 dark:bg-white/[0.02] p-4 rounded-xl border border-zinc-200/80 dark:border-white/5 text-xs">
+                        {displayDate && (
+                          <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-200 font-medium">
+                            <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span><strong>Horário:</strong> {displayDate}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-200 font-medium">
+                          <Users className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span><strong>Organizador:</strong> {organizer}</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-200 font-medium">
+                          <Video className="w-4 h-4 text-blue-500 shrink-0" />
+                          <span><strong>Localização:</strong> {location}</span>
+                        </div>
+                      </div>
+
+                      {meetingLink && (
+                        <a
+                          href={meetingLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full py-3 bg-[#464EB8] hover:bg-[#3B429F] text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
+                        >
+                          <Video className="w-4 h-4" />
+                          <span>Entrar na Reunião (Microsoft Teams)</span>
+                        </a>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-zinc-200/60 dark:border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadAttachment(previewAttachment)}
+                          className="flex-1 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Guardar Ficheiro .ICS</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="max-w-md w-full bg-white dark:bg-[#12151E] p-6 rounded-2xl border border-[#E5E7EB] dark:border-white/10 text-center shadow-lg">
                   <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-4 border border-red-200 dark:border-red-900/50 shadow-inner">
