@@ -20,17 +20,7 @@ export async function POST(req: Request) {
       mode = "subscription";
       lineItems = [
         {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: "RapiEmail Pro - Caixa Postal Profissional",
-              description: `Acesso à caixa de correio com domínio personalizado (${domainName || 'domínio próprio'}), rastreador de leitura ✓✓, calendário e 10 GB de armazenamento.`,
-            },
-            unit_amount: 1000, // 10,00 €
-            recurring: {
-              interval: "month",
-            },
-          },
+          price: "price_1UH9zYHlRQps6wUvL8YB9Er7", // RapiEmail Pro (10,00 €/mês)
           quantity: 1,
         },
       ];
@@ -38,17 +28,15 @@ export async function POST(req: Request) {
       mode = "subscription";
       lineItems = [
         {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: "Alojamento Web & Website Oficial",
-              description: `Hospedagem em nuvem de alta velocidade e página web profissional no domínio ${domainName || 'da empresa'}.`,
-            },
-            unit_amount: 2000, // 20,00 €
-            recurring: {
-              interval: "month",
-            },
-          },
+          price: "price_1UH9zYHlRQps6wUvNJdjOjQ5", // Empresa Total + Site no Ar (30,00 €/mês)
+          quantity: 1,
+        },
+      ];
+    } else if (itemType === "SITE_BUILDER_ANNUAL") {
+      mode = "subscription";
+      lineItems = [
+        {
+          price: "price_1UH9zZHlRQps6wUvdZFzgKI9", // RapiSiteBuilder Anual (88,00 €/ano)
           quantity: 1,
         },
       ];
@@ -56,14 +44,7 @@ export async function POST(req: Request) {
       mode = "payment";
       lineItems = [
         {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: `Registo Oficial do Domínio: ${domainName}`,
-              description: `Registo anual de domínio corporativo com DNS automático e proteção de privacidade WHOIS.`,
-            },
-            unit_amount: 2000, // 20,00 €
-          },
+          price: "price_1UH9zaHlRQps6wUvbZNcBsgx", // Registo de Domínio Corporativo (20,00 €)
           quantity: 1,
         },
       ];

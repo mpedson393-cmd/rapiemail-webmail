@@ -127,7 +127,7 @@ Regras Obrigatórias:
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "HOSTING_ADDON", domainName: userDomain })
+        body: JSON.stringify({ itemType: "SITE_BUILDER_ANNUAL", domainName: userDomain })
       });
       const data = await res.json();
       if (data.url) {
