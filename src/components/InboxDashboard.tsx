@@ -258,6 +258,7 @@ export interface MeetingInviteInfo {
   meetingType: 'google_meet' | 'zoom' | 'teams' | 'calendly' | 'generic';
   organizer: string;
   participantsInfo?: string;
+  isSchedulingOnly?: boolean;
 }
 
 function extractMeetingInvite(subject: string, body: string, from: string, html?: string): MeetingInviteInfo | null {
@@ -344,13 +345,30 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
     .replace(/^reunião:\s*/i, '')
     .trim();
 
+  // Determinar se é apenas um convite para escolher horário / agendamento pendente
+  const isSchedulingOnly = Boolean(
+    meetingType === 'calendly' ||
+    Boolean(customMeetingMatch) ||
+    (!dateMatch && !hasCalendarAttachment && (
+      fullText.includes('/meetings/') ||
+      fullText.includes('/meet/') ||
+      fullText.includes('choose a slot') ||
+      fullText.includes('escolha um horário') ||
+      fullText.includes('reserva um horário') ||
+      fullText.includes('book a time') ||
+      fullText.includes('schedule a call') ||
+      fullText.includes('agendar uma chamada')
+    ))
+  );
+
   return {
-    title: cleanTitle || "Reunião de Alinhamento",
-    dateTimeDisplay: dateTimeDisplay || "Consulte o horário na mensagem",
+    title: cleanTitle || (isSchedulingOnly ? "Agendamento de Reunião" : "Reunião de Alinhamento"),
+    dateTimeDisplay: dateTimeDisplay || (isSchedulingOnly ? "Aguardando seleção de data e hora pelo participante" : "Consulte o horário na mensagem"),
     meetingUrl,
     meetingType,
     organizer,
-    participantsInfo: `${organizer} (organizador) · Participantes incluídos`
+    participantsInfo: `${organizer} (organizador) · Participantes incluídos`,
+    isSchedulingOnly
   };
 }
 
@@ -3303,20 +3321,35 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-[#12141C] border border-[#E5E7EB] dark:border-white/10 shadow-sm space-y-4 animate-in fade-in duration-200 select-none">
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                         <div className="space-y-1.5 flex-1">
-                          <h3 className="text-sm md:text-base font-bold text-[#202124] dark:text-white leading-tight">
-                            {detectedMeeting.title}
-                          </h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm md:text-base font-bold text-[#202124] dark:text-white leading-tight">
+                              {detectedMeeting.title}
+                            </h3>
+                            {detectedMeeting.isSchedulingOnly && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                                Escolha de Horário
+                              </span>
+                            )}
+                          </div>
 
                           {detectedMeeting.dateTimeDisplay && (
                             <div className="flex items-center gap-1.5 text-xs text-[#5F6368] dark:text-zinc-300 font-medium">
-                              <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              {detectedMeeting.isSchedulingOnly ? (
+                                <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              )}
                               <span>{detectedMeeting.dateTimeDisplay}</span>
                             </div>
                           )}
 
                           {detectedMeeting.meetingUrl && (
                             <div className="flex items-center gap-1.5 text-xs">
-                              <Video className="w-3.5 h-3.5 text-[#1A73E8] shrink-0" />
+                              {detectedMeeting.isSchedulingOnly ? (
+                                <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              ) : (
+                                <Video className="w-3.5 h-3.5 text-[#1A73E8] shrink-0" />
+                              )}
                               <a
                                 href={detectedMeeting.meetingUrl}
                                 target="_blank"
@@ -3340,7 +3373,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                             target="_blank"
                             rel="noreferrer"
                             className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95 ${
-                              detectedMeeting.meetingType === 'teams'
+                              detectedMeeting.isSchedulingOnly
+                                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'
+                                : detectedMeeting.meetingType === 'teams'
                                 ? 'bg-[#464EB8] hover:bg-[#3B429F]'
                                 : detectedMeeting.meetingType === 'zoom'
                                 ? 'bg-[#0B5CFF] hover:bg-[#004BE5]'
@@ -3349,67 +3384,83 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                                 : 'bg-[#1A73E8] hover:bg-[#1557B0]'
                             }`}
                           >
-                            <Video className="w-4 h-4" />
-                            <span>
-                              {detectedMeeting.meetingType === 'teams'
-                                ? 'Entrar no Microsoft Teams'
-                                : detectedMeeting.meetingType === 'zoom'
-                                ? 'Entrar no Zoom'
-                                : detectedMeeting.meetingType === 'google_meet'
-                                ? 'Entrar no Google Meet'
-                                : detectedMeeting.meetingType === 'calendly'
-                                ? 'Abrir Calendly'
-                                : 'Entrar na Reunião'}
-                            </span>
+                            {detectedMeeting.isSchedulingOnly ? (
+                              <>
+                                <Calendar className="w-4 h-4" />
+                                <span>Escolher Horário da Reunião</span>
+                              </>
+                            ) : (
+                              <>
+                                <Video className="w-4 h-4" />
+                                <span>
+                                  {detectedMeeting.meetingType === 'teams'
+                                    ? 'Entrar no Microsoft Teams'
+                                    : detectedMeeting.meetingType === 'zoom'
+                                    ? 'Entrar no Zoom'
+                                    : detectedMeeting.meetingType === 'google_meet'
+                                    ? 'Entrar no Google Meet'
+                                    : 'Entrar na Reunião'}
+                                </span>
+                              </>
+                            )}
                           </a>
                         )}
                       </div>
 
-                      {/* Botões de Resposta RSVP (Recusar, Talvez, Aceite) */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-[#F1F3F4] dark:border-white/5 flex-wrap">
-                        <button
-                          onClick={() => handleRsvp(selectedEmail.id, 'declined')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            meetingRsvpState === 'declined'
-                              ? 'bg-red-500 text-white shadow-xs'
-                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
-                          }`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>Recusar</span>
-                        </button>
+                      {/* Botões de Resposta RSVP (Apenas para reuniões com data e horário marcados) */}
+                      {!detectedMeeting.isSchedulingOnly ? (
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#F1F3F4] dark:border-white/5 flex-wrap">
+                          <button
+                            onClick={() => handleRsvp(selectedEmail.id, 'declined')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                              meetingRsvpState === 'declined'
+                                ? 'bg-red-500 text-white shadow-xs'
+                                : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                            }`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Recusar</span>
+                          </button>
 
-                        <button
-                          onClick={() => handleRsvp(selectedEmail.id, 'tentative')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            meetingRsvpState === 'tentative'
-                              ? 'bg-amber-500 text-white shadow-xs'
-                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
-                          }`}
-                        >
-                          <HelpCircle className="w-3.5 h-3.5" />
-                          <span>Talvez</span>
-                        </button>
+                          <button
+                            onClick={() => handleRsvp(selectedEmail.id, 'tentative')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                              meetingRsvpState === 'tentative'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                            }`}
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                            <span>Talvez</span>
+                          </button>
 
-                        <button
-                          onClick={() => handleRsvp(selectedEmail.id, 'accepted')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            meetingRsvpState === 'accepted'
-                              ? 'bg-[#1A73E8] text-white shadow-xs'
-                              : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
-                          }`}
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Aceite</span>
-                        </button>
+                          <button
+                            onClick={() => handleRsvp(selectedEmail.id, 'accepted')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                              meetingRsvpState === 'accepted'
+                                ? 'bg-[#1A73E8] text-white shadow-xs'
+                                : 'bg-[#F1F3F4] dark:bg-white/5 text-zinc-700 dark:text-zinc-200 hover:bg-[#E8EAED]'
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Aceite</span>
+                          </button>
 
-                        {meetingRsvpState === 'accepted' && (
-                          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 ml-2">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Confirmado no Calendário</span>
+                          {meetingRsvpState === 'accepted' && (
+                            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 ml-2">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Confirmado no Calendário</span>
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t border-[#F1F3F4] dark:border-white/5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>Escolha um dos horários disponíveis no link acima para agendar e confirmar a reunião no seu calendário.</span>
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
