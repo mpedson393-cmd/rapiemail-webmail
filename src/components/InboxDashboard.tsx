@@ -1494,11 +1494,29 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       .catch(() => {});
   }, []);
 
-  // Polling automático com Disparo de Notificação no Telemóvel e Desktop
+  // Polling inteligente e económico: não consome quota quando a aba está em background ou minimizada
   useEffect(() => {
-    const interval = setInterval(async () => {
+    let lastCheckTime = Date.now();
+    const bc = typeof window !== 'undefined' && 'BroadcastChannel' in window 
+      ? new BroadcastChannel('rapiemail_sync_channel') 
+      : null;
+
+    // Escutar atualizações feitas por outras abas abertas para não duplicar requisições
+    if (bc) {
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'EMAILS_UPDATED' && Array.isArray(event.data.emails)) {
+          setEmails(event.data.emails);
+          prevEmailCountRef.current = event.data.emails.length;
+        }
+      };
+    }
+
+    const checkEmailsQuietly = async () => {
+      // Se a aba estiver escondida / minimizada, NÃO consome quota do servidor
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
-        const res = await fetch(`/api/emails/check?folder=${selectedFolder}`);
+        const res = await fetch(`/api/emails/check?folder=${encodeURIComponent(selectedFolder)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.emails && Array.isArray(data.emails)) {
@@ -1536,11 +1554,34 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
             }
             prevEmailCountRef.current = sortedEmails.length;
             setEmails(sortedEmails);
+            lastCheckTime = Date.now();
+
+            // Notificar outras abas abertas no mesmo navegador
+            if (bc) {
+              bc.postMessage({ type: 'EMAILS_UPDATED', emails: sortedEmails });
+            }
           }
         }
       } catch (err) {}
-    }, 4000);
-    return () => clearInterval(interval);
+    };
+
+    // Atualizar assim que o utilizador volta para a aba (se já passaram mais de 20s)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && Date.now() - lastCheckTime > 20000) {
+        checkEmailsQuietly();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Intervalo padrão de produção: 35 segundos quando visível (poupa 90% de quota)
+    const interval = setInterval(checkEmailsQuietly, 35000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (bc) bc.close();
+    };
   }, [selectedFolder]);
 
   const userDomain = useMemo(() => {
