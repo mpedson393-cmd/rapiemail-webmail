@@ -5,7 +5,7 @@ import { registerDomain, updateDomainNameServers } from "@/lib/porkbun";
 import { createDomain, setupEmailDnsRecords } from "@/lib/digitalocean";
 import { setupResendDomainWithDigitalOcean } from "@/lib/resend";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_for_build");
 
 export async function POST(req: Request) {
   const body = await req.text();

@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_for_build");
 
 export async function POST(req: Request) {
   try {
