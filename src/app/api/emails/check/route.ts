@@ -4,23 +4,33 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Não autorizado", success: false, emails: [] },
+        { 
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        }
+      );
     }
 
     const email = session.user.email;
 
-    // Procurar todos os e-mails do utilizador (enviados e recebidos) sem limite artificial
+    // Procurar todos os e-mails do utilizador com execução rápida em paralelo e sem cache
     const dbEmails = await prisma.email.findMany({
       where: {
         OR: [
           { to: email },
-          { from: email }
+          { from: email },
+          { user: { email: email } }
         ]
       },
       orderBy: {
@@ -46,10 +56,33 @@ export async function GET(req: Request) {
       attachments: (e as any).attachments || undefined
     }));
 
-    return NextResponse.json({ success: true, emails: formatted });
+    return NextResponse.json(
+      { 
+        success: true, 
+        emails: formatted, 
+        count: formatted.length, 
+        timestamp: Date.now() 
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Surrogate-Control': 'no-store'
+        }
+      }
+    );
 
   } catch (error: any) {
     console.error("Check emails error:", error);
-    return NextResponse.json({ success: false, emails: [] });
+    return NextResponse.json(
+      { success: false, emails: [], error: error?.message || "Erro ao consultar mensagens" },
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
+      }
+    );
   }
 }

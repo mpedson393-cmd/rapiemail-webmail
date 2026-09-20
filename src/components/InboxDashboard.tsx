@@ -1009,6 +1009,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const isLongPressTriggeredRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<EmailAttachment | null>(null);
@@ -1790,25 +1791,64 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   const handleManualRefresh = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsRefreshing(true);
+    setToastMessage("A verificar mensagens...");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout max
+
     try {
-      const res = await fetch(`/api/emails/check?folder=${selectedFolder}`);
+      const res = await fetch(`/api/emails/check?folder=${encodeURIComponent(selectedFolder)}&_t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         if (data.emails && Array.isArray(data.emails)) {
           const sorted = [...data.emails].sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
-          if (sorted.length > emails.length) {
-            playNotificationSound();
-          }
+
+          const newCount = sorted.length - emails.length;
           setEmails(sorted);
-          setToastMessage("Sincronizado!");
+
+          if (newCount > 0) {
+            playNotificationSound();
+            setToastMessage(`🎉 ${newCount} novo(s) e-mail(s) recebido(s)!`);
+          } else {
+            setToastMessage(`✅ Caixa de correio atualizada! (${sorted.length} mensagens)`);
+          }
+          setTimeout(() => setToastMessage(null), 3000);
+        } else {
+          setToastMessage("✅ Caixa de correio sincronizada!");
           setTimeout(() => setToastMessage(null), 2500);
         }
+      } else {
+        setToastMessage("⚠️ Erro ao contactar o servidor de e-mail.");
+        setTimeout(() => setToastMessage(null), 3500);
       }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        setToastMessage("⚠️ Tempo limite excedido ao ligar ao servidor.");
+      } else {
+        console.error("Manual refresh error:", err);
+        setToastMessage("⚠️ Verifique a ligação à internet.");
+      }
+      setTimeout(() => setToastMessage(null), 3500);
     } finally {
       setIsRefreshing(false);
+      isRefreshingRef.current = false;
     }
   };
 
@@ -2350,9 +2390,14 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
           <button 
             onClick={handleManualRefresh}
-            title="Atualizar emails"
-            className={`p-1.5 md:p-2 rounded-full transition-colors ${
-              isLight ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            disabled={isRefreshing}
+            title={isRefreshing ? "A sincronizar e-mails..." : "Atualizar emails (sincronização instantânea)"}
+            className={`p-1.5 md:p-2 rounded-full transition-all cursor-pointer ${
+              isRefreshing
+                ? 'text-emerald-400 bg-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                : isLight 
+                ? 'text-[#5F6368] hover:text-[#202124] hover:bg-[#F1F3F4] active:scale-95' 
+                : 'text-zinc-400 hover:text-white hover:bg-white/5 active:scale-95'
             }`}
           >
             <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
@@ -2714,6 +2759,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <div className="flex items-center gap-2">
                     <span>{folders.find(f => f.id === selectedFolder)?.label}</span>
                     <span className="text-[11px] text-emerald-400 font-bold font-mono">({filteredEmails.length})</span>
+                    <button
+                      type="button"
+                      onClick={handleManualRefresh}
+                      disabled={isRefreshing}
+                      title={isRefreshing ? "A sincronizar e-mails..." : "Atualizar caixa de correio (Sincronização instantânea)"}
+                      className={`p-1 rounded-md transition-all flex items-center justify-center cursor-pointer ${
+                        isRefreshing 
+                          ? 'text-emerald-400 bg-emerald-500/15 ring-1 ring-emerald-500/30 shadow-xs' 
+                          : 'text-zinc-400 hover:text-emerald-400 dark:hover:text-emerald-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-90'
+                      }`}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
+                    </button>
                   </div>
                   {selectedFolder === 'TRASH' && filteredEmails.length > 0 ? (
                     <button 
