@@ -167,8 +167,18 @@ body.light .glass-panel {
 }
 
 .email-rich-html a {
-  color: #1a73e8;
-  text-decoration: underline;
+  color: #1a73e8 !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  word-break: break-all;
+  font-weight: 500;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.email-rich-html a:hover {
+  color: #1557b0 !important;
+  text-decoration: underline !important;
+  opacity: 0.9;
 }
 
 .email-rich-html img {

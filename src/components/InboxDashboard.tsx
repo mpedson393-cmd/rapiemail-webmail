@@ -280,6 +280,9 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
   // Calendly
   const calendlyMatch = fullText.match(/https:\/\/calendly\.com\/[^\s"'<>]+/i) ||
                        (html && html.match(/href=["'](https:\/\/calendly\.com\/[^"']+)["']/i));
+  // Links de Agendamento e Reuniões Genéricas (ex: info.idtexpress.com/meetings/..., hubspot, cal.com, booking)
+  const customMeetingMatch = fullText.match(/https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|booking)\/[^\s"'<>]+/i) ||
+                             (html && html.match(/href=["'](https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|booking)\/[^"']+)["']/i));
 
   if (teamsMatch) {
     meetingUrl = Array.isArray(teamsMatch) ? (teamsMatch[1] || teamsMatch[0]) : teamsMatch;
@@ -293,6 +296,9 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
   } else if (calendlyMatch) {
     meetingUrl = Array.isArray(calendlyMatch) ? (calendlyMatch[1] || calendlyMatch[0]) : calendlyMatch;
     meetingType = 'calendly';
+  } else if (customMeetingMatch) {
+    meetingUrl = Array.isArray(customMeetingMatch) ? (customMeetingMatch[1] || customMeetingMatch[0]) : customMeetingMatch;
+    meetingType = 'generic';
   }
 
   // 2. Extrair Data / Horário (Português, Inglês e formatos de confirmação ex.: "Tuesday, 1 September, at 11:30 am")
@@ -560,13 +566,77 @@ function parseEmailThread(fullText: string): { mainMessage: string; quotedMessag
   return { mainMessage: mainMessage || cleaned, quotedMessages: parts };
 }
 
+// Transforma URLs em links clicáveis seguros (target="_blank", rel="noopener noreferrer") e estilizados
+function autoLinkAndEnhanceHtml(html: string): string {
+  if (!html) return '';
+
+  // 1. Garantir que todas as tags <a> existentes tenham target="_blank" e rel="noopener noreferrer"
+  let processed = html.replace(/<a\b([^>]*)>/gi, (match, attrs) => {
+    let newAttrs = attrs;
+    if (/target\s*=\s*['"][^'"]*['"]/i.test(newAttrs)) {
+      newAttrs = newAttrs.replace(/target\s*=\s*['"][^'"]*['"]/i, 'target="_blank"');
+    } else {
+      newAttrs += ' target="_blank"';
+    }
+    if (/rel\s*=\s*['"][^'"]*['"]/i.test(newAttrs)) {
+      newAttrs = newAttrs.replace(/rel\s*=\s*['"][^'"]*['"]/i, 'rel="noopener noreferrer"');
+    } else {
+      newAttrs += ' rel="noopener noreferrer"';
+    }
+    return `<a${newAttrs}>`;
+  });
+
+  // 2. Tokenizar o HTML em blocos preservados e texto para autolink
+  // Blocos protegidos: <a ...>...</a>, <style>...</style>, <script>...</script>, e quaisquer tags <...>
+  const tokenRegex = /(<a\b[\s\S]*?<\/a>|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<[^>]+>)|((?:https?:\/\/|www\.)[^\s<>"'{}|\\^`\[\]]+|(?:[a-zA-Z0-9-]+\.)+(?:com|org|net|io|edu|gov|co|info|biz|me|app|ai|tech|online|live|uk|pt|br|de|es|fr|eu|site|link|store|cloud|dev)(?:\/[^\s<>"'{}|\\^`\[\]]*)?)/gi;
+
+  processed = processed.replace(tokenRegex, (match, protectedBlock, rawUrl) => {
+    if (protectedBlock) {
+      return protectedBlock;
+    }
+    if (!rawUrl) return match;
+
+    // Limpar pontuação no final da URL
+    let cleanUrl = rawUrl.replace(/[<>%]/g, '').trim();
+    let trailing = '';
+    const trailMatch = cleanUrl.match(/[.,;:!?)]+$/);
+    if (trailMatch) {
+      trailing = trailMatch[0];
+      cleanUrl = cleanUrl.slice(0, -trailing.length);
+    }
+    if (!cleanUrl) return match;
+
+    let href = cleanUrl;
+    if (!href.startsWith('http://') && !href.startsWith('https://')) {
+      href = `https://${href}`;
+    }
+
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="rapimoney-autolink text-[#1A73E8] dark:text-blue-400 font-semibold underline hover:text-blue-700 dark:hover:text-blue-300 break-all cursor-pointer transition-colors" style="color: #1A73E8; text-decoration: underline; cursor: pointer; word-break: break-all;">${cleanUrl}</a>${trailing}`;
+  });
+
+  return processed;
+}
+
 // Renderizador Inteligente com Seleção Livre de Texto e Visualização Elegante de Histórico
 function SmartEmailBodyRenderer({ bodyText }: { bodyText: string }) {
   const [showQuoted, setShowQuoted] = useState(false);
   const { mainMessage, quotedMessages } = useMemo(() => parseEmailThread(bodyText), [bodyText]);
 
+  // Interceção de cliques em links para garantir abertura em nova aba sem sair da SPA
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (anchor) {
+      const href = anchor.getAttribute('href');
+      if (href && (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//'))) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
   return (
-    <div className="space-y-4 select-text cursor-text">
+    <div className="space-y-4 select-text cursor-text" onClick={handleContainerClick}>
       {/* Mensagem Principal / Mais Recente */}
       <div className="space-y-3 select-text">
         {renderParagraphs(mainMessage)}
@@ -640,6 +710,37 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
     }
   }
 
+  // Interceptar cliques em links garantindo abertura em nova aba sem sair do Webmail
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (anchor) {
+      const href = anchor.getAttribute('href');
+      if (href) {
+        if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(href, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        if (href.startsWith('mailto:') || href.startsWith('tel:')) {
+          return;
+        }
+        if (!href.startsWith('#') && !href.startsWith('javascript:')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const targetUrl = href.startsWith('/') ? href : `https://${href}`;
+          window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        }
+      }
+    }
+  };
+
+  const rawMainHtml = splitIndex !== -1 && splitIndex > 0 ? htmlContent.substring(0, splitIndex).trim() : htmlContent;
+  const rawQuotedHtml = splitIndex !== -1 && splitIndex > 0 ? htmlContent.substring(splitIndex).trim() : '';
+
+  const mainHtml = useMemo(() => autoLinkAndEnhanceHtml(rawMainHtml), [rawMainHtml]);
+  const quotedHtml = useMemo(() => autoLinkAndEnhanceHtml(rawQuotedHtml), [rawQuotedHtml]);
+
   const renderCanvasToggle = () => (
     <div className="w-full flex items-center justify-end mb-3 select-none">
       <button
@@ -668,15 +769,13 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
   );
 
   if (splitIndex !== -1 && splitIndex > 0) {
-    const mainHtml = htmlContent.substring(0, splitIndex).trim();
-    const quotedHtml = htmlContent.substring(splitIndex).trim();
-
     return (
       <div className="space-y-4 select-text cursor-text w-full max-w-full">
         {renderCanvasToggle()}
 
         {/* Conteúdo Principal do E-mail (Mensagem Nova) */}
         <div 
+          onClick={handleContainerClick}
           className={`email-rich-container rapimoney-reader-card rounded-[14px] p-4 md:p-6 shadow-2xl overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center transition-all duration-200 ${
             isDarkCanvas 
               ? '!bg-[#0D1322] !text-[#E2E8F0] border-white/15' 
@@ -707,7 +806,10 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
           </button>
 
           {showQuoted && (
-            <div className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.05] animate-in fade-in duration-150 select-text">
+            <div 
+              onClick={handleContainerClick}
+              className="mt-3 p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.05] animate-in fade-in duration-150 select-text"
+            >
               <div 
                 className="email-rich-html text-sm leading-relaxed text-[#202124] select-text w-full max-w-full mx-auto"
                 dangerouslySetInnerHTML={{ __html: quotedHtml }}
@@ -724,6 +826,7 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
     <div className="w-full max-w-full space-y-2">
       {renderCanvasToggle()}
       <div 
+        onClick={handleContainerClick}
         className={`email-rich-container rapimoney-reader-card rounded-[14px] p-4 md:p-6 shadow-2xl overflow-x-auto select-text cursor-text w-full max-w-full flex flex-col items-center transition-all duration-200 ${
           isDarkCanvas 
             ? '!bg-[#0D1322] !text-[#E2E8F0] border-white/15' 
@@ -735,7 +838,7 @@ function SmartEmailHtmlRenderer({ htmlContent }: { htmlContent: string }) {
           className={`email-rich-html text-sm md:text-[15px] leading-relaxed select-text cursor-text w-full max-w-full mx-auto ${
             isDarkCanvas ? '!text-[#E2E8F0]' : 'text-[#202124]'
           }`}
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
+          dangerouslySetInnerHTML={{ __html: mainHtml }}
         />
       </div>
     </div>
@@ -751,30 +854,42 @@ function renderParagraphs(text: string) {
 }
 
 function renderInlineLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s<>"]+|[a-zA-Z0-9.-]+\.(?:org\.uk|com|online|io|net|gov|live|money|me|app|ly|tech)[^\s<>"]*)/gi;
+  const urlRegex = /((?:https?:\/\/|www\.)[^\s<>"'{}|\\^`\[\]]+|(?:[a-zA-Z0-9-]+\.)+(?:com|org|net|io|edu|gov|co|info|biz|me|app|ai|tech|online|live|uk|pt|br|de|es|fr|eu|site|link|store|cloud|dev)(?:\/[^\s<>"'{}|\\^`\[\]]*)?)/gi;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
-    if (part.match(urlRegex)) {
+    if (part && part.match(urlRegex)) {
       let cleanUrl = part.replace(/[<>%]/g, '').replace(/%3E/gi, '').trim();
+      let trailing = '';
+      const trailMatch = cleanUrl.match(/[.,;:!?)]+$/);
+      if (trailMatch) {
+        trailing = trailMatch[0];
+        cleanUrl = cleanUrl.slice(0, -trailing.length);
+      }
+      if (!cleanUrl) return <span key={i} className="select-text">{part}</span>;
+
       let href = cleanUrl;
       if (!href.startsWith("http://") && !href.startsWith("https://")) {
         href = `https://${href}`;
       }
-      let label = cleanUrl;
-      try {
-        const u = new URL(href);
-        label = u.hostname.replace('www.', '') + (u.pathname !== '/' ? u.pathname : '');
-      } catch(e) {}
       return (
-        <a
-          key={i}
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[#1A73E8] hover:underline font-semibold break-all select-text"
-        >
-          {label}
-        </a>
+        <React.Fragment key={i}>
+          <a
+            key={i}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(href, '_blank', 'noopener,noreferrer');
+            }}
+            className="text-[#1A73E8] dark:text-blue-400 hover:underline font-semibold break-all select-text cursor-pointer transition-colors"
+            style={{ color: '#1A73E8', textDecoration: 'underline', cursor: 'pointer', wordBreak: 'break-all' }}
+          >
+            {cleanUrl}
+          </a>
+          {trailing && <span className="select-text">{trailing}</span>}
+        </React.Fragment>
       );
     }
     return <span key={i} className="select-text">{part}</span>;
