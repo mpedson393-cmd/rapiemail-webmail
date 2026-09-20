@@ -255,7 +255,7 @@ export interface MeetingInviteInfo {
   title: string;
   dateTimeDisplay: string;
   meetingUrl?: string;
-  meetingType: 'google_meet' | 'zoom' | 'teams' | 'calendly' | 'generic';
+  meetingType: 'google_meet' | 'zoom' | 'teams' | 'webex' | 'calendly' | 'booking' | 'generic';
   organizer: string;
   participantsInfo?: string;
   isSchedulingOnly?: boolean;
@@ -265,25 +265,46 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
   if (!subject && !body && !html) return null;
   const fullText = `${subject}\n${body}\n${html || ''}`;
 
-  // 1. Extrair Link da Reunião (Teams, Google Meet, Zoom, Calendly, Webex)
-  let meetingUrl: string | undefined;
-  let meetingType: MeetingInviteInfo['meetingType'] = 'generic';
-
-  // Microsoft Teams (Links longos ou codificados)
-  const teamsMatch = fullText.match(/https:\/\/teams\.microsoft\.com\/[^\s"'<>]+/i) ||
-                     (html && html.match(/href=["'](https:\/\/teams\.microsoft\.com\/[^"']+)["']/i));
+  // 1. Detetar Plataformas de Vídeo-Conferência Diretas
+  // Microsoft Teams
+  const teamsMatch = fullText.match(/https:\/\/(?:teams\.microsoft\.com|teams\.live\.com)\/[^\s"'<>]+/i) ||
+                     (html && html.match(/href=["'](https:\/\/(?:teams\.microsoft\.com|teams\.live\.com)\/[^"']+)["']/i));
   // Google Meet
   const meetMatch = fullText.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i) ||
                     (html && html.match(/href=["'](https:\/\/meet\.google\.com\/[^"']+)["']/i));
   // Zoom
-  const zoomMatch = fullText.match(/https:\/\/[a-z0-9.]*zoom\.us\/j\/[^\s"'<>]+/i) ||
-                    (html && html.match(/href=["'](https:\/\/[a-z0-9.]*zoom\.us\/j\/[^"']+)["']/i));
+  const zoomMatch = fullText.match(/https:\/\/[a-z0-9.]*(?:zoom\.us|zoomgov\.com)\/(?:j|my)\/[^\s"'<>]+/i) ||
+                    (html && html.match(/href=["'](https:\/\/[a-z0-9.]*(?:zoom\.us|zoomgov\.com)\/(?:j|my)\/[^"']+)["']/i));
+  // Cisco Webex
+  const webexMatch = fullText.match(/https:\/\/[a-z0-9.]*webex\.com\/(?:meet|join|m)\/[^\s"'<>]+/i) ||
+                     (html && html.match(/href=["'](https:\/\/[a-z0-9.]*webex\.com\/(?:meet|join|m)\/[^"']+)["']/i));
+
+  // 2. Detetar Plataformas de Agendamento / Escolha de Horário na Agenda (Booking & Calendar Slots)
   // Calendly
   const calendlyMatch = fullText.match(/https:\/\/calendly\.com\/[^\s"'<>]+/i) ||
                        (html && html.match(/href=["'](https:\/\/calendly\.com\/[^"']+)["']/i));
-  // Links de Agendamento e Reuniões Genéricas (ex: info.idtexpress.com/meetings/..., hubspot, cal.com, booking)
-  const customMeetingMatch = fullText.match(/https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|booking)\/[^\s"'<>]+/i) ||
-                             (html && html.match(/href=["'](https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|booking)\/[^"']+)["']/i));
+  // Cal.com
+  const calMatch = fullText.match(/https:\/\/cal\.com\/[^\s"'<>]+/i) ||
+                   (html && html.match(/href=["'](https:\/\/cal\.com\/[^"']+)["']/i));
+  // HubSpot Meetings
+  const hubspotMatch = fullText.match(/https:\/\/(?:meetings\.hubspot\.com|app\.hubspot\.com\/meetings)\/[^\s"'<>]+/i) ||
+                       (html && html.match(/href=["'](https:\/\/(?:meetings\.hubspot\.com|app\.hubspot\.com\/meetings)\/[^"']+)["']/i));
+  // ChiliPiper
+  const chiliMatch = fullText.match(/https:\/\/[a-z0-9.-]*chilipiper\.com\/[^\s"'<>]+/i) ||
+                     (html && html.match(/href=["'](https:\/\/[a-z0-9.-]*chilipiper\.com\/[^"']+)["']/i));
+  // Acuity / Squarespace Scheduling
+  const acuityMatch = fullText.match(/https:\/\/(?:[a-z0-9.-]*acuityscheduling\.com|[a-z0-9.-]*as\.me)\/[^\s"'<>]+/i) ||
+                      (html && html.match(/href=["'](https:\/\/(?:[a-z0-9.-]*acuityscheduling\.com|[a-z0-9.-]*as\.me)\/[^"']+)["']/i));
+  // Doodle, SavvyCal, TidyCal, YouCanBookMe, Zoho Bookings, OnceHub
+  const otherBookingToolsMatch = fullText.match(/https:\/\/(?:[a-z0-9.-]*doodle\.com\/(?:bp|meeting)|savvycal\.com|tidycal\.com|[a-z0-9.-]*youcanbook\.me|[a-z0-9.-]*zohobookings\.com|go\.oncehub\.com|scheduleonce\.com)\/[^\s"'<>]+/i) ||
+                                 (html && html.match(/href=["'](https:\/\/(?:[a-z0-9.-]*doodle\.com\/(?:bp|meeting)|savvycal\.com|tidycal\.com|[a-z0-9.-]*youcanbook\.me|[a-z0-9.-]*zohobookings\.com|go\.oncehub\.com|scheduleonce\.com)\/[^"']+)["']/i));
+
+  // Links de Agendamento Genéricos de qualquer empresa (ex: info.idtexpress.com/meetings/..., company.com/schedule/..., company.com/booking/...)
+  const customMeetingMatch = fullText.match(/https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|scheduling|booking|bookings|book|slot|slots|availability)\/[^\s"'<>]+/i) ||
+                             (html && html.match(/href=["'](https?:\/\/[a-zA-Z0-9.-]+\/(?:meetings|meet|schedule|scheduling|booking|bookings|book|slot|slots|availability)\/[^"']+)["']/i));
+
+  let meetingUrl: string | undefined;
+  let meetingType: MeetingInviteInfo['meetingType'] = 'generic';
 
   if (teamsMatch) {
     meetingUrl = Array.isArray(teamsMatch) ? (teamsMatch[1] || teamsMatch[0]) : teamsMatch;
@@ -294,18 +315,21 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
   } else if (zoomMatch) {
     meetingUrl = Array.isArray(zoomMatch) ? (zoomMatch[1] || zoomMatch[0]) : zoomMatch;
     meetingType = 'zoom';
+  } else if (webexMatch) {
+    meetingUrl = Array.isArray(webexMatch) ? (webexMatch[1] || webexMatch[0]) : webexMatch;
+    meetingType = 'webex';
   } else if (calendlyMatch) {
     meetingUrl = Array.isArray(calendlyMatch) ? (calendlyMatch[1] || calendlyMatch[0]) : calendlyMatch;
     meetingType = 'calendly';
-  } else if (customMeetingMatch) {
-    meetingUrl = Array.isArray(customMeetingMatch) ? (customMeetingMatch[1] || customMeetingMatch[0]) : customMeetingMatch;
-    meetingType = 'generic';
+  } else if (calMatch || hubspotMatch || chiliMatch || acuityMatch || otherBookingToolsMatch || customMeetingMatch) {
+    const matched = calMatch || hubspotMatch || chiliMatch || acuityMatch || otherBookingToolsMatch || customMeetingMatch;
+    meetingUrl = Array.isArray(matched) ? (matched[1] || matched[0]) : (matched as string);
+    meetingType = 'booking';
   }
 
-  // 2. Extrair Data / Horário (Português, Inglês e formatos de confirmação ex.: "Tuesday, 1 September, at 11:30 am")
+  // 3. Extrair Data / Horário (Português, Inglês e formatos de confirmação ex.: "Tuesday, 1 September, at 11:30 am")
   let dateTimeDisplay = "";
   const dateMatch = 
-    // Ex: "Tuesday, 1 September, at 11:30 am" ou "Wednesday, August 12, 2026"
     fullText.match(/(?:tuesday|wednesday|thursday|friday|monday|saturday|sunday)[^,\n\r<]{0,25},\s*\d{1,2}\s+[a-zA-Z]+[^\n\r<]{0,35}(?:at\s*\d{1,2}[:.]\d{2}\s*(?:am|pm)?|\d{1,2}[:.]\d{2}\s*(?:am|pm)?)/i) ||
     fullText.match(/(?:sexta-feira|segunda-feira|terça-feira|quarta-feira|quinta-feira|sábado|domingo)[^,\n\r<]{3,35},\s*\d+[:h]\d+\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
     fullText.match(/(?:friday|monday|tuesday|wednesday|thursday|saturday|sunday)[^,\n\r<]{3,35},\s*\d+:\d+(?:am|pm)?\s*(?:-|–|to)\s*[^,\n\r<]{3,35}/i) ||
@@ -345,20 +369,45 @@ function extractMeetingInvite(subject: string, body: string, from: string, html?
     .replace(/^reunião:\s*/i, '')
     .trim();
 
-  // Determinar se é apenas um convite para escolher horário / agendamento pendente
+  // Intenções multilíngues de escolha de horário
+  const lowerText = fullText.toLowerCase();
+  const hasSchedulingIntent = 
+    lowerText.includes('choose a slot') ||
+    lowerText.includes('pick a time') ||
+    lowerText.includes('book a time') ||
+    lowerText.includes('schedule a call') ||
+    lowerText.includes('schedule a meeting') ||
+    lowerText.includes('select a time') ||
+    lowerText.includes('book a slot') ||
+    lowerText.includes('check my availability') ||
+    lowerText.includes('escolha um horário') ||
+    lowerText.includes('escolha uma hora') ||
+    lowerText.includes('reserva um horário') ||
+    lowerText.includes('reserve um horário') ||
+    lowerText.includes('selecione um horário') ||
+    lowerText.includes('marcar um horário') ||
+    lowerText.includes('agendar uma chamada') ||
+    lowerText.includes('agendar uma reunião') ||
+    lowerText.includes('elegir un horario') ||
+    lowerText.includes('reservar un horario') ||
+    lowerText.includes('choisir un créneau');
+
+  const isBookingPlatform = Boolean(
+    meetingType === 'calendly' || 
+    meetingType === 'booking' || 
+    calendlyMatch || 
+    calMatch || 
+    hubspotMatch || 
+    chiliMatch || 
+    acuityMatch || 
+    otherBookingToolsMatch || 
+    customMeetingMatch
+  );
+
+  // Determinar universalmente se é agendamento pendente (link de escolha de hora) ou reunião com data/hora já marcada
   const isSchedulingOnly = Boolean(
-    meetingType === 'calendly' ||
-    Boolean(customMeetingMatch) ||
-    (!dateMatch && !hasCalendarAttachment && (
-      fullText.includes('/meetings/') ||
-      fullText.includes('/meet/') ||
-      fullText.includes('choose a slot') ||
-      fullText.includes('escolha um horário') ||
-      fullText.includes('reserva um horário') ||
-      fullText.includes('book a time') ||
-      fullText.includes('schedule a call') ||
-      fullText.includes('agendar uma chamada')
-    ))
+    isBookingPlatform ||
+    (!dateMatch && !hasCalendarAttachment && hasSchedulingIntent)
   );
 
   return {
@@ -617,7 +666,7 @@ function autoLinkAndEnhanceHtml(html: string): string {
     // Limpar pontuação no final da URL
     let cleanUrl = rawUrl.replace(/[<>%]/g, '').trim();
     let trailing = '';
-    const trailMatch = cleanUrl.match(/[.,;:!?)]+$/);
+    const trailMatch = cleanUrl.match(/[.,;:!?'"\])]+$/);
     if (trailMatch) {
       trailing = trailMatch[0];
       cleanUrl = cleanUrl.slice(0, -trailing.length);
@@ -878,7 +927,7 @@ function renderInlineLinks(text: string) {
     if (part && part.match(urlRegex)) {
       let cleanUrl = part.replace(/[<>%]/g, '').replace(/%3E/gi, '').trim();
       let trailing = '';
-      const trailMatch = cleanUrl.match(/[.,;:!?)]+$/);
+      const trailMatch = cleanUrl.match(/[.,;:!?'"\])]+$/);
       if (trailMatch) {
         trailing = trailMatch[0];
         cleanUrl = cleanUrl.slice(0, -trailing.length);
@@ -3381,6 +3430,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                                 ? 'bg-[#0B5CFF] hover:bg-[#004BE5]'
                                 : detectedMeeting.meetingType === 'google_meet'
                                 ? 'bg-[#00897B] hover:bg-[#00796B]'
+                                : detectedMeeting.meetingType === 'webex'
+                                ? 'bg-[#00B0FF] hover:bg-[#0091EA]'
                                 : 'bg-[#1A73E8] hover:bg-[#1557B0]'
                             }`}
                           >
@@ -3399,6 +3450,8 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                                     ? 'Entrar no Zoom'
                                     : detectedMeeting.meetingType === 'google_meet'
                                     ? 'Entrar no Google Meet'
+                                    : detectedMeeting.meetingType === 'webex'
+                                    ? 'Entrar no Cisco Webex'
                                     : 'Entrar na Reunião'}
                                 </span>
                               </>
