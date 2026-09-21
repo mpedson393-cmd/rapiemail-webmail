@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("[RapiEmail Universal Inbound Error]:", error);
-    return NextResponse.json({ error: "Erro ao processar email de entrada." }, { status: 500 });
+    console.error("[RapiEmail Universal Inbound Error]:", error?.message, error?.stack || error);
+    return NextResponse.json({ error: "Erro ao processar email de entrada.", details: error?.message || String(error) }, { status: 500 });
   }
 }
