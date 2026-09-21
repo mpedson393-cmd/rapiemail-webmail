@@ -12,13 +12,19 @@ export const dynamic = 'force-dynamic';
 
 function cleanEmailList(input: any): string[] {
   if (!input) return [];
-  if (Array.isArray(input)) {
-    return input.map(s => String(s).trim()).filter(Boolean);
-  }
-  if (typeof input === 'string') {
-    return input.split(',').map(s => s.trim()).filter(Boolean);
-  }
-  return [];
+  const rawList: string[] = Array.isArray(input) 
+    ? input.map(s => String(s).trim()).filter(Boolean)
+    : (typeof input === 'string' ? input.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+  return rawList.map(raw => {
+    let item = raw.trim();
+    // If it has Name <email>, sanitize the inside <...>
+    if (item.includes('<') && item.includes('>')) {
+      return item.replace(/<([^>]+)>/, (_, emailPart) => `<${emailPart.replace(/\s+/g, '')}>`);
+    }
+    // If it is just an email, remove all spaces (e.g. "contactsales@dlocal. com" -> "contactsales@dlocal.com")
+    return item.replace(/\s+/g, '');
+  }).filter(Boolean);
 }
 
 export async function POST(req: Request) {

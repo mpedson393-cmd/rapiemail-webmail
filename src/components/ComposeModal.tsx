@@ -193,15 +193,30 @@ export function ComposeModal({
         content: att.content || att.url
       }));
 
+      // Limpeza inteligente de espaços acidentais de teclado móvel (ex: "dlocal. com" -> "dlocal.com")
+      const sanitizeInput = (val: string) => {
+        return val.split(',').map(part => {
+          const trimmed = part.trim();
+          if (trimmed.includes('<') && trimmed.includes('>')) {
+            return trimmed.replace(/<([^>]+)>/, (_, m) => `<${m.replace(/\s+/g, '')}>`);
+          }
+          return trimmed.replace(/\s+/g, '');
+        }).filter(Boolean).join(', ');
+      };
+
+      const cleanTo = sanitizeInput(to);
+      const cleanCc = cc ? sanitizeInput(cc) : undefined;
+      const cleanBcc = bcc ? sanitizeInput(bcc) : undefined;
+
       const res = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          to, 
+          to: cleanTo, 
           subject: finalSubject, 
           body: finalBody,
-          cc: cc.trim() || undefined,
-          bcc: bcc.trim() || undefined,
+          cc: cleanCc,
+          bcc: cleanBcc,
           scheduledAt: scheduledAtIso,
           attachments: formattedAttachments.length > 0 ? formattedAttachments : undefined 
         })
