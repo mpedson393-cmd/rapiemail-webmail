@@ -1018,6 +1018,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const [visibleCount, setVisibleCount] = useState<number>(30);
 
   // Estado de Tradução Persistente com Seleção Livre de Línguas e Preservação de HTML
   const [translations, setTranslations] = useState<Record<string, EmailTranslation>>({});
@@ -1666,6 +1667,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
     return result;
   }, [emails, selectedFolder, searchQuery, starredIds, sortOption]);
+
+  // Resetar paginação ao trocar de pasta ou pesquisar
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [selectedFolder, searchQuery, sortOption]);
+
+  // Emails visíveis renderizados progressivamente para performance ultra-rápida no telemóvel
+  const visibleEmails = useMemo(() => {
+    return filteredEmails.slice(0, visibleCount);
+  }, [filteredEmails, visibleCount]);
 
   const selectedEmail = useMemo(() => {
     return emails.find(e => e.id === selectedEmailId) || filteredEmails[0] || null;
@@ -2966,7 +2977,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <span>Sem mensagens nesta pasta.</span>
                 </div>
               ) : (
-                filteredEmails.map(email => {
+                visibleEmails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
                   const isChecked = selectedEmailIds.has(email.id);
                   const isStarred = starredIds.has(email.id);
@@ -3165,6 +3176,19 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                     </div>
                 );
               })
+              )}
+
+              {/* Botão Dinâmico de Carregamento Rápido para Telemóvel e Computador */}
+              {visibleCount < filteredEmails.length && (
+                <div className="p-4 text-center bg-transparent">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(prev => prev + 30)}
+                    className="w-full py-2.5 px-4 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-98 rounded-xl border border-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <span>Carregar mais mensagens ({filteredEmails.length - visibleCount} restantes)</span>
+                  </button>
+                </div>
               )}
             </div>
 
