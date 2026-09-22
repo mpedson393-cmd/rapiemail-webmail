@@ -1111,11 +1111,68 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     }
   };
 
+  // Helper para determinar se a mensagem foi enviada pelo utilizador logado
+  const isEmailSentByMe = (emailItem: EmailItem | null | undefined): boolean => {
+    if (!emailItem) return false;
+    const userEmailNorm = (user?.email || '').trim().toLowerCase();
+    const fromNorm = (emailItem.from || '').trim().toLowerCase();
+    return emailItem.folder === 'SENT' || (Boolean(userEmailNorm) && (fromNorm === userEmailNorm || fromNorm.includes(userEmailNorm)));
+  };
+
+  // Obter o destinatário correto ao responder (se fui eu que enviei, responde para quem eu enviei)
+  const getReplyRecipient = (emailItem: EmailItem | null | undefined): string => {
+    if (!emailItem) return "";
+    const sentByMe = isEmailSentByMe(emailItem);
+    const target = sentByMe ? emailItem.to : emailItem.from;
+    if (!target) return "";
+    
+    // Se tiver múltiplos destinatários separados por vírgula, para resposta individual pega o primeiro
+    const firstTarget = target.split(',')[0].trim();
+    const parsed = parseSenderDetails(firstTarget);
+    return parsed.email || firstTarget.replace(/[<>]/g, '').trim();
+  };
+
+  // Obter todos os destinatários corretos ao responder a todos
+  const getReplyAllRecipients = (emailItem: EmailItem | null | undefined): string => {
+    if (!emailItem) return "";
+    const userEmailNorm = (user?.email || '').trim().toLowerCase();
+    const sentByMe = isEmailSentByMe(emailItem);
+
+    if (sentByMe) {
+      // Se fui eu que enviei, inclui todos os destinatários originais de "to", excluindo a mim mesmo
+      const addresses = (emailItem.to || '').split(',')
+        .map(t => {
+          const parsed = parseSenderDetails(t.trim());
+          return parsed.email || t.replace(/[<>]/g, '').trim();
+        })
+        .filter(addr => addr && (!userEmailNorm || addr.toLowerCase() !== userEmailNorm));
+      return addresses.join(', ') || (emailItem.to || '').replace(/[<>]/g, '').trim();
+    } else {
+      // Se recebi o e-mail, responde ao remetente original + todos os outros destinatários em "to", excluindo a mim mesmo
+      const senderParsed = parseSenderDetails(emailItem.from);
+      const senderEmail = senderParsed.email || emailItem.from.replace(/[<>]/g, '').trim();
+      
+      const toAddresses = (emailItem.to || '').split(',')
+        .map(t => {
+          const parsed = parseSenderDetails(t.trim());
+          return parsed.email || t.replace(/[<>]/g, '').trim();
+        })
+        .filter(addr => addr && (!userEmailNorm || addr.toLowerCase() !== userEmailNorm) && addr.toLowerCase() !== senderEmail.toLowerCase());
+
+      const all = [senderEmail, ...toAddresses].filter(Boolean);
+      return all.join(', ');
+    }
+  };
+
   const handleAiSmartReply = async (email: EmailItem, tone: 'professional' | 'friendly' | 'concise' | 'urgent' = 'professional') => {
     if (!email) return;
     setIsGeneratingSmartReply(true);
     try {
-      const sender = parseSenderDetails(email.from);
+      const recipient = getReplyRecipient(email);
+      const targetStr = isEmailSentByMe(email) ? email.to.split(',')[0].trim() : email.from;
+      const targetDetails = parseSenderDetails(targetStr);
+      const recipientName = targetDetails.name && targetDetails.name !== "Desconhecido" ? targetDetails.name : "Prezado(a)";
+
       const emailAttachments = extractAttachmentsFromEmail(email);
       const res = await fetch('/api/ai/agent', {
         method: 'POST',
@@ -1134,11 +1191,11 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       });
       const data = await res.json();
       const replySubject = data.subject || (email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`);
-      const replyBody = data.body || `Olá ${sender.name},\n\nAgradeço a sua mensagem. Analisei os detalhes com atenção e confirmo a nossa disponibilidade.\n\nCom os melhores cumprimentos,\n${user.name}`;
+      const replyBody = data.body || `Olá ${recipientName},\n\nAgradeço a sua mensagem. Analisei os detalhes com atenção e confirmo a nossa disponibilidade.\n\nCom os melhores cumprimentos,\n${user.name}`;
 
       setComposeConfig({
         isOpen: true,
-        initialTo: sender.email || email.from,
+        initialTo: recipient,
         initialSubject: replySubject,
         initialBody: replyBody
       });
@@ -1973,49 +2030,56 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   // Funções de Resposta Inteligente com Captura Automática de E-mail e Contexto
-  const handleReply = () => {
-    if (!selectedEmail) return;
-    const sender = parseSenderDetails(selectedEmail.from);
-    const cleanFrom = sender.email || selectedEmail.from.replace(/[<>]/g, '').trim();
-    const cleanSubject = selectedEmail.subject.toLowerCase().startsWith('re:') 
-      ? selectedEmail.subject 
-      : `Re: ${selectedEmail.subject}`;
-    const dateFormatted = new Date(selectedEmail.createdAt).toLocaleString('pt-PT');
-    const quotedBody = `\n\n\n---------- Mensagem original ----------\nDe: ${selectedEmail.from}\nData: ${dateFormatted}\nAssunto: ${selectedEmail.subject}\nPara: ${selectedEmail.to}\n\n${cleanPlainTextBody(selectedEmail.body)}`;
+  const handleReply = (targetEmail?: EmailItem | null | React.SyntheticEvent | unknown) => {
+    const emailToUse = (targetEmail && typeof targetEmail === 'object' && 'id' in targetEmail && 'from' in targetEmail)
+      ? (targetEmail as EmailItem)
+      : selectedEmail;
+    if (!emailToUse) return;
+    const recipient = getReplyRecipient(emailToUse);
+    const cleanSubject = emailToUse.subject.toLowerCase().startsWith('re:') 
+      ? emailToUse.subject 
+      : `Re: ${emailToUse.subject}`;
+    const dateFormatted = new Date(emailToUse.createdAt).toLocaleString('pt-PT');
+    const quotedBody = `\n\n\n---------- Mensagem original ----------\nDe: ${emailToUse.from}\nData: ${dateFormatted}\nAssunto: ${emailToUse.subject}\nPara: ${emailToUse.to}\n\n${cleanPlainTextBody(emailToUse.body)}`;
 
     setComposeConfig({
       isOpen: true,
-      initialTo: cleanFrom,
+      initialTo: recipient,
       initialSubject: cleanSubject,
       initialBody: quotedBody
     });
   };
 
-  const handleReplyAll = () => {
-    if (!selectedEmail) return;
-    const sender = parseSenderDetails(selectedEmail.from);
-    const cleanFrom = sender.email || selectedEmail.from.replace(/[<>]/g, '').trim();
-    const cleanSubject = selectedEmail.subject.toLowerCase().startsWith('re:') 
-      ? selectedEmail.subject 
-      : `Re: ${selectedEmail.subject}`;
-    const dateFormatted = new Date(selectedEmail.createdAt).toLocaleString('pt-PT');
-    const quotedBody = `\n\n\n---------- Mensagem original ----------\nDe: ${selectedEmail.from}\nData: ${dateFormatted}\nAssunto: ${selectedEmail.subject}\nPara: ${selectedEmail.to}\n\n${cleanPlainTextBody(selectedEmail.body)}`;
+  const handleReplyAll = (targetEmail?: EmailItem | null | React.SyntheticEvent | unknown) => {
+    const emailToUse = (targetEmail && typeof targetEmail === 'object' && 'id' in targetEmail && 'from' in targetEmail)
+      ? (targetEmail as EmailItem)
+      : selectedEmail;
+    if (!emailToUse) return;
+    const recipients = getReplyAllRecipients(emailToUse);
+    const cleanSubject = emailToUse.subject.toLowerCase().startsWith('re:') 
+      ? emailToUse.subject 
+      : `Re: ${emailToUse.subject}`;
+    const dateFormatted = new Date(emailToUse.createdAt).toLocaleString('pt-PT');
+    const quotedBody = `\n\n\n---------- Mensagem original ----------\nDe: ${emailToUse.from}\nData: ${dateFormatted}\nAssunto: ${emailToUse.subject}\nPara: ${emailToUse.to}\n\n${cleanPlainTextBody(emailToUse.body)}`;
 
     setComposeConfig({
       isOpen: true,
-      initialTo: cleanFrom,
+      initialTo: recipients,
       initialSubject: cleanSubject,
       initialBody: quotedBody
     });
   };
 
-  const handleForward = () => {
-    if (!selectedEmail) return;
-    const cleanSubject = selectedEmail.subject.toLowerCase().startsWith('fwd:') 
-      ? selectedEmail.subject 
-      : `Fwd: ${selectedEmail.subject}`;
-    const dateFormatted = new Date(selectedEmail.createdAt).toLocaleString('pt-PT');
-    const quotedBody = `\n\n\n---------- Mensagem reencaminhada ----------\nDe: ${selectedEmail.from}\nData: ${dateFormatted}\nAssunto: ${selectedEmail.subject}\nPara: ${selectedEmail.to}\n\n${cleanPlainTextBody(selectedEmail.body)}`;
+  const handleForward = (targetEmail?: EmailItem | null | React.SyntheticEvent | unknown) => {
+    const emailToUse = (targetEmail && typeof targetEmail === 'object' && 'id' in targetEmail && 'from' in targetEmail)
+      ? (targetEmail as EmailItem)
+      : selectedEmail;
+    if (!emailToUse) return;
+    const cleanSubject = emailToUse.subject.toLowerCase().startsWith('fwd:') 
+      ? emailToUse.subject 
+      : `Fwd: ${emailToUse.subject}`;
+    const dateFormatted = new Date(emailToUse.createdAt).toLocaleString('pt-PT');
+    const quotedBody = `\n\n\n---------- Mensagem reencaminhada ----------\nDe: ${emailToUse.from}\nData: ${dateFormatted}\nAssunto: ${emailToUse.subject}\nPara: ${emailToUse.to}\n\n${cleanPlainTextBody(emailToUse.body)}`;
 
     setComposeConfig({
       isOpen: true,
@@ -2026,11 +2090,12 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
   };
 
   // Agendar Resposta Direta
-  const handleScheduleReply = (targetEmail?: EmailItem | null) => {
-    const emailToUse = targetEmail || selectedEmail;
+  const handleScheduleReply = (targetEmail?: EmailItem | null | React.SyntheticEvent | unknown) => {
+    const emailToUse = (targetEmail && typeof targetEmail === 'object' && 'id' in targetEmail && 'from' in targetEmail)
+      ? (targetEmail as EmailItem)
+      : selectedEmail;
     if (!emailToUse) return;
-    const sender = parseSenderDetails(emailToUse.from);
-    const cleanFrom = sender.email || emailToUse.from.replace(/[<>]/g, '').trim();
+    const recipient = getReplyRecipient(emailToUse);
     const cleanSubject = emailToUse.subject.toLowerCase().startsWith('re:') 
       ? emailToUse.subject 
       : `Re: ${emailToUse.subject}`;
@@ -2039,7 +2104,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
     setComposeConfig({
       isOpen: true,
-      initialTo: cleanFrom,
+      initialTo: recipient,
       initialSubject: cleanSubject,
       initialBody: quotedBody,
       initialScheduleMode: true
@@ -2749,7 +2814,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           const target = emails.find(em => selectedEmailIds.has(em.id));
                           if (target) {
                             setSelectedEmailId(target.id);
-                            handleReply();
+                            handleReply(target);
                           }
                         }}
                         title="Responder ao e-mail"
@@ -4348,12 +4413,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   )}
                   <button
                     onClick={() => {
-                      const sender = parseSenderDetails(selectedEmail.from);
+                      const targetStr = isEmailSentByMe(selectedEmail) ? selectedEmail.to.split(',')[0].trim() : selectedEmail.from;
+                      const sender = parseSenderDetails(targetStr);
                       handleSendAiDrawerMessage(`Escreve uma resposta executiva completa e profissional ao e-mail de ${sender.name} sobre "${selectedEmail.subject}".`);
                     }}
                     className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 shrink-0 transition-colors font-medium cursor-pointer"
                   >
-                    ✍️ Responder a {parseSenderDetails(selectedEmail.from).name.split(' ')[0]}
+                    ✍️ Responder a {(() => {
+                      const targetStr = isEmailSentByMe(selectedEmail) ? selectedEmail.to.split(',')[0].trim() : selectedEmail.from;
+                      return parseSenderDetails(targetStr).name.split(' ')[0];
+                    })()}
                   </button>
                   <button
                     onClick={() => {
@@ -4444,7 +4513,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           <button
                             type="button"
                             onClick={() => {
-                              const sender = parseSenderDetails(selectedEmail?.from || "");
+                              const cleanTo = selectedEmail ? getReplyRecipient(selectedEmail) : "";
                               // Extrair corpo limpo
                               let draftBody = msg.text;
                               if (draftBody.includes(":\n\n")) {
@@ -4452,7 +4521,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                               }
                               setComposeConfig({
                                 isOpen: true,
-                                initialTo: sender.email || selectedEmail?.from || "",
+                                initialTo: cleanTo,
                                 initialSubject: selectedEmail?.subject ? (selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`) : "Comunicação Oficial",
                                 initialBody: draftBody.trim()
                               });
