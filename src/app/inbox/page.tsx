@@ -51,6 +51,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       html: e.html || undefined,
       folder: e.folder,
       read: e.read,
+      isStarred: e.isStarred,
       createdAt: e.createdAt.toISOString(),
       trackingId: e.trackingId || undefined,
       isOpened: e.isOpened,

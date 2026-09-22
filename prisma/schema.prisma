@@ -56,6 +56,7 @@ model Email {
   html        String?   // Conteúdo HTML Rico Completo (Botões, Imagens, Estilos)
   folder      String    @default("INBOX") // INBOX, SENT, DRAFT, TRASH
   read        Boolean   @default(false)
+  isStarred   Boolean   @default(false)
   userId      String
   user        User      @relation(fields: [userId], references: [id])
   

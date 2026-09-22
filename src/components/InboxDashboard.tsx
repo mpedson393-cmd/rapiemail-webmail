@@ -40,6 +40,7 @@ export interface EmailItem {
   html?: string;
   folder: string;
   read: boolean;
+  isStarred?: boolean;
   createdAt: string;
   trackingId?: string;
   isOpened?: boolean;
@@ -1000,7 +1001,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
   const [isSiteBuilderOpen, setIsSiteBuilderOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [starredIds, setStarredIds] = useState<Set<string>>(() => {
+    return new Set(initialEmails.filter(e => e.isStarred).map(e => e.id));
+  });
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<'NEWEST' | 'OLDEST' | 'UNREAD' | 'STARRED' | 'ATTACHMENTS'>('NEWEST');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
@@ -1342,8 +1345,15 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     setMounted(true);
 
     try {
+      const fromProps = new Set(emails.filter(e => e.isStarred).map(e => e.id));
       const savedStarred = localStorage.getItem('rapi_starred_ids');
-      if (savedStarred) setStarredIds(new Set(JSON.parse(savedStarred)));
+      if (savedStarred) {
+        const parsed = JSON.parse(savedStarred);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((id: string) => fromProps.add(id));
+        }
+      }
+      setStarredIds(fromProps);
 
       const savedTrans = localStorage.getItem('rapi_email_translations');
       if (savedTrans) setTranslations(JSON.parse(savedTrans));
@@ -1860,8 +1870,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
     } catch(e) {}
   };
 
-  const toggleStar = (id: string, e: React.MouseEvent) => {
+  const toggleStar = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const nextState = !starredIds.has(id);
     setStarredIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -1871,6 +1882,16 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
       } catch(err) {}
       return next;
     });
+
+    try {
+      await fetch('/api/emails/star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailId: id, isStarred: nextState })
+      });
+    } catch(err) {
+      console.warn("Erro ao sincronizar estrela com o servidor:", err);
+    }
   };
 
   // Som Sutil de Notificação Nativa (Sintetizado via Web Audio API, sem ficheiro externo pesado)
