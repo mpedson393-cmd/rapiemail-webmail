@@ -1382,7 +1382,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
 
     // Registar Service Worker PWA no telemóvel e desktop
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(() => {});
 
       // Escutar mensagens do Service Worker (ex: clique em notificação ou novo e-mail recebido em background)
       const handleSwMessage = (event: MessageEvent) => {

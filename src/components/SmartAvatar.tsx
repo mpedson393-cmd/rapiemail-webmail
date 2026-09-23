@@ -36,12 +36,19 @@ export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = ''
     ).trim().toLowerCase();
   }, [customAvatarUrl, sender]);
 
-  const cachedInitial = getCachedAvatar(cacheKey);
-
   const [candidates, setCandidates] = useState<string[]>(() => getAvatarCandidateUrls(sender, customAvatarUrl));
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(() => cachedInitial);
-  const [hasLoaded, setHasLoaded] = useState<boolean>(() => Boolean(cachedInitial));
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
+
+  // Inicializar do cache após montar ou carregar
+  useEffect(() => {
+    const cached = getCachedAvatar(cacheKey);
+    if (cached) {
+      setLoadedUrl(cached);
+      setHasLoaded(true);
+    }
+  }, [cacheKey]);
 
   // Rastrear se remetente mudou
   const prevFromRef = useRef(from);

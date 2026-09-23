@@ -1,10 +1,22 @@
-// RapiEmail Enterprise PWA & Push Service Worker
+// RapiEmail Enterprise PWA & Push Service Worker - v2.4.0
+const CACHE_VERSION = 'rapiemail-sw-v2.4.0';
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Limpar caches antigos para evitar chunks obsoletos de versões passadas
+      caches.keys().then((keys) => {
+        return Promise.all(
+          keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))
+        );
+      })
+    ])
+  );
 });
 
 // Suporte para notificações Push e Background mesmo com a app fechada
