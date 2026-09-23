@@ -448,6 +448,36 @@ export function getKnownBrandLogo(sender: ParsedSenderInfo): string | null {
     return '/api/avatar/cache?domain=gocompliance.co.uk';
   }
 
+  // 21. IDT / IDT Express
+  if (domain.includes('idt.net') || domain.includes('idtexpress') || name.includes('idt')) {
+    return 'https://www.google.com/s2/favicons?domain=idtexpress.com&sz=128';
+  }
+
+  // 22. Belmoney
+  if (domain.includes('bel.money') || domain.includes('belmoney') || name.includes('belmoney')) {
+    return 'https://www.google.com/s2/favicons?domain=belmoney.com&sz=128';
+  }
+
+  // 23. Moorwand
+  if (domain.includes('moorwand') || name.includes('moorwand')) {
+    return 'https://www.google.com/s2/favicons?domain=moorwand.com&sz=128';
+  }
+
+  // 24. Crassula
+  if (domain.includes('crassula.io') || name.includes('crassula')) {
+    return 'https://www.google.com/s2/favicons?domain=crassula.io&sz=128';
+  }
+
+  // 25. HubSpot
+  if (domain.includes('hubspot') || name.includes('hubspot')) {
+    return 'https://www.google.com/s2/favicons?domain=hubspot.com&sz=128';
+  }
+
+  // 26. Orange / Partenariat OM
+  if (domain.includes('orange') || name.includes('partenariat') || name.includes('orange money')) {
+    return 'https://www.google.com/s2/favicons?domain=orange.com&sz=128';
+  }
+
   return null;
 }
 

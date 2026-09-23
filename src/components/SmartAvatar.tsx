@@ -26,13 +26,15 @@ const SIZE_MAP = {
 };
 
 export function SmartAvatar({ from, customAvatarUrl, size = 'sm', className = '' }: SmartAvatarProps) {
-  const sender: ParsedSenderInfo = parseSenderDetails(from);
-  const cacheKey = (
-    customAvatarUrl || 
-    (sender.isCompanyService && sender.name && sender.name.toLowerCase() !== 'linkedin' 
-      ? `${sender.domain}_${sender.name.toLowerCase()}` 
-      : (sender.email || sender.name))
-  ).trim().toLowerCase();
+  const sender: ParsedSenderInfo = React.useMemo(() => parseSenderDetails(from), [from]);
+  const cacheKey = React.useMemo(() => {
+    return (
+      customAvatarUrl || 
+      (sender.isCompanyService && sender.name && sender.name.toLowerCase() !== 'linkedin' 
+        ? `${sender.domain}_${sender.name.toLowerCase()}` 
+        : (sender.email || sender.name))
+    ).trim().toLowerCase();
+  }, [customAvatarUrl, sender]);
 
   const cachedInitial = getCachedAvatar(cacheKey);
 

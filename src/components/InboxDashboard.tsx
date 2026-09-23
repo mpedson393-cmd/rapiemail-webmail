@@ -3135,7 +3135,7 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                             <div className="relative">
                               <SmartAvatar 
                                 from={isSent ? email.to : email.from} 
-                                customAvatarUrl={isSent ? avatarUrl : (extractLinkedInAvatarFromHtml(email.html) || null)}
+                                customAvatarUrl={extractLinkedInAvatarFromHtml(email.html) || null}
                                 size="sm" 
                               />
                               {/* Hover check circle on desktop */}
@@ -3453,17 +3453,21 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                   <div className="flex items-center justify-between border-b pb-4 border-[#E5E7EB] dark:border-white/10 select-none">
                     <div className="flex items-center gap-3">
                       <SmartAvatar 
-                        from={selectedEmail.from} 
+                        from={(selectedEmail.folder === 'SENT' || selectedEmail.from === user.email) ? selectedEmail.to : selectedEmail.from} 
                         customAvatarUrl={extractLinkedInAvatarFromHtml(selectedEmail.html) || null}
                         size="md" 
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap select-text">
                           <span className={`font-bold text-xs md:text-sm ${isLight ? 'text-[#202124]' : 'text-white'}`}>
-                            {parsedSender.name}
+                            {(selectedEmail.folder === 'SENT' || selectedEmail.from === user.email) 
+                              ? `Para: ${parseSenderDetails(selectedEmail.to).name}` 
+                              : parsedSender.name}
                           </span>
                           <span className="text-xs text-zinc-500 font-medium font-mono">
-                            {cleanSenderEmail}
+                            {(selectedEmail.folder === 'SENT' || selectedEmail.from === user.email) 
+                              ? cleanToEmail 
+                              : cleanSenderEmail}
                           </span>
                           {linkedInProfileUrl && (
                             <a
@@ -3480,7 +3484,9 @@ export function InboxDashboard({ user, initialEmails, currentFolder }: Props) {
                           )}
                         </div>
                         <span className="text-[11px] text-zinc-400 block mt-0.5 select-text">
-                          para {cleanToEmail === user.email.toLowerCase() ? 'mim' : cleanToEmail}
+                          {(selectedEmail.folder === 'SENT' || selectedEmail.from === user.email) 
+                            ? `De: mim (${cleanSenderEmail})` 
+                            : `para ${cleanToEmail === user.email.toLowerCase() ? 'mim' : cleanToEmail}`}
                         </span>
                       </div>
                     </div>
